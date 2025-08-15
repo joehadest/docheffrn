@@ -1,0 +1,1001 @@
+import { NextResponse } from 'next/server';
+import mongoose from 'mongoose';
+
+// Conexão com MongoDB
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+    throw new Error('Por favor, defina a variável de ambiente MONGODB_URI');
+}
+
+let cached = global.mongoose ?? (global.mongoose = { conn: null, promise: null });
+
+async function connectDB() {
+    if (cached.conn) {
+        return cached.conn;
+    }
+
+    if (!cached.promise) {
+        const opts = {
+            bufferCommands: false,
+        };
+
+        cached.promise = mongoose.connect(MONGODB_URI!, opts).then((mongoose) => {
+            return mongoose;
+        });
+    }
+
+    try {
+        cached.conn = await cached.promise;
+    } catch (e) {
+        cached.promise = null;
+        throw e;
+    }
+
+    return cached.conn;
+}
+
+// Schema do Menu
+const menuItemSchema = new mongoose.Schema({
+    name: {
+        type: String,
+        required: true
+    },
+    description: {
+        type: String,
+        required: true
+    },
+    price: {
+        type: Number,
+        required: true,
+        min: 0
+    },
+    category: {
+        type: String,
+        required: true
+    },
+    image: {
+        type: String,
+        default: ''
+    },
+    destaque: {
+        type: Boolean,
+        default: false
+    },
+    sizes: {
+        type: Map,
+        of: Number,
+        default: {}
+    },
+    ingredients: {
+        type: [String],
+        default: []
+    },
+    borderOptions: {
+        type: Map,
+        of: Number,
+        default: {}
+    },
+    extraOptions: {
+        type: Map,
+        of: Number,
+        default: {}
+    }
+});
+
+const MenuItem = mongoose.models.MenuItem || mongoose.model('MenuItem', menuItemSchema);
+
+// Dados iniciais do menu completo
+const initialMenuItems = [
+    // PIZZAS
+    {
+        name: 'Pizza Calabresa',
+        description: 'Molho, mussarela, calabresa, cebola e orégano',
+        price: 27.00,
+        category: 'pizzas',
+        image: '/pizzas/pizzadecalabresa.jpg',
+        destaque: true,
+        sizes: { P: 27.00, G: 45.00 },
+        ingredients: ['Molho', 'Mussarela', 'Calabresa', 'Cebola', 'Orégano'],
+        borderOptions: { 'Sem Borda': 0, 'Chocolate': 4, 'Catupiry': 4, 'Cheddar': 4 },
+        extraOptions: { 'Cheddar Extra': 3, 'Catupiry Extra': 3 }
+    },
+    {
+        name: 'Pizza de Frango',
+        description: 'Molho, mussarela, frango, tomate e orégano',
+        price: 27.00,
+        category: 'pizzas',
+        image: 'https://i.pinimg.com/736x/4d/2a/4e/4d2a4e25f967e6d21f51370bcc9e1f02.jpg',
+        destaque: false,
+        sizes: { P: 27.00, G: 45.00 },
+        ingredients: ['Molho', 'Mussarela', 'Frango', 'Tomate', 'Orégano'],
+        borderOptions: { 'Sem Borda': 0, 'Chocolate': 4, 'Catupiry': 4, 'Cheddar': 4 },
+        extraOptions: { 'Cheddar Extra': 3, 'Catupiry Extra': 3 }
+    },
+    {
+        name: 'Pizza de Mussarela',
+        description: 'Molho, mussarela, tomate e orégano',
+        price: 27.00,
+        category: 'pizzas',
+        image: 'https://i.pinimg.com/736x/12/3a/24/123a244aa000ec7f91dd784375bd65d7.jpg',
+        destaque: false,
+        sizes: { P: 27.00, G: 45.00 },
+        ingredients: ['Molho', 'Mussarela', 'Tomate', 'Orégano'],
+        borderOptions: { 'Sem Borda': 0, 'Chocolate': 4, 'Catupiry': 4, 'Cheddar': 4 },
+        extraOptions: { 'Cheddar Extra': 3, 'Catupiry Extra': 3 }
+    },
+    {
+        name: 'Pizza de Catfrango',
+        description: 'Molho, mussarela, frango, catupiry e orégano',
+        price: 30.00,
+        category: 'pizzas',
+        image: '/pizzas/pizza de catfrango.png',
+        destaque: false,
+        sizes: { P: 30.00, G: 48.00 },
+        ingredients: ['Molho', 'Mussarela', 'Frango', 'Catupiry', 'Orégano'],
+        borderOptions: { 'Sem Borda': 0, 'Chocolate': 4, 'Catupiry': 4, 'Cheddar': 4 },
+        extraOptions: { 'Cheddar Extra': 3, 'Catupiry Extra': 3 }
+    },
+    {
+        name: 'Pizza de Carne de Sol',
+        description: 'Molho, mussarela, carne de sol, cebola e orégano',
+        price: 35.00,
+        category: 'pizzas',
+        image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSVS3EK6LFqoflQ6nz2v-eNp5FQlBa4V2lMvQ&s',
+        destaque: false,
+        sizes: { P: 35.00, G: 53.00 },
+        ingredients: ['Molho', 'Mussarela', 'Carne de Sol', 'Cebola', 'Orégano'],
+        borderOptions: { 'Sem Borda': 0, 'Chocolate': 4, 'Catupiry': 4, 'Cheddar': 4 },
+        extraOptions: { 'Cheddar Extra': 3, 'Catupiry Extra': 3 }
+    },
+    {
+        name: 'Pizza de Moída',
+        description: 'Molho, mussarela, carne moída, azeitona, cebola e orégano',
+        price: 36.00,
+        category: 'pizzas',
+        image: 'https://receitadaboa.com.br/wp-content/uploads/2024/08/pizza-de-carne-moida-1.webp',
+        destaque: false,
+        sizes: { P: 36.00, G: 54.00 },
+        ingredients: ['Molho', 'Mussarela', 'Carne Moída', 'Azeitona', 'Cebola', 'Orégano'],
+        borderOptions: { 'Sem Borda': 0, 'Chocolate': 4, 'Catupiry': 4, 'Cheddar': 4 },
+        extraOptions: { 'Cheddar Extra': 3, 'Catupiry Extra': 3 }
+    },
+    {
+        name: 'Pizza Nordestina',
+        description: 'Molho, mussarela, carne, catupiry, cebola e orégano',
+        price: 38.00,
+        category: 'pizzas',
+        image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTPWrznVP6QBQCKkd0gSfbCVk1rpMCD2RwEhQ&s',
+        destaque: false,
+        sizes: { P: 38.00, G: 56.00 },
+        ingredients: ['Molho', 'Mussarela', 'Carne', 'Catupiry', 'Cebola', 'Orégano'],
+        borderOptions: { 'Sem Borda': 0, 'Chocolate': 4, 'Catupiry': 4, 'Cheddar': 4 },
+        extraOptions: { 'Cheddar Extra': 3, 'Catupiry Extra': 3 }
+    },
+    {
+        name: 'Pizza de Camarão',
+        description: 'Molho, mussarela, camarão, azeitona, cebola e orégano',
+        price: 52.00,
+        category: 'pizzas',
+        image: '/pizzas/pizza de camarao.png',
+        destaque: false,
+        sizes: { P: 52.00, G: 70.00 },
+        ingredients: ['Molho', 'Mussarela', 'Camarão', 'Azeitona', 'Cebola', 'Orégano'],
+        borderOptions: { 'Sem Borda': 0, 'Chocolate': 4, 'Catupiry': 4, 'Cheddar': 4 },
+        extraOptions: { 'Cheddar Extra': 3, 'Catupiry Extra': 3 }
+    },
+    {
+        name: 'Pizza de Chocolate',
+        description: 'Mussarela, chocolate e disquete',
+        price: 30.00,
+        category: 'pizzas',
+        image: 'https://static.itdg.com.br/images/1200-630/ab93c09d82d7004b7c440fe5d3d734ad/131483-original.jpg',
+        destaque: false,
+        sizes: { P: 30.00, G: 48.00 },
+        ingredients: ['Mussarela', 'Chocolate', 'Disquete'],
+        borderOptions: { 'Sem Borda': 0, 'Chocolate': 4, 'Catupiry': 4, 'Cheddar': 4 },
+        extraOptions: { 'Cheddar Extra': 3, 'Catupiry Extra': 3 }
+    },
+
+    // ESFIRAS
+    {
+        name: 'Esfira de Mussarela',
+        description: 'Deliciosa esfira recheada com queijo mussarela derretido',
+        price: 5.00,
+        category: 'esfirras',
+        image: 'https://kssara.com.br/wp-content/uploads/2022/10/ESF_ABERTA_QUEIJO.png',
+        destaque: false,
+        sizes: { 'Única': 5.00 },
+        ingredients: ['Massa', 'Mussarela', 'Orégano'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Esfira de Calabresa',
+        description: 'Deliciosa esfira recheada com calabresa picadinha e temperos especiais',
+        price: 5.00,
+        category: 'esfirras',
+        image: 'https://www.receitadopapai.com.br/adm/uploads/images/2019/01/esfiha-aberta-de-calabresa.jpg',
+        destaque: false,
+        sizes: { 'Única': 5.00 },
+        ingredients: ['Massa', 'Calabresa', 'Cebola', 'Temperos'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Esfira de Frango Catupiry',
+        description: 'Saborosa esfira recheada com frango desfiado e catupiry cremoso',
+        price: 5.00,
+        category: 'esfirras',
+        image: 'https://imagens.jotaja.com/produtos/06fa5564-da7e-42a0-8ad3-8d90e094d101.jpg',
+        destaque: false,
+        sizes: { 'Única': 5.00 },
+        ingredients: ['Massa', 'Frango Desfiado', 'Catupiry', 'Temperos'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Esfira de Carne Moída',
+        description: 'Saborosa esfira recheada com carne moída temperada e especiarias',
+        price: 7.00,
+        category: 'esfirras',
+        image: 'https://i.ytimg.com/vi/q4ah4J_vSig/maxresdefault.jpg',
+        destaque: false,
+        sizes: { 'Única': 7.00 },
+        ingredients: ['Massa', 'Carne Moída', 'Cebola', 'Temperos'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Esfira de Carne de Sol com Cheddar',
+        description: 'Deliciosa esfira recheada com carne de sol desfiada e queijo cheddar cremoso',
+        price: 8.00,
+        category: 'esfirras',
+        image: 'https://static.ifood-static.com.br/image/upload/t_high/pratos/cfb30513-0918-47e9-9dbd-e7e0becea444/202109230648_YRV0_f.png',
+        destaque: false,
+        sizes: { 'Única': 8.00 },
+        ingredients: ['Massa', 'Carne de Sol', 'Queijo Cheddar', 'Temperos'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Esfira de Chocolate ao Leite e Disquete',
+        description: 'Deliciosa esfirra recheada com chocolate ao leite e disquete',
+        price: 8.00,
+        category: 'esfirras',
+        image: '/petiscos/esfirra doce.jpg',
+        destaque: false,
+        sizes: { 'Única': 8.00 },
+        ingredients: ['Massa', 'Chocolate ao Leite', 'Disquete'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+
+    // MASSAS
+    {
+        name: 'Filé a Parmegiana de Camarão',
+        description: 'Delicioso filé a parmegiana com camarão, molho de tomate e queijo derretido',
+        price: 30.00,
+        category: 'massas',
+        image: '/massas/parmegiana de camarao.jpeg',
+        destaque: false,
+        sizes: { P: 30.00, G: 58.00 },
+        ingredients: ['Filé', 'Camarão', 'Molho de Tomate', 'Queijo', 'Arroz', 'Batata Frita'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Filé a Parmegiana de Carne',
+        description: 'Suculento filé a parmegiana com molho de tomate e queijo derretido',
+        price: 25.00,
+        category: 'massas',
+        image: '/massas/parmegiana de carne.jpeg',
+        destaque: false,
+        sizes: { P: 25.00, G: 45.00 },
+        ingredients: ['Filé', 'Molho de Tomate', 'Queijo', 'Arroz', 'Batata Frita'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Filé a Parmegiana de Frango',
+        description: 'Suculento filé de frango a parmegiana com molho de tomate e queijo derretido',
+        price: 23.00,
+        category: 'massas',
+        image: 'https://i.ytimg.com/vi/tLfjgyOGq1E/sddefault.jpg',
+        destaque: false,
+        sizes: { P: 23.00, G: 43.00 },
+        ingredients: ['Filé de Frango', 'Molho de Tomate', 'Queijo', 'Arroz', 'Batata Frita'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Lasanha de Carne Moída',
+        description: 'Deliciosa lasanha com camadas de massa, carne moída, molho de tomate e queijo',
+        price: 26.00,
+        category: 'massas',
+        image: 'https://supermercadosrondon.com.br/guiadecarnes/images/postagens/receita_simples_de_lasanha_de_carne_moda_2019-10-28.jpg',
+        destaque: false,
+        sizes: { P: 26.00, G: 46.00 },
+        ingredients: ['Massa', 'Carne Moída', 'Molho de Tomate', 'Queijo', 'Presunto'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Lasanha de Frango',
+        description: 'Saborosa lasanha com camadas de massa, frango desfiado, molho de tomate e queijo',
+        price: 25.00,
+        category: 'massas',
+        image: 'https://receitasgalo.com.br/images/receitas/81/galo-imagem-receitas-lasanha-de-frango-share.jpg',
+        destaque: false,
+        sizes: { P: 25.00, G: 45.00 },
+        ingredients: ['Massa', 'Frango Desfiado', 'Molho de Tomate', 'Queijo', 'Presunto'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Lasanha Mista',
+        description: 'Deliciosa lasanha com camadas de massa, carne moída, frango, molho de tomate e queijo',
+        price: 26.00,
+        category: 'massas',
+        image: 'https://s2-receitas.glbimg.com/i1oEt9QeR_C-jSyRDwzaiHZBRME=/0x0:1094x580/924x0/smart/filters:strip_icc()/i.s3.glbimg.com/v1/AUTH_e84042ef78cb4708aeebdf1c68c6cbd6/internal_photos/bs/2020/u/f/299cSyTDSFbPQ5CFrgBQ/receita-de-lasanha-de-pao-de-forma.jpg',
+        destaque: false,
+        sizes: { P: 26.00, G: 46.00 },
+        ingredients: ['Massa', 'Carne Moída', 'Frango Desfiado', 'Molho de Tomate', 'Queijo', 'Presunto'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Lasanha de Carne de Sol',
+        description: 'Saborosa lasanha com camadas de massa, carne de sol desfiada, molho de tomate e queijo',
+        price: 26.00,
+        category: 'massas',
+        image: 'https://minhasreceitinhas.com.br/wp-content/uploads/2023/05/unknown_117299288_727786121130587_3478179593624960849_n-730x365.jpg',
+        destaque: false,
+        sizes: { P: 26.00, G: 46.00 },
+        ingredients: ['Massa', 'Carne de Sol', 'Molho de Tomate', 'Queijo', 'Presunto'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+
+    // PANQUECAS
+    {
+        name: 'Panqueca de Frango Catupiry',
+        description: 'Deliciosa panqueca recheada com frango e catupiry. Acompanha arroz, batata frita e salada.',
+        price: 20.00,
+        category: 'panquecas',
+        image: 'https://www.sabornamesa.com.br/media/k2/items/cache/4cbaabc235457a2dc97a1a76ff39c8ea_XL.jpg',
+        destaque: false,
+        sizes: { 'Única': 20.00 },
+        ingredients: ['Massa', 'Frango', 'Catupiry', 'Molho', 'Arroz', 'Batata Frita', 'Salada'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Panqueca de Queijo e Presunto',
+        description: 'Panqueca tradicional recheada com queijo e presunto. Acompanha arroz, batata frita e salada.',
+        price: 18.00,
+        category: 'panquecas',
+        image: 'https://www.minhareceita.com.br/app/uploads/2022/10/panqueca-de-queijo-com-presunto1200480.jpg',
+        destaque: false,
+        sizes: { 'Única': 18.00 },
+        ingredients: ['Massa', 'Queijo', 'Presunto', 'Molho', 'Arroz', 'Batata Frita', 'Salada'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Panqueca de Carne Moída e Queijo',
+        description: 'Panqueca recheada com carne moída e queijo, coberta com molho. Acompanha arroz, batata frita e salada.',
+        price: 22.00,
+        category: 'panquecas',
+        image: 'https://portalplural.com.br/wp-content/uploads/2023/07/panqueca-recheada-com-carne-moida-e-queijo_31012018184122.jpg.webp',
+        destaque: false,
+        sizes: { 'Única': 22.00 },
+        ingredients: ['Massa', 'Carne Moída', 'Queijo', 'Molho', 'Arroz', 'Batata Frita', 'Salada'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Panqueca de Camarão e Queijo',
+        description: 'Panqueca especial recheada com camarão e queijo, coberta com molho. Acompanha arroz, batata frita e salada.',
+        price: 30.00,
+        category: 'panquecas',
+        image: 'https://www.comidaereceitas.com.br/wp-content/uploads/2008/11/enchiladas-de-camarao-e-caranguejo-comida-mexicana-780x520.jpg',
+        destaque: false,
+        sizes: { 'Única': 30.00 },
+        ingredients: ['Massa', 'Camarão', 'Queijo', 'Molho', 'Arroz', 'Batata Frita', 'Salada'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+
+    // TAPIOCAS
+    {
+        name: 'Tapioca de Frango Catupiry',
+        description: 'Deliciosa tapioca recheada com frango desfiado e catupiry',
+        price: 7.00,
+        category: 'tapiocas',
+        image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR52BPHK7u1Vi7ai6DmApCxY9Rl5hTJss9qMA&s',
+        destaque: false,
+        sizes: { 'Única': 7.00 },
+        ingredients: ['Massa de Tapioca', 'Frango Desfiado', 'Catupiry'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Tapioca de Frango com Mussarela',
+        description: 'Tapioca saborosa recheada com frango desfiado e queijo mussarela',
+        price: 7.00,
+        category: 'tapiocas',
+        image: 'https://i.ytimg.com/vi/RogIezQjfIo/maxresdefault.jpg',
+        destaque: false,
+        sizes: { 'Única': 7.00 },
+        ingredients: ['Massa de Tapioca', 'Frango Desfiado', 'Mussarela'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Tapioca de Queijo e Presunto',
+        description: 'Tapioca tradicional recheada com queijo derretido e presunto',
+        price: 7.00,
+        category: 'tapiocas',
+        image: 'https://www.bcnoticias.com.br/wp-content/uploads/2024/07/Depositphotos_207938522_XL-scaled.jpg',
+        destaque: false,
+        sizes: { 'Única': 7.00 },
+        ingredients: ['Massa de Tapioca', 'Queijo', 'Presunto'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Tapioca de Queijo Coalho',
+        description: 'Tapioca tradicional recheada com delicioso queijo coalho derretido',
+        price: 7.00,
+        category: 'tapiocas',
+        image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTu1x7ZL48WWIsSKI4ypUq-JaB5-v8alAdaDQ&s',
+        destaque: false,
+        sizes: { 'Única': 7.00 },
+        ingredients: ['Massa de Tapioca', 'Queijo Coalho'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Tapioca de Carne de Sol com Nata',
+        description: 'Deliciosa tapioca recheada com carne de sol desfiada e nata fresca',
+        price: 8.00,
+        category: 'tapiocas',
+        image: 'https://i.ytimg.com/vi/TIsShg2naHI/maxresdefault.jpg',
+        destaque: false,
+        sizes: { 'Única': 8.00 },
+        ingredients: ['Massa de Tapioca', 'Carne de Sol', 'Nata'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Tapioca de Carne de Sol e Frango Catupiry',
+        description: 'Tapioca especial recheada com carne de sol desfiada e frango com catupiry',
+        price: 8.00,
+        category: 'tapiocas',
+        image: 'https://claudia.abril.com.br/wp-content/uploads/2020/02/receita-tapioca-carne-de-sol.jpg',
+        destaque: false,
+        sizes: { 'Única': 8.00 },
+        ingredients: ['Massa de Tapioca', 'Carne de Sol', 'Frango Desfiado', 'Catupiry'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Tapioca de Carne de Sol e Queijo',
+        description: 'Tapioca tradicional nordestina recheada com carne de sol desfiada e queijo derretido',
+        price: 8.00,
+        category: 'tapiocas',
+        image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTw5iKwhsuRgRvTTphKkPukZAWh-zUxYTcSiw&s',
+        destaque: false,
+        sizes: { 'Única': 8.00 },
+        ingredients: ['Massa de Tapioca', 'Carne de Sol', 'Queijo'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Tapioca de Carne de Sol e Queijo Cheddar',
+        description: 'Saborosa tapioca recheada com carne de sol desfiada e queijo cheddar cremoso',
+        price: 8.00,
+        category: 'tapiocas',
+        image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTAB-WS8iNNlx2zk6AzIO6nRBDp35ySTHefxQ&s',
+        destaque: false,
+        sizes: { 'Única': 8.00 },
+        ingredients: ['Massa de Tapioca', 'Carne de Sol', 'Queijo Cheddar'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Tapioca de Chocolate e Queijo',
+        description: 'Deliciosa tapioca doce recheada com chocolate derretido e queijo cremoso',
+        price: 8.00,
+        category: 'tapiocas',
+        image: 'https://acarajedajaira.lojatop.net/_core/_uploads/44/2022/06/094421062239cgbf1e9c.jpg',
+        destaque: false,
+        sizes: { 'Única': 8.00 },
+        ingredients: ['Massa de Tapioca', 'Chocolate', 'Queijo'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+
+    // HAMBURGUER
+    {
+        name: 'Naldinho',
+        description: 'Hambúrguer especial com dois hamburgueres, catupiry cremoso, ovo, presunto, cheddar, alface e tomate',
+        price: 18.00,
+        category: 'hamburguer',
+        image: '/hamburguers/naldinho.jpg',
+        destaque: true,
+        sizes: { 'Única': 18.00 },
+        ingredients: ['Hambúrguer Duplo', 'Catupiry', 'Ovo', 'Presunto', 'Cheddar', 'Alface', 'Tomate', 'Pão'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Hambúrguer Baurú',
+        description: 'Delicioso hambúrguer completo com ovo, presunto, mussarela, hamburguer, alface e tomate',
+        price: 10.00,
+        category: 'hamburguer',
+        image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRRoV0cTtP9XMm3A5vXPFcARocAe4UnBTRZGWA4hYzUlzYEq6w56C-ZJM9k7DMvjayHsco&usqp=CAU',
+        destaque: false,
+        sizes: { 'Única': 10.00 },
+        ingredients: ['Hambúrguer', 'Ovo', 'Presunto', 'Mussarela', 'Alface', 'Tomate', 'Pão'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'X-Bacon',
+        description: 'Delicioso hambúrguer com bacon crocante, queijo cheddar derretido, alface fresca e tomate',
+        price: 10.00,
+        category: 'hamburguer',
+        image: 'https://embutidosbonatti.ind.br/temp/BIN_57_V9Fb0BwK.jpg',
+        destaque: false,
+        sizes: { 'Única': 10.00 },
+        ingredients: ['Hambúrguer', 'Bacon', 'Queijo Cheddar', 'Alface', 'Tomate', 'Pão'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'X-Calabresa',
+        description: 'Delicioso hambúrguer com calabresa fatiada, mussarela derretida, alface crocante e tomate',
+        price: 10.00,
+        category: 'hamburguer',
+        image: 'https://marketplace.loji.com.br/storage/uploads/75m8bVAwovpCUYuDgyCxbtDL6HHsNIvEL67AYutU.png',
+        destaque: false,
+        sizes: { 'Única': 10.00 },
+        ingredients: ['Hambúrguer', 'Calabresa', 'Mussarela', 'Alface', 'Tomate', 'Pão'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'X-Light',
+        description: 'Hambúrguer simples e leve acompanhado apenas de alface fresca e tomate',
+        price: 7.00,
+        category: 'hamburguer',
+        image: 'https://www.mundoboaforma.com.br/wp-content/uploads/2020/10/Hamburguer.jpg',
+        destaque: false,
+        sizes: { 'Única': 7.00 },
+        ingredients: ['Hambúrguer', 'Alface', 'Tomate', 'Pão'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'X-Filé de Frango',
+        description: 'Delicioso X-filé de frango grelhado, queijo mussarela, bacon crocante, alface e tomate',
+        price: 15.00,
+        category: 'hamburguer',
+        image: 'https://sachefmio.blob.core.windows.net/fotos/x-frango-73524.jpg',
+        destaque: false,
+        sizes: { 'Única': 15.00 },
+        ingredients: ['Filé de Frango', 'Mussarela', 'Bacon', 'Alface', 'Tomate', 'Pão'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'X-Filé de Carne',
+        description: 'Delicioso X-filé de carne grelhado, queijo cheddar derretido, bacon crocante, alface e tomate',
+        price: 15.00,
+        category: 'hamburguer',
+        image: 'https://detudo.app/assets/img/produto/c4d43ded1de20d41bd13dd051e0b99f1.jpg',
+        destaque: false,
+        sizes: { 'Única': 15.00 },
+        ingredients: ['Filé de Carne', 'Queijo Cheddar', 'Bacon', 'Alface', 'Tomate', 'Pão'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Boqueirão',
+        description: 'Hambúrguer especial com hambúrguer, ovo, salsicha, bacon crocante, catupiry cremoso, alface e tomate',
+        price: 18.00,
+        category: 'hamburguer',
+        image: 'https://img.cdndsgni.com/preview/10147940.jpg',
+        destaque: false,
+        sizes: { 'Única': 18.00 },
+        ingredients: ['Hambúrguer', 'Ovo', 'Salsicha', 'Bacon', 'Catupiry', 'Alface', 'Tomate', 'Pão'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+
+    // PETISCOS
+    {
+        name: 'Batata Frita',
+        description: 'Porção de batatas fritas crocantes, acompanha molho especial da casa',
+        price: 18.00,
+        category: 'petiscos',
+        image: 'https://www.tendaatacado.com.br/dicas/wp-content/webp-express/webp-images/uploads/2022/06/como-fazer-batata-frita-topo.jpg.webp',
+        destaque: false,
+        sizes: { 'Única': 18.00 },
+        ingredients: ['Batata', 'Molho Especial'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Macaxeira Frita',
+        description: 'Porção de macaxeira frita crocante por fora e macia por dentro',
+        price: 18.00,
+        category: 'petiscos',
+        image: 'https://minhasreceitinhas.com.br/wp-content/uploads/2024/01/macaxeira-frita-no-oleo-de-algodao-730x365.jpg',
+        destaque: false,
+        sizes: { 'Única': 18.00 },
+        ingredients: ['Macaxeira'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Carne de Sol com Macaxeira',
+        description: 'Deliciosa porção de carne de sol acebolada acompanhada de cubos de macaxeira frita e salada fresca',
+        price: 50.00,
+        category: 'petiscos',
+        image: '/petiscos/carne de sol com macaxeira.png',
+        destaque: false,
+        sizes: { 'Única': 50.00 },
+        ingredients: ['Carne de Sol', 'Macaxeira', 'Cebola', 'Salada'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Filezinho com Fritas',
+        description: 'Suculento filé de carne acebolado, acompanhado de batata frita crocante e salada fresca',
+        price: 45.00,
+        category: 'petiscos',
+        image: 'https://sachefmio.blob.core.windows.net/fotos/file-com-fritas-101477.jpg',
+        destaque: false,
+        sizes: { 'Única': 45.00 },
+        ingredients: ['Filé de Carne', 'Batata Frita', 'Cebola', 'Salada'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Filezinho de Frango com Fritas',
+        description: 'Saboroso filé de frango acebolado, servido com porção de batata frita crocante e salada fresca',
+        price: 42.00,
+        category: 'petiscos',
+        image: 'https://imagens.jotaja.com/produtos/d520534c-a991-4d57-b188-5153cc20c534.jpg',
+        destaque: false,
+        sizes: { 'Única': 42.00 },
+        ingredients: ['Filé de Frango', 'Batata Frita', 'Cebola', 'Salada'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Calabresa com Fritas',
+        description: 'Deliciosa calabresa acebolada, servida com porção de batata frita crocante e salada fresca',
+        price: 38.00,
+        category: 'petiscos',
+        image: 'https://minhasreceitinhas.com.br/wp-content/uploads/2023/01/Batata-frita-com-calabresa-acebolada-2.png',
+        destaque: false,
+        sizes: { 'Única': 38.00 },
+        ingredients: ['Calabresa', 'Batata Frita', 'Cebola', 'Salada'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Camarão, alho e óleo',
+        description: 'Camarão salteado no conhaque, batata frita e salada',
+        price: 70.00,
+        category: 'petiscos',
+        image: '/petiscos/camarão ao alho e olho.jpg',
+        destaque: false,
+        sizes: { 'Única': 70.00 },
+        ingredients: ['Camarão', 'Conhaque', 'Batata Frita', 'Salada'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Batata do Cheff',
+        description: 'Batata com cheddar e bacon',
+        price: 30.00,
+        category: 'petiscos',
+        image: 'https://minhasreceitinhas.com.br/wp-content/uploads/2017/06/Batatosa-scaled.jpg',
+        destaque: false,
+        sizes: { 'Única': 30.00 },
+        ingredients: ['Batata', 'Cheddar', 'Bacon'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+
+    // BEBIDAS
+    {
+        name: 'Coca Cola 2L',
+        description: 'Refrigerante Coca Cola 2 litros, gelada',
+        price: 16.00,
+        category: 'bebidas',
+        image: 'https://www.arenaatacado.com.br/on/demandware.static/-/Sites-storefront-catalog-sv/default/dw4a216e02/Produtos/883484-7894900027013-refrigerante%20coca%20cola%20pet%202lt-coca%20cola-1.jpg',
+        destaque: false,
+        sizes: { 'Única': 16.00 },
+        ingredients: ['Refrigerante'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Pepsi 2L',
+        description: 'Refrigerante Pepsi 2 litros, gelada',
+        price: 15.00,
+        category: 'bebidas',
+        image: 'https://obahortifruti.vtexassets.com/arquivos/ids/8519693-800-450?v=638502500862670000&width=800&height=450&aspect=true',
+        destaque: false,
+        sizes: { 'Única': 15.00 },
+        ingredients: ['Refrigerante'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Guaraná 2L',
+        description: 'Refrigerante Guaraná Antarctica 2 litros, gelada',
+        price: 15.00,
+        category: 'bebidas',
+        image: 'https://io.convertiez.com.br/m/superpaguemenos/shop/products/images/14062/medium/refrigerante-antarctica-guarana-2l_18875.png',
+        destaque: false,
+        sizes: { 'Única': 15.00 },
+        ingredients: ['Refrigerante'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Coca Cola 1L',
+        description: 'Refrigerante Coca Cola 1 litro, gelada',
+        price: 10.00,
+        category: 'bebidas',
+        image: 'https://mercantilnovaera.vtexassets.com/arquivos/ids/181341/Refrigerante-COCA-COLA-Garrafa-Pet-1L.jpg?v=637602490174930000',
+        destaque: false,
+        sizes: { 'Única': 10.00 },
+        ingredients: ['Refrigerante'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Pepsi 1L',
+        description: 'Refrigerante Pepsi 1 litro, gelada',
+        price: 9.00,
+        category: 'bebidas',
+        image: 'https://redemix.vteximg.com.br/arquivos/ids/211654-1000-1000/7892840800406.jpg?v=638350615172070000',
+        destaque: false,
+        sizes: { 'Única': 9.00 },
+        ingredients: ['Refrigerante'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Guaraná 1L',
+        description: 'Refrigerante Guaraná Antarctica 1 litro, gelada',
+        price: 9.00,
+        category: 'bebidas',
+        image: 'https://prezunic.vtexassets.com/arquivos/ids/191915/6568d69ee1d9f5b4beb95b2d.jpg?v=638369663059270000',
+        destaque: false,
+        sizes: { 'Única': 9.00 },
+        ingredients: ['Refrigerante'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Coca Cola 350ml',
+        description: 'Refrigerante Coca Cola lata 350ml, gelada',
+        price: 6.00,
+        category: 'bebidas',
+        image: 'https://mercantilnovaera.vtexassets.com/arquivos/ids/206262-800-450?v=638174264397000000&width=800&height=450&aspect=true',
+        destaque: false,
+        sizes: { 'Única': 6.00 },
+        ingredients: ['Refrigerante'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Pepsi 350ml',
+        description: 'Refrigerante Pepsi lata 350ml, gelada',
+        price: 5.00,
+        category: 'bebidas',
+        image: 'https://cdn.awsli.com.br/600x700/2480/2480526/produto/206560970/pepsi-lata-vikact.jpg',
+        destaque: false,
+        sizes: { 'Única': 5.00 },
+        ingredients: ['Refrigerante'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Guaraná 350ml',
+        description: 'Refrigerante Guaraná Antarctica lata 350ml, gelada',
+        price: 5.00,
+        category: 'bebidas',
+        image: 'https://i.pinimg.com/736x/23/5f/5a/235f5a65c453d71ef07e0e566de74f95.jpg',
+        destaque: false,
+        sizes: { 'Única': 5.00 },
+        ingredients: ['Refrigerante'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Heineken 330ml',
+        description: 'Cerveja Heineken Long Neck 330ml, gelada',
+        price: 10.00,
+        category: 'bebidas',
+        image: 'https://www.imigrantesbebidas.com.br/bebida/images/products/full/87462-cerveja-heineken-0-0-alcool-long-neck-330ml.jpg',
+        destaque: false,
+        sizes: { 'Única': 10.00 },
+        ingredients: ['Cerveja'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Budweiser 350ml',
+        description: 'Cerveja Budweiser Long Neck 350ml, gelada',
+        price: 10.00,
+        category: 'bebidas',
+        image: 'https://apoioentrega.vteximg.com.br/arquivos/ids/827548/1732_1.png?v=638568189666030000',
+        destaque: false,
+        sizes: { 'Única': 10.00 },
+        ingredients: ['Cerveja'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Whisky',
+        description: 'Dose de Whisky',
+        price: 8.00,
+        category: 'bebidas',
+        image: 'https://www.divvino.com.br/blog/wp-content/uploads/2020/05/whisky-para-iniciantes.jpg',
+        destaque: false,
+        sizes: { 'Única': 8.00 },
+        ingredients: ['Destilado'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Cachaça',
+        description: 'Dose de Cachaça',
+        price: 5.00,
+        category: 'bebidas',
+        image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRSX4glp8bUFIvrsp7uN4r0DAL2MIxbg3HeTA&s',
+        destaque: false,
+        sizes: { 'Única': 5.00 },
+        ingredients: ['Destilado'],
+        borderOptions: {},
+        extraOptions: {}
+    },
+    {
+        name: 'Conhaque',
+        description: 'Dose de Conhaque',
+        price: 4.00,
+        category: 'bebidas',
+        image: 'https://cptstatic.s3.amazonaws.com/imagens/enviadas/materias/materia15749/tipos-conhaque-dicas-cursos-cpt.jpg',
+        destaque: false,
+        sizes: { 'Única': 4.00 },
+        ingredients: ['Destilado'],
+        borderOptions: {},
+        extraOptions: {}
+    }
+];
+
+export async function GET() {
+    try {
+        console.log('GET /api/menu - Iniciando...');
+        await connectDB();
+        console.log('GET /api/menu - Conectado ao MongoDB');
+        
+        const count = await MenuItem.countDocuments();
+        console.log('GET /api/menu - Contagem de itens:', count);
+
+        // Se não houver itens, insere os dados iniciais
+        if (count === 0) {
+            console.log('GET /api/menu - Inserindo dados iniciais...');
+            await MenuItem.insertMany(initialMenuItems);
+            console.log('GET /api/menu - Dados iniciais inseridos');
+        }
+
+        const menuItems = await MenuItem.find({});
+        console.log('GET /api/menu - Itens encontrados:', menuItems.length);
+        
+        return NextResponse.json({
+            success: true,
+            data: menuItems
+        });
+    } catch (error) {
+        console.error('GET /api/menu - Erro:', error);
+        return NextResponse.json(
+            { success: false, error: 'Erro ao buscar itens do menu' }, 
+            { status: 500 }
+        );
+    }
+}
+
+export async function POST(request: Request) {
+    try {
+        await connectDB();
+        const body = await request.json();
+        
+        const newItem = new MenuItem(body);
+        const savedItem = await newItem.save();
+        
+        return NextResponse.json({
+            success: true,
+            data: savedItem
+        });
+    } catch (error) {
+        console.error('POST /api/menu - Erro:', error);
+        return NextResponse.json(
+            { success: false, error: 'Erro ao criar item do menu' },
+            { status: 500 }
+        );
+    }
+}
+
+export async function PUT(request: Request) {
+    try {
+        await connectDB();
+        const body = await request.json();
+        
+        const { _id, ...updateData } = body;
+        const updatedItem = await MenuItem.findByIdAndUpdate(_id, updateData, { new: true });
+        
+        if (!updatedItem) {
+            return NextResponse.json(
+                { success: false, error: 'Item não encontrado' },
+                { status: 404 }
+            );
+        }
+        
+        return NextResponse.json({
+            success: true,
+            data: updatedItem
+        });
+    } catch (error) {
+        console.error('PUT /api/menu - Erro:', error);
+        return NextResponse.json(
+            { success: false, error: 'Erro ao atualizar item do menu' },
+            { status: 500 }
+        );
+    }
+}
+
+export async function DELETE(request: Request) {
+    try {
+        await connectDB();
+        const { searchParams } = new URL(request.url);
+        const id = searchParams.get('id');
+        
+        if (!id) {
+            return NextResponse.json(
+                { success: false, error: 'ID do item é obrigatório' },
+                { status: 400 }
+            );
+        }
+        
+        const deletedItem = await MenuItem.findByIdAndDelete(id);
+        
+        if (!deletedItem) {
+            return NextResponse.json(
+                { success: false, error: 'Item não encontrado' },
+                { status: 404 }
+            );
+        }
+        
+        return NextResponse.json({
+            success: true,
+            message: 'Item deletado com sucesso'
+        });
+    } catch (error) {
+        console.error('DELETE /api/menu - Erro:', error);
+        return NextResponse.json(
+            { success: false, error: 'Erro ao deletar item do menu' },
+            { status: 500 }
+        );
+    }
+}

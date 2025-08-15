@@ -1,0 +1,39 @@
+{
+    "name": "Do'Cheff - Pizzaria",
+    "short_name": "Do'Cheff",
+    "description": "Cardápio digital da Pizzaria Do'Cheff",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#262525",
+    "theme_color": "#262525",
+    "orientation": "portrait",
+    "scope": "/",
+    "prefer_related_applications": false,
+    "categories": [
+        "food",
+        "shopping"
+    ],
+    "icons": [
+        {
+            "src": "/icon-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icon-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "/screenshot1.png",
+            "sizes": "1080x1920",
+            "type": "image/png",
+            "platform": "narrow",
+            "label": "Cardápio do Do'Cheff"
+        }
+    ]
+}

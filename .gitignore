@@ -1,0 +1,56 @@
+node_modules
+node_modules/ 
+node_modules/ 
+node_modules/
+node_modules/
+.vercel
+.next
+.next/
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+*.pem
+.nyc_output
+coverage/
+*.lcov
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Build e cache
+dist/
+build/
+out/
+.cache/
+.turbo/
+
+# Uploads e arquivos temporários
+uploads/
+tmp/
+*.tmp
+*.log
+*.bak
+*.swp
+*.swo
+
+# Arquivos de sistema
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Outros
+*.test.js
+*.test.ts
+*.test.tsx
+*.spec.js
+*.spec.ts
+*.spec.tsx
