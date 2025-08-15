@@ -1,4 +1,5 @@
 'use client';
+
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MenuItem } from '@/types/menu';
@@ -6,6 +7,7 @@ import Image from 'next/image';
 import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes } from 'react-icons/fa';
 
 export default function AdminMenu() {
+    // --- Estado do Componente ---
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -13,8 +15,14 @@ export default function AdminMenu() {
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
     const [selectedCategory, setSelectedCategory] = useState<string>('todas');
+    const [activeTab, setActiveTab] = useState<'menu' | 'categories'>('menu');
+    const [categories, setCategories] = useState<{ _id?: string, value: string, label: string }[]>([]);
+    const [catLoading, setCatLoading] = useState(false);
+    const [catError, setCatError] = useState('');
+    const [catForm, setCatForm] = useState<{ value: string, label: string }>({ value: '', label: '' });
+    const [catEditId, setCatEditId] = useState<string | null>(null);
 
-    // Tipo para o formulário
+    // --- Tipo para o formulário de item ---
     interface FormData {
         name: string;
         description: string;
@@ -28,7 +36,6 @@ export default function AdminMenu() {
         extraOptions: { [key: string]: number };
     }
 
-    // Formulário para novo item ou edição
     const [formData, setFormData] = useState<FormData>({
         name: '',
         description: '',
@@ -42,135 +49,48 @@ export default function AdminMenu() {
         extraOptions: {}
     });
 
-    const categories = [
-        { value: 'pizzas', label: 'Pizzas' },
-        { value: 'massas', label: 'Massas' },
-        { value: 'hamburguer', label: 'Hambúrgueres' },
-        { value: 'panquecas', label: 'Panquecas' },
-        { value: 'tapiocas', label: 'Tapiocas' },
-        { value: 'esfirras', label: 'Esfirras' },
-        { value: 'petiscos', label: 'Petiscos' },
-        { value: 'bebidas', label: 'Bebidas' }
-    ];
-
-    useEffect(() => {
-        fetchMenuItems();
-    }, []);
-
+    // --- Funções de Lógica (placeholders) ---
+    // Você precisa implementar a lógica de como esses dados são buscados e alterados.
     const fetchMenuItems = async () => {
+        setLoading(true);
+        setError('');
         try {
-            setLoading(true);
-            const response = await fetch('/api/menu');
-            const data = await response.json();
+            const res = await fetch('/api/menu');
+            const data = await res.json();
             if (data.success) {
                 setMenuItems(data.data || []);
             } else {
-                setError(data.error || 'Erro ao carregar itens do cardápio');
+                setError(data.error || 'Falha ao buscar itens do cardápio.');
             }
         } catch (err) {
-            setError('Erro ao conectar com o servidor');
-            console.error('Erro:', err);
+            setError('Falha ao buscar itens do cardápio.');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleAddItem = () => {
-        setFormData({
-            name: '',
-            description: '',
-            price: 0,
-            category: 'pizzas',
-            image: '',
-            destaque: false,
-            sizes: { 'Única': 0 },
-            ingredients: [''],
-            borderOptions: {},
-            extraOptions: {}
-        });
-        setShowAddModal(true);
-    };
-
-    const handleEditItem = (item: MenuItem) => {
-        setEditingItem(item);
-        setFormData({
-            name: item.name,
-            description: item.description,
-            price: item.price,
-            category: item.category,
-            image: item.image || '',
-            destaque: item.destaque || false,
-            sizes: item.sizes || { 'Única': item.price },
-            ingredients: item.ingredients || [''],
-            borderOptions: item.borderOptions || {},
-            extraOptions: item.extraOptions || {}
-        });
-        setShowEditModal(true);
-    };
-
-    const handleDeleteItem = async (itemId: string) => {
-        if (!confirm('Tem certeza que deseja excluir este item?')) return;
-
+    const fetchCategories = async () => {
+        setCatLoading(true);
+        setCatError('');
         try {
-            const response = await fetch(`/api/menu/${itemId}`, {
-                method: 'DELETE',
-            });
-
-            const data = await response.json();
+            const res = await fetch('/api/categories');
+            const data = await res.json();
             if (data.success) {
-                await fetchMenuItems();
-                alert('Item excluído com sucesso!');
+                setCategories(data.data || []);
             } else {
-                alert(data.error || 'Erro ao excluir item');
+                setCatError(data.error || 'Falha ao buscar categorias.');
             }
         } catch (err) {
-            alert('Erro ao conectar com o servidor');
-            console.error('Erro:', err);
+            setCatError('Falha ao buscar categorias.');
+        } finally {
+            setCatLoading(false);
         }
     };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        try {
-            const url = editingItem ? `/api/menu/${editingItem._id}` : '/api/menu';
-            const method = editingItem ? 'PUT' : 'POST';
-
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    ...formData,
-                    ingredients: formData.ingredients.filter(ing => ing.trim() !== '')
-                }),
-            });
-
-            const data = await response.json();
-            if (data.success) {
-                await fetchMenuItems();
-                setShowAddModal(false);
-                setShowEditModal(false);
-                setEditingItem(null);
-                alert(editingItem ? 'Item atualizado com sucesso!' : 'Item adicionado com sucesso!');
-            } else {
-                alert(data.error || 'Erro ao salvar item');
-            }
-        } catch (err) {
-            alert('Erro ao conectar com o servidor');
-            console.error('Erro:', err);
-        }
-    };
-
+    
     const handleIngredientChange = (index: number, value: string) => {
         const newIngredients = [...formData.ingredients];
         newIngredients[index] = value;
         setFormData({ ...formData, ingredients: newIngredients });
-    };
-
-    const addIngredient = () => {
-        setFormData({ ...formData, ingredients: [...formData.ingredients, ''] });
     };
 
     const removeIngredient = (index: number) => {
@@ -178,185 +98,299 @@ export default function AdminMenu() {
         setFormData({ ...formData, ingredients: newIngredients });
     };
 
-    const applyPizzaDefaults = () => {
+    const addIngredient = () => {
         setFormData({
             ...formData,
-            sizes: {
-                P: 27,
-                G: 45
-            },
-            borderOptions: {
-                "Sem Borda": 0,
-                "Chocolate": 4,
-                "Catupiry": 4,
-                "Cheddar": 4
-            },
-            extraOptions: {
-                "Cheddar Extra": 3,
-                "Catupiry Extra": 3
-            }
+            ingredients: [...formData.ingredients, '']
         });
     };
 
-    const filteredItems = (selectedCategory === 'todas'
-        ? menuItems
-        : menuItems.filter(item => item.category === selectedCategory))
-        .slice() // cópia para não mutar o estado
-        .sort((a, b) => {
-            // Se tiver tamanhos, pega o menor preço do array de tamanhos
-            const getMinPrice = (item: MenuItem) => {
-                if (item.sizes && Object.values(item.sizes).length > 0) {
-                    return Math.min(...Object.values(item.sizes));
-                }
-                return item.price;
-            };
-            return getMinPrice(a) - getMinPrice(b);
+    const applyPizzaDefaults = () => {
+        setFormData({
+            ...formData,
+            sizes: { 'Pequena': 0, 'Média': 0, 'Grande': 0, 'Gigante': 0 },
+            borderOptions: { 'Sem Borda': 0, 'Catupiry': 5, 'Cheddar': 5 },
+            extraOptions: { 'Azeitona Extra': 3.5, 'Bacon Extra': 4 }
         });
+    };
 
-    if (loading) {
-        return (
-            <div className="flex justify-center items-center h-64">
-                <div className="text-white text-lg">Carregando cardápio...</div>
-            </div>
-        );
-    }
+    // --- Efeitos do Componente ---
+    useEffect(() => {
+        fetchMenuItems();
+        fetchCategories();
+    }, []);
 
+    // --- Renderização do Componente ---
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-red-600">Gerenciar Cardápio</h2>
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleAddItem}
-                    className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center gap-2"
-                >
-                    <FaPlus /> Adicionar Item
-                </motion.button>
+        <div className="container mx-auto p-4 md:p-8 bg-gray-900 min-h-screen text-gray-200 rounded-2xl">
+            <h1 className="text-3xl font-bold mb-6 text-red-600">Admin do Cardápio</h1>
+
+            {/* Abas de navegação */}
+            <div className="flex gap-2 mb-6">
+                <button
+                    className={`px-4 py-2 rounded-t-lg font-bold ${activeTab === 'menu' ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-300'}`}
+                    onClick={() => setActiveTab('menu')}
+                >Itens do Cardápio</button>
+                <button
+                    className={`px-4 py-2 rounded-t-lg font-bold ${activeTab === 'categories' ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-300'}`}
+                    onClick={() => setActiveTab('categories')}
+                >Categorias</button>
             </div>
 
-            {error && (
-                <div className="bg-red-900/20 border border-red-500 text-red-400 px-4 py-2 rounded-lg">
-                    {error}
+            {/* Aba de Categorias */}
+            {activeTab === 'categories' && (
+                <div className="bg-[#1a1a1a] rounded-xl border border-gray-800 p-6">
+                    <h2 className="text-xl font-bold text-red-600 mb-4">Gerenciar Categorias</h2>
+                    <form
+                        onSubmit={async (e) => {
+                            e.preventDefault();
+                            try {
+                                const method = catEditId ? 'PUT' : 'POST';
+                                const url = '/api/categories';
+                                const body = catEditId ? { ...catForm, _id: catEditId } : catForm;
+                                const res = await fetch(url, {
+                                    method,
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(body)
+                                });
+                                const data = await res.json();
+                                if (data.success) {
+                                    setCatForm({ value: '', label: '' });
+                                    setCatEditId(null);
+                                    fetchCategories();
+                                } else {
+                                    setCatError(data.error || 'Erro ao salvar categoria');
+                                }
+                            } catch {
+                                setCatError('Erro ao conectar com o servidor');
+                            }
+                        }}
+                        className="flex flex-col sm:flex-row gap-2 mb-4"
+                    >
+                        <input
+                            type="text"
+                            placeholder="Valor (ex: pizzas)"
+                            value={catForm.value}
+                            onChange={e => setCatForm({ ...catForm, value: e.target.value })}
+                            className="rounded-md border border-gray-600 bg-[#262525] text-white px-3 py-2 flex-1"
+                            required
+                        />
+                        <input
+                            type="text"
+                            placeholder="Nome (ex: Pizzas)"
+                            value={catForm.label}
+                            onChange={e => setCatForm({ ...catForm, label: e.target.value })}
+                            className="rounded-md border border-gray-600 bg-[#262525] text-white px-3 py-2 flex-1"
+                            required
+                        />
+                        <button
+                            type="submit"
+                            className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-bold"
+                            disabled={catLoading}
+                        >{catEditId ? 'Salvar' : 'Adicionar'}</button>
+                        {catEditId && (
+                            <button type="button" className="bg-gray-600 text-white px-4 py-2 rounded-lg" onClick={() => { setCatEditId(null); setCatForm({ value: '', label: '' }); }}>Cancelar</button>
+                        )}
+                    </form>
+                    {catError && <div className="text-red-400 mb-2">{catError}</div>}
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="text-gray-400">
+                                    <th className="py-2">Valor</th>
+                                    <th className="py-2">Nome</th>
+                                    <th className="py-2">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {categories.map(cat => (
+                                    <tr key={cat._id || cat.value} className="border-b border-gray-700">
+                                        <td className="py-2 text-white">{cat.value}</td>
+                                        <td className="py-2 text-white">{cat.label}</td>
+                                        <td className="py-2">
+                                            <button className="bg-blue-600 text-white px-3 py-1 rounded-lg mr-2" onClick={() => { setCatEditId(cat._id || ''); setCatForm({ value: cat.value, label: cat.label }); }}>Editar</button>
+                                            <button className="bg-red-600 text-white px-3 py-1 rounded-lg" onClick={async () => {
+                                                if (!confirm('Excluir esta categoria?')) return;
+                                                setCatLoading(true);
+                                                setCatError('');
+                                                try {
+                                                    const res = await fetch('/api/categories', {
+                                                        method: 'DELETE',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ _id: cat._id })
+                                                    });
+                                                    const data = await res.json();
+                                                    if (data.success) fetchCategories();
+                                                    else setCatError(data.error || 'Erro ao excluir categoria');
+                                                } catch {
+                                                    setCatError('Erro ao conectar com o servidor');
+                                                } finally {
+                                                    setCatLoading(false);
+                                                }
+                                            }}>Excluir</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
 
-            {/* Filtro por categoria */}
-            <div className="flex flex-wrap gap-2 mb-6 w-full justify-center">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 w-full max-w-2xl mx-auto">
-                    <button
-                        onClick={() => setSelectedCategory('todas')}
-                        className={`px-4 py-2 rounded-full transition-colors w-full text-center ${selectedCategory === 'todas'
-                            ? 'bg-red-600 text-white'
-                            : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                            }`}
-                    >
-                        Todas
-                    </button>
-                    {categories.map(category => (
-                        <button
-                            key={category.value}
-                            onClick={() => setSelectedCategory(category.value)}
-                            className={`px-4 py-2 rounded-full transition-colors w-full text-center ${selectedCategory === category.value
-                                ? 'bg-red-600 text-white'
-                                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                                }`}
-                        >
-                            {category.label}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Lista de itens */}
-            <div className="grid sm:grid-cols-1 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
-                {filteredItems.map((item) => (
-                    <motion.div
-                        key={item._id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="bg-[#1a1a1a] rounded-xl border border-gray-800 overflow-hidden flex flex-col h-full"
-                    >
-                        <div className="relative h-48">
-                            <Image
-                                src={item.image || '/placeholder.jpg'}
-                                alt={item.name}
-                                fill
-                                className="object-cover"
-                            />
-                            {item.destaque && (
-                                <div className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 rounded-full text-xs">
-                                    Destaque
-                                </div>
-                            )}
+            {/* Aba de Cardápio */}
+            {activeTab === 'menu' && (
+                <>
+                    <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-2">
+                        <h2 className="text-2xl font-semibold">Itens</h2>
+                        <div className="flex items-center gap-2">
+                            <label htmlFor="filtro-categoria" className="text-sm text-gray-300 font-medium">Filtrar por categoria:</label>
+                            <select
+                                id="filtro-categoria"
+                                value={selectedCategory}
+                                onChange={e => setSelectedCategory(e.target.value)}
+                                className="rounded-md border border-gray-600 bg-[#262525] text-white px-3 py-2"
+                            >
+                                <option value="todas">Todas</option>
+                                {categories.map(cat => (
+                                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                                ))}
+                            </select>
+                            <motion.button
+                                onClick={() => {
+                                    setShowAddModal(true);
+                                    setEditingItem(null);
+                                    setFormData({
+                                        name: '',
+                                        description: '',
+                                        price: 0,
+                                        category: categories[0]?.value || 'pizzas',
+                                        image: '',
+                                        destaque: false,
+                                        sizes: { 'Única': 0 },
+                                        ingredients: [''],
+                                        borderOptions: {},
+                                        extraOptions: {}
+                                    });
+                                }}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center gap-2"
+                            >
+                                <FaPlus /> Adicionar Item
+                            </motion.button>
                         </div>
+                    </div>
 
-                        <div className="p-4">
-                            <h3 className="text-lg font-semibold text-white mb-2">{item.name}</h3>
-                            <p className="text-gray-400 text-sm mb-2 line-clamp-2">{item.description}</p>
-                            <p className="text-red-500 font-bold mb-4">R$ {item.price.toFixed(2)}</p>
-
-                            <div className="flex flex-col sm:flex-row gap-2 w-full">
-                                <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={() => handleEditItem(item)}
-                                    className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-1 text-sm"
-                                >
-                                    <FaEdit /> Editar
-                                </motion.button>
-
-                                <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={() => handleDeleteItem(item._id)}
-                                    className="bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 flex items-center gap-1 text-sm"
-                                >
-                                    <FaTrash /> Excluir
-                                </motion.button>
-                            </div>
+                    {loading ? (
+                        <p>Carregando itens...</p>
+                    ) : error ? (
+                        <p className="text-red-500">{error}</p>
+                    ) : menuItems.length === 0 ? (
+                        <p className="text-gray-400">Nenhum item encontrado.</p>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {menuItems
+                                .filter(item => selectedCategory === 'todas' || item.category === selectedCategory)
+                                .map(item => (
+                                    <div key={item._id} className="bg-gray-800 rounded-lg p-4 flex flex-col gap-2">
+                                        <div className="flex items-center gap-4">
+                                            <img src={item.image || '/placeholder.jpg'} alt={item.name} className="w-20 h-20 object-cover rounded" />
+                                            <div>
+                                                <h3 className="text-lg font-bold text-white">{item.name}</h3>
+                                                <p className="text-gray-400">R$ {item.price.toFixed(2)}</p>
+                                                <p className="text-xs text-gray-500">{item.category}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2 mt-2">
+                                            <button
+                                                className="bg-blue-600 text-white px-3 py-1 rounded"
+                                                onClick={() => {
+                                                    setEditingItem(item);
+                                                    setShowEditModal(true);
+                                                    setFormData({
+                                                        name: item.name,
+                                                        description: item.description,
+                                                        price: item.price,
+                                                        category: item.category,
+                                                        image: item.image,
+                                                        destaque: item.destaque,
+                                                        sizes: item.sizes ? { ...item.sizes } : { 'Única': 0 },
+                                                        ingredients: item.ingredients ? [...item.ingredients] : [''],
+                                                        borderOptions: item.borderOptions ? { ...item.borderOptions } : {},
+                                                        extraOptions: item.extraOptions ? { ...item.extraOptions } : {}
+                                                    });
+                                                }}
+                                            >
+                                                Editar
+                                            </button>
+                                            <button className="bg-red-600 text-white px-3 py-1 rounded" onClick={() => {/* implementar exclusão */}}>Excluir</button>
+                                        </div>
+                                    </div>
+                                ))}
                         </div>
-                    </motion.div>
-                ))}
-            </div>
+                    )}
+                </>
+            )}
 
-            {/* Modal para adicionar/editar item */}
+            {/* Modal de Adicionar/Editar */}
             <AnimatePresence>
                 {(showAddModal || showEditModal) && (
                     <motion.div
-                        className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        onClick={() => {
-                            setShowAddModal(false);
-                            setShowEditModal(false);
-                        }}
+                        className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center p-4 z-50"
                     >
                         <motion.div
-                            className="bg-[#262525] rounded-xl shadow-xl p-4 sm:p-6 max-w-full sm:max-w-2xl w-full mx-2 sm:mx-4 max-h-[90vh] overflow-y-auto"
-                            initial={{ scale: 0.8 }}
-                            animate={{ scale: 1 }}
-                            exit={{ scale: 0.8 }}
-                            onClick={(e) => e.stopPropagation()}
+                            initial={{ scale: 0.9, y: 50 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.9, y: 50 }}
+                            className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
                         >
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-xl font-bold text-white">
-                                    {editingItem ? 'Editar Item' : 'Adicionar Novo Item'}
-                                </h3>
-                                <button
-                                    onClick={() => {
-                                        setShowAddModal(false);
-                                        setShowEditModal(false);
-                                    }}
-                                    className="text-gray-400 hover:text-white"
-                                >
-                                    <FaTimes />
-                                </button>
-                            </div>
-
-                            <form onSubmit={handleSubmit} className="space-y-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+                            <h3 className="text-xl font-bold mb-4">
+                                {editingItem ? 'Editar Item' : 'Adicionar Novo Item'}
+                            </h3>
+                            <form
+                                onSubmit={async (e) => {
+                                    e.preventDefault();
+                                    try {
+                                        const method = editingItem ? 'PUT' : 'POST';
+                                        const url = editingItem ? `/api/menu/${editingItem._id}` : '/api/menu';
+                                        const body = editingItem ? { ...formData, _id: editingItem._id } : formData;
+                                        const res = await fetch(url, {
+                                            method,
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify(body)
+                                        });
+                                        const data = await res.json();
+                                        if (data.success) {
+                                            setShowAddModal(false);
+                                            setShowEditModal(false);
+                                            setEditingItem(null);
+                                            setFormData({
+                                                name: '',
+                                                description: '',
+                                                price: 0,
+                                                category: categories[0]?.value || 'pizzas',
+                                                image: '',
+                                                destaque: false,
+                                                sizes: { 'Única': 0 },
+                                                ingredients: [''],
+                                                borderOptions: {},
+                                                extraOptions: {}
+                                            });
+                                            fetchMenuItems();
+                                        } else {
+                                            alert(data.error || 'Erro ao salvar item');
+                                        }
+                                    } catch {
+                                        alert('Erro ao conectar com o servidor');
+                                    }
+                                }}
+                                className="space-y-4"
+                            >
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {/* Nome do Item */}
                                     <div>
                                         <label className="block text-sm font-medium text-gray-200 mb-2">
                                             Nome do Item *
@@ -369,7 +403,7 @@ export default function AdminMenu() {
                                             required
                                         />
                                     </div>
-
+                                    {/* Categoria */}
                                     <div>
                                         <label className="block text-sm font-medium text-gray-200 mb-2">
                                             Categoria *
@@ -388,7 +422,7 @@ export default function AdminMenu() {
                                         </select>
                                     </div>
                                 </div>
-
+                                {/* Descrição */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-200 mb-2">
                                         Descrição *
@@ -401,8 +435,8 @@ export default function AdminMenu() {
                                         required
                                     />
                                 </div>
-
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+                                    {/* Preço */}
                                     <div>
                                         <label className="block text-sm font-medium text-gray-200 mb-2">
                                             Preço (R$) *
@@ -416,7 +450,7 @@ export default function AdminMenu() {
                                             required
                                         />
                                     </div>
-
+                                    {/* URL da Imagem */}
                                     <div>
                                         <label className="block text-sm font-medium text-gray-200 mb-2">
                                             URL da Imagem
@@ -430,7 +464,7 @@ export default function AdminMenu() {
                                         />
                                     </div>
                                 </div>
-
+                                {/* Destaque */}
                                 <div>
                                     <label className="flex items-center gap-2">
                                         <input
@@ -442,7 +476,7 @@ export default function AdminMenu() {
                                         <span className="text-gray-200">Item em destaque</span>
                                     </label>
                                 </div>
-
+                                {/* Ingredientes */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-200 mb-2">
                                         Ingredientes
@@ -475,7 +509,6 @@ export default function AdminMenu() {
                                         + Adicionar Ingrediente
                                     </button>
                                 </div>
-
                                 {/* Seção de Tamanhos */}
                                 <div>
                                     <div className="flex justify-between items-center mb-2">
@@ -494,15 +527,14 @@ export default function AdminMenu() {
                                     </div>
                                     <div className="space-y-2">
                                         {Object.entries(formData.sizes).map(([size, price]) => (
-                                            <div key={size} className="flex gap-2 items-center">
+                                            <div key={size + price} className="flex gap-2 items-center">
                                                 <input
                                                     type="text"
                                                     value={size}
                                                     onChange={(e) => {
-                                                        const newSizes = { ...formData.sizes };
-                                                        delete newSizes[size];
-                                                        newSizes[e.target.value] = price;
-                                                        setFormData({ ...formData, sizes: newSizes });
+                                                        const entries = Object.entries(formData.sizes);
+                                                        const newEntries = entries.map(([s, p], idx) => idx === entries.findIndex(([ss]) => ss === size) ? [e.target.value, p] : [s, p]);
+                                                        setFormData({ ...formData, sizes: Object.fromEntries(newEntries) });
                                                     }}
                                                     className="w-20 rounded-md border border-gray-600 bg-[#1a1a1a] text-white px-3 py-2 focus:border-red-600 focus:ring-red-600"
                                                     placeholder="P, G, Única"
@@ -513,18 +545,18 @@ export default function AdminMenu() {
                                                     step="0.01"
                                                     value={price}
                                                     onChange={(e) => {
-                                                        const newSizes = { ...formData.sizes };
-                                                        newSizes[size] = parseFloat(e.target.value) || 0;
-                                                        setFormData({ ...formData, sizes: newSizes });
+                                                        const entries = Object.entries(formData.sizes);
+                                                        const newEntries = entries.map(([s, p], idx) => idx === entries.findIndex(([ss]) => ss === size) ? [s, parseFloat(e.target.value) || 0] : [s, p]);
+                                                        setFormData({ ...formData, sizes: Object.fromEntries(newEntries) });
                                                     }}
                                                     className="w-24 rounded-md border border-gray-600 bg-[#1a1a1a] text-white px-3 py-2 focus:border-red-600 focus:ring-red-600"
                                                 />
                                                 <button
                                                     type="button"
                                                     onClick={() => {
-                                                        const newSizes = { ...formData.sizes };
-                                                        delete newSizes[size];
-                                                        setFormData({ ...formData, sizes: newSizes });
+                                                        const entries = Object.entries(formData.sizes);
+                                                        const newEntries = entries.filter(([s]) => s !== size);
+                                                        setFormData({ ...formData, sizes: Object.fromEntries(newEntries) });
                                                     }}
                                                     className="bg-red-600 text-white px-2 py-2 rounded-md hover:bg-red-700"
                                                 >
@@ -545,7 +577,6 @@ export default function AdminMenu() {
                                         </button>
                                     </div>
                                 </div>
-
                                 {/* Seção de Opções de Borda (apenas para pizzas) */}
                                 {formData.category === 'pizzas' && (
                                     <div>
@@ -606,7 +637,6 @@ export default function AdminMenu() {
                                         </div>
                                     </div>
                                 )}
-
                                 {/* Seção de Extras (para pizzas e massas) */}
                                 {(formData.category === 'pizzas' || formData.category === 'massas') && (
                                     <div>
@@ -667,7 +697,6 @@ export default function AdminMenu() {
                                         </div>
                                     </div>
                                 )}
-
                                 <div className="flex justify-end gap-4 pt-4">
                                     <motion.button
                                         type="button"
@@ -681,7 +710,6 @@ export default function AdminMenu() {
                                     >
                                         <FaTimes /> Cancelar
                                     </motion.button>
-
                                     <motion.button
                                         type="submit"
                                         whileHover={{ scale: 1.05 }}

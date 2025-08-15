@@ -65,15 +65,17 @@ export default function MenuDisplay() {
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [categories, setCategories] = useState<{ _id?: string, value: string, label: string }[]>([]);
+    const [catLoading, setCatLoading] = useState(false);
+    const [catError, setCatError] = useState('');
 
-    // Carregar dados do menu da API
+    // Carregar dados do menu e categorias da API
     useEffect(() => {
         const fetchMenuItems = async () => {
             try {
                 setLoading(true);
                 const response = await fetch('/api/menu');
                 const data = await response.json();
-
                 if (data.success) {
                     setMenuItems(data.data);
                 } else {
@@ -86,8 +88,25 @@ export default function MenuDisplay() {
                 setLoading(false);
             }
         };
-
+        const fetchCategories = async () => {
+            setCatLoading(true);
+            setCatError('');
+            try {
+                const res = await fetch('/api/categories');
+                const data = await res.json();
+                if (data.success) {
+                    setCategories(data.data || []);
+                } else {
+                    setCatError(data.error || 'Falha ao buscar categorias.');
+                }
+            } catch (err) {
+                setCatError('Falha ao buscar categorias.');
+            } finally {
+                setCatLoading(false);
+            }
+        };
         fetchMenuItems();
+        fetchCategories();
     }, []);
 
     // Efeito para sincronizar tipoEntrega com localStorage
@@ -125,7 +144,7 @@ export default function MenuDisplay() {
     const [showCategoriesModal, setShowCategoriesModal] = useState(false);
     const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
 
-    const categories = Array.from(new Set(menuItems.map(item => item.category)));
+    // Categorias agora vêm da API, não só dos itens
     const allPizzas = menuItems.filter(item => item.category === 'pizzas');
     const categoriesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -180,7 +199,7 @@ export default function MenuDisplay() {
 
         // Observa todas as categorias
         categories.forEach(category => {
-            const element = document.getElementById(`category-${category}`);
+            const element = document.getElementById(`category-${category.value}`);
             if (element) {
                 observer.observe(element);
             }
@@ -614,18 +633,18 @@ export default function MenuDisplay() {
                         <div className="flex gap-4">
                             {categories.map(category => (
                                 <motion.button
-                                    key={category}
+                                    key={category.value}
                                     variants={categoryVariants}
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
-                                    onClick={() => handleCategoryClick(category)}
-                                    data-category={category}
-                                    className={`px-4 py-2 rounded-full whitespace-nowrap flex-shrink-0 category-button ${selectedCategory === category
+                                    onClick={() => handleCategoryClick(category.value)}
+                                    data-category={category.value}
+                                    className={`px-4 py-2 rounded-full whitespace-nowrap flex-shrink-0 category-button ${selectedCategory === category.value
                                         ? 'bg-red-600 text-white shadow-lg shadow-red-600/25'
                                         : 'bg-[#262525] text-gray-200 hover:bg-gray-800'
                                         }`}
                                 >
-                                    {getCategoryDisplayName(category)}
+                                    {category.label}
                                 </motion.button>
                             ))}
                         </div>
@@ -668,15 +687,15 @@ export default function MenuDisplay() {
                     className="space-y-8"
                 >
                     {categories.map(category => (
-                        <div key={category} id={`category-${category}`} className="space-y-4">
-                            <h2 className="text-2xl font-bold text-red-600 capitalize">{category}</h2>
+                        <div key={category.value} id={`category-${category.value}`} className="space-y-4">
+                            <h2 className="text-2xl font-bold text-red-600 capitalize">{category.label}</h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {menuItems
-                                    .filter(item => item.category === category)
+                                    .filter(item => item.category === category.value)
                                     .slice() // cópia para não mutar o estado
                                     .sort((a, b) => {
                                         // Se for pizzas, força calabresa no topo
-                                        if (category === 'pizzas') {
+                                        if (category.value === 'pizzas') {
                                             if (a.name.toLowerCase().includes('calabresa')) return -1;
                                             if (b.name.toLowerCase().includes('calabresa')) return 1;
                                         }
@@ -780,30 +799,30 @@ export default function MenuDisplay() {
                                 <div className="space-y-2 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-red-600 scrollbar-track-gray-800 pr-2">
                                     {categories.map((category, index) => (
                                         <motion.button
-                                            key={category}
+                                            key={category.value}
                                             initial={{ opacity: 0, x: -20 }}
                                             animate={{ opacity: 1, x: 0 }}
                                             transition={{ delay: index * 0.05 }}
                                             whileHover={{ scale: 1.02, x: 5 }}
                                             whileTap={{ scale: 0.98 }}
-                                            onClick={() => handleCategorySelect(category)}
-                                            className={`w-full text-left p-4 rounded-xl transition-all duration-300 border ${selectedCategory === category
+                                            onClick={() => handleCategorySelect(category.value)}
+                                            className={`w-full text-left p-4 rounded-xl transition-all duration-300 border ${selectedCategory === category.value
                                                 ? 'bg-gradient-to-r from-red-600 to-red-700 text-white border-red-500 shadow-lg shadow-red-600/25'
                                                 : 'bg-gray-800/50 text-gray-200 hover:bg-gray-700/70 border-gray-700 hover:border-gray-600 hover:shadow-lg'
                                                 }`}
                                         >
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`w-3 h-3 rounded-full ${selectedCategory === category ? 'bg-white' : 'bg-gray-500'
+                                                    <div className={`w-3 h-3 rounded-full ${selectedCategory === category.value ? 'bg-white' : 'bg-gray-500'
                                                         }`}></div>
-                                                    <span className="text-lg font-medium">{getCategoryDisplayName(category)}</span>
+                                                    <span className="text-lg font-medium">{getCategoryDisplayName(category.value)}</span>
                                                 </div>
                                                 <motion.div
                                                     initial={{ opacity: 0 }}
                                                     animate={{ opacity: 1 }}
                                                     transition={{ delay: index * 0.1 + 0.2 }}
                                                 >
-                                                    <svg className={`w-5 h-5 transition-colors ${selectedCategory === category ? 'text-white' : 'text-gray-400'
+                                                    <svg className={`w-5 h-5 transition-colors ${selectedCategory === category.value ? 'text-white' : 'text-gray-400'
                                                         }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                                     </svg>
