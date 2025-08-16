@@ -71,6 +71,10 @@ export default function MenuDisplay() {
 
     // Carregar dados do menu e categorias da API
     useEffect(() => {
+        // Inicializa a categoria selecionada como a primeira visível
+        if (categories.length > 0 && !selectedCategory) {
+            setSelectedCategory(categories[0].value);
+        }
         const fetchMenuItems = async () => {
             try {
                 setLoading(true);
@@ -158,11 +162,10 @@ export default function MenuDisplay() {
                         const category = entry.target.id.replace('category-', '');
                         setSelectedCategory(category);
 
-                        // Implementa throttling para a rolagem
+                        // Throttle para rolagem horizontal dos botões
                         if (scrollTimeout) {
                             clearTimeout(scrollTimeout);
                         }
-
                         scrollTimeout = setTimeout(() => {
                             if (categoriesContainerRef.current) {
                                 const categoryButton = categoriesContainerRef.current.querySelector(`[data-category="${category}"]`);
@@ -172,12 +175,9 @@ export default function MenuDisplay() {
                                     const containerWidth = container.offsetWidth;
                                     const buttonLeft = button.offsetLeft;
                                     const buttonWidth = button.offsetWidth;
-
-                                    // Adiciona margem de segurança para melhor visualização
-                                    const margin = 20;
+                                    // Margem menor para mobile
+                                    const margin = window.innerWidth < 600 ? 8 : 20;
                                     const scrollLeft = buttonLeft - (containerWidth / 2) + (buttonWidth / 2);
-
-                                    // Usa requestAnimationFrame para animação mais suave
                                     requestAnimationFrame(() => {
                                         container.scrollTo({
                                             left: Math.max(0, scrollLeft - margin),
@@ -186,14 +186,14 @@ export default function MenuDisplay() {
                                     });
                                 }
                             }
-                        }, 100); // Throttle de 100ms
+                        }, 100);
                     }
                 });
             },
             {
-                // Ajusta as margens para melhor detecção
-                rootMargin: '-80px 0px -60% 0px',
-                threshold: [0, 0.3, 0.7, 1] // Adiciona múltiplos thresholds para detecção mais precisa
+                // rootMargin menor para mobile, maior para desktop
+                rootMargin: window.innerWidth < 600 ? '-40px 0px -40% 0px' : '-80px 0px -60% 0px',
+                threshold: window.innerWidth < 600 ? [0.1, 0.5, 0.9] : [0, 0.3, 0.7, 1]
             }
         );
 
