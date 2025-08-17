@@ -155,76 +155,50 @@ export default function MenuDisplay() {
     const categoriesContainerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        // Cria um observer otimizado com throttling para melhor performance
-        let scrollTimeout: NodeJS.Timeout;
+        if (categories.length === 0) return;
+
         let isScrolling = false;
 
-        const observer = new IntersectionObserver(
-            (entries) => {
-                // Encontra a entrada mais visível
-                let mostVisibleEntry: IntersectionObserverEntry | null = null;
-                let highestRatio = 0;
+        // Função para verificar qual categoria está mais visível
+        const checkVisibleCategory = () => {
+            if (isScrolling) return;
+            
+            const categoryElements = categories.map(cat => ({
+                element: document.getElementById(`category-${cat.value}`),
+                value: cat.value
+            })).filter(item => item.element);
 
-                for (const entry of entries) {
-                    if (entry.isIntersecting && entry.intersectionRatio > highestRatio) {
-                        highestRatio = entry.intersectionRatio;
-                        mostVisibleEntry = entry;
+            let bestCategory = categories[0]?.value || 'pizzas';
+            let bestVisibility = 0;
+
+            categoryElements.forEach(({ element, value }) => {
+                if (element) {
+                    const rect = element.getBoundingClientRect();
+                    const windowHeight = window.innerHeight;
+                    
+                    // Calcula a visibilidade do elemento
+                    const visibleHeight = Math.min(rect.bottom, windowHeight) - Math.max(rect.top, 0);
+                    const visibility = Math.max(0, visibleHeight / element.offsetHeight);
+                    
+                    if (visibility > bestVisibility) {
+                        bestVisibility = visibility;
+                        bestCategory = value;
                     }
                 }
+            });
 
-                if (mostVisibleEntry && !isScrolling) {
-                    const target = mostVisibleEntry.target;
-                    if (target instanceof HTMLElement && target.id) {
-                        const category = target.id.replace('category-', '');
-                        setSelectedCategory(category);
-
-                        // Scroll suave para centralizar o botão da categoria
-                        if (scrollTimeout) {
-                            clearTimeout(scrollTimeout);
-                        }
-                        scrollTimeout = setTimeout(() => {
-                            if (categoriesContainerRef.current) {
-                                const categoryButton = categoriesContainerRef.current.querySelector(`[data-category="${category}"]`);
-                                if (categoryButton) {
-                                    const container = categoriesContainerRef.current;
-                                    const button = categoryButton as HTMLElement;
-                                    const containerWidth = container.offsetWidth;
-                                    const buttonLeft = button.offsetLeft;
-                                    const buttonWidth = button.offsetWidth;
-                                    
-                                    // Calcula a posição para centralizar o botão
-                                    const scrollLeft = buttonLeft - (containerWidth / 2) + (buttonWidth / 2);
-                                    
-                                    // Aplica scroll suave
-                                    container.scrollTo({
-                                        left: Math.max(0, scrollLeft),
-                                        behavior: 'smooth'
-                                    });
-                                }
-                            }
-                        }, 150);
-                    }
-                }
-            },
-            {
-                // Configurações otimizadas para diferentes tamanhos de tela
-                rootMargin: window.innerWidth < 768 ? '-20px 0px -30% 0px' : '-50px 0px -40% 0px',
-                threshold: [0, 0.1, 0.3, 0.5, 0.7, 0.9, 1]
+            if (bestVisibility > 0.2) { // Só muda se pelo menos 20% estiver visível
+                setSelectedCategory(bestCategory);
             }
-        );
-
-        // Observa todas as categorias
-        categories.forEach(category => {
-            const element = document.getElementById(`category-${category.value}`);
-            if (element) {
-                observer.observe(element);
-            }
-        });
+        };
 
         // Listener para detectar scroll no topo
         const handleScroll = () => {
             if (window.scrollY < 100) {
                 setSelectedCategory(categories[0]?.value || 'pizzas');
+            } else {
+                // Chama a verificação de categoria visível
+                checkVisibleCategory();
             }
         };
 
@@ -233,17 +207,17 @@ export default function MenuDisplay() {
             isScrolling = true;
             setTimeout(() => {
                 isScrolling = false;
-            }, 1000);
+            }, 500); // Reduzido para 500ms
         };
 
-        window.addEventListener('scroll', handleScroll);
+        // Adiciona os event listeners
+        window.addEventListener('scroll', handleScroll, { passive: true });
         window.addEventListener('scroll', handleScrollStart, { passive: true });
 
+        // Executa uma verificação inicial
+        setTimeout(checkVisibleCategory, 100);
+
         return () => {
-            if (scrollTimeout) {
-                clearTimeout(scrollTimeout);
-            }
-            observer.disconnect();
             window.removeEventListener('scroll', handleScroll);
             window.removeEventListener('scroll', handleScrollStart);
         };

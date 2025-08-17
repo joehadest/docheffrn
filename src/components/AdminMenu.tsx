@@ -21,6 +21,7 @@ export default function AdminMenu() {
     const [catError, setCatError] = useState('');
     const [catForm, setCatForm] = useState<{ value: string, label: string, order?: number }>({ value: '', label: '', order: 0 });
     const [catEditId, setCatEditId] = useState<string | null>(null);
+    const [deletingItems, setDeletingItems] = useState<Set<string>>(new Set());
 
     // --- Tipo para o formulário de item ---
     interface FormData {
@@ -86,6 +87,45 @@ export default function AdminMenu() {
             setCatError('Falha ao buscar categorias.');
         } finally {
             setCatLoading(false);
+        }
+    };
+
+    // Função para deletar item do menu
+    const handleDeleteItem = async (itemId: string, itemName: string) => {
+        if (!confirm(`Tem certeza que deseja excluir o item "${itemName}"?`)) {
+            return;
+        }
+
+        try {
+            // Adiciona o item ao conjunto de itens sendo excluídos
+            setDeletingItems(prev => new Set(prev).add(itemId));
+            
+            const res = await fetch(`/api/menu?id=${itemId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                // Remove o item da lista local
+                setMenuItems(prevItems => prevItems.filter(item => item._id !== itemId));
+                alert('Item excluído com sucesso!');
+            } else {
+                alert(data.error || 'Erro ao excluir item');
+            }
+        } catch (err) {
+            console.error('Erro ao excluir item:', err);
+            alert('Erro ao conectar com o servidor');
+        } finally {
+            // Remove o item do conjunto de itens sendo excluídos
+            setDeletingItems(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(itemId);
+                return newSet;
+            });
         }
     };
     
@@ -376,7 +416,7 @@ export default function AdminMenu() {
                                         </div>
                                         <div className="flex gap-2 mt-2">
                                             <button
-                                                className="bg-blue-600 text-white px-3 py-1 rounded"
+                                                className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors"
                                                 onClick={() => {
                                                     setEditingItem(item);
                                                     setShowEditModal(true);
@@ -394,9 +434,28 @@ export default function AdminMenu() {
                                                     });
                                                 }}
                                             >
-                                                Editar
+                                                <span className="flex items-center gap-1">
+                                                    <FaEdit className="w-3 h-3" />
+                                                    Editar
+                                                </span>
                                             </button>
-                                            <button className="bg-red-600 text-white px-3 py-1 rounded" onClick={() => {/* implementar exclusão */}}>Excluir</button>
+                                            <button 
+                                                className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+                                                onClick={() => handleDeleteItem(item._id, item.name)}
+                                                disabled={deletingItems.has(item._id)}
+                                            >
+                                                {deletingItems.has(item._id) ? (
+                                                    <span className="flex items-center gap-1">
+                                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                        Excluindo...
+                                                    </span>
+                                                ) : (
+                                                    <span className="flex items-center gap-1">
+                                                        <FaTrash className="w-3 h-3" />
+                                                        Excluir
+                                                    </span>
+                                                )}
+                                            </button>
                                         </div>
                                     </div>
                                 ))}
