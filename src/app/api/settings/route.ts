@@ -1,3 +1,33 @@
+export async function POST(request: Request) {
+    try {
+        const { isOpen, deliveryFees, businessHours, allowHalfAndHalf } = await request.json();
+        await connectDB();
+        let settings = await Settings.findOne();
+        if (!settings) {
+            settings = await Settings.create({
+                isOpen,
+                deliveryFees,
+                businessHours,
+                allowHalfAndHalf,
+                lastUpdated: new Date()
+            });
+        } else {
+            settings.isOpen = isOpen;
+            settings.deliveryFees = deliveryFees;
+            settings.businessHours = businessHours;
+            settings.allowHalfAndHalf = allowHalfAndHalf;
+            settings.lastUpdated = new Date();
+            await settings.save();
+        }
+        return NextResponse.json({ success: true, data: settings });
+    } catch (error) {
+        console.error('Erro ao atualizar configurações:', error);
+        return NextResponse.json(
+            { success: false, message: 'Erro ao atualizar configurações' },
+            { status: 500 }
+        );
+    }
+}
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import { isRestaurantOpen, getRestaurantStatus } from '../../../utils/timeUtils';
