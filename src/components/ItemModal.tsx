@@ -240,7 +240,9 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas }: Ite
                                                             }`}
                                                     >
                                                         <div className="font-semibold capitalize">{border}</div>
-                                                        <div className="text-sm">+ R$ {item.borderOptions[border].toFixed(2)}</div>
+                                                        {item.borderOptions && typeof item.borderOptions[border] === 'number' && (
+                                                            <div className="text-sm">+ R$ {item.borderOptions[border].toFixed(2)}</div>
+                                                        )}
                                                     </button>
                                                 ))}
                                         </div>
