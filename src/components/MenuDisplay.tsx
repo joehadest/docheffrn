@@ -162,45 +162,48 @@ export default function MenuDisplay() {
         const observer = new IntersectionObserver(
             (entries) => {
                 // Encontra a entrada mais visível
-                let mostVisibleEntry = null;
+                let mostVisibleEntry: IntersectionObserverEntry | null = null;
                 let highestRatio = 0;
 
-                entries.forEach((entry) => {
+                for (const entry of entries) {
                     if (entry.isIntersecting && entry.intersectionRatio > highestRatio) {
                         highestRatio = entry.intersectionRatio;
                         mostVisibleEntry = entry;
                     }
-                });
+                }
 
                 if (mostVisibleEntry && !isScrolling) {
-                    const category = (mostVisibleEntry.target as HTMLElement).id.replace('category-', '');
-                    setSelectedCategory(category);
+                    const target = mostVisibleEntry.target;
+                    if (target instanceof HTMLElement && target.id) {
+                        const category = target.id.replace('category-', '');
+                        setSelectedCategory(category);
 
-                    // Scroll suave para centralizar o botão da categoria
-                    if (scrollTimeout) {
-                        clearTimeout(scrollTimeout);
-                    }
-                    scrollTimeout = setTimeout(() => {
-                        if (categoriesContainerRef.current) {
-                            const categoryButton = categoriesContainerRef.current.querySelector(`[data-category="${category}"]`);
-                            if (categoryButton) {
-                                const container = categoriesContainerRef.current;
-                                const button = categoryButton as HTMLElement;
-                                const containerWidth = container.offsetWidth;
-                                const buttonLeft = button.offsetLeft;
-                                const buttonWidth = button.offsetWidth;
-                                
-                                // Calcula a posição para centralizar o botão
-                                const scrollLeft = buttonLeft - (containerWidth / 2) + (buttonWidth / 2);
-                                
-                                // Aplica scroll suave
-                                container.scrollTo({
-                                    left: Math.max(0, scrollLeft),
-                                    behavior: 'smooth'
-                                });
-                            }
+                        // Scroll suave para centralizar o botão da categoria
+                        if (scrollTimeout) {
+                            clearTimeout(scrollTimeout);
                         }
-                    }, 150);
+                        scrollTimeout = setTimeout(() => {
+                            if (categoriesContainerRef.current) {
+                                const categoryButton = categoriesContainerRef.current.querySelector(`[data-category="${category}"]`);
+                                if (categoryButton) {
+                                    const container = categoriesContainerRef.current;
+                                    const button = categoryButton as HTMLElement;
+                                    const containerWidth = container.offsetWidth;
+                                    const buttonLeft = button.offsetLeft;
+                                    const buttonWidth = button.offsetWidth;
+                                    
+                                    // Calcula a posição para centralizar o botão
+                                    const scrollLeft = buttonLeft - (containerWidth / 2) + (buttonWidth / 2);
+                                    
+                                    // Aplica scroll suave
+                                    container.scrollTo({
+                                        left: Math.max(0, scrollLeft),
+                                        behavior: 'smooth'
+                                    });
+                                }
+                            }
+                        }, 150);
+                    }
                 }
             },
             {
