@@ -39,7 +39,9 @@ const overlayVariants = {
 export default function ItemModal({ item, onClose, onAddToCart, allPizzas }: ItemModalProps & { allPizzas?: MenuItem[] }) {
     const [quantity, setQuantity] = useState(1);
     const [observation, setObservation] = useState('');
-    const [selectedSize, setSelectedSize] = useState<string>('P');
+    // Inicializa o tamanho padrão conforme o item
+    const defaultSize = item.sizes ? Object.keys(item.sizes)[0] : 'P';
+    const [selectedSize, setSelectedSize] = useState<string>(defaultSize);
     const [selectedBorder, setSelectedBorder] = useState<string>('');
     const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
     const [isHalf, setIsHalf] = useState(false);
@@ -50,7 +52,6 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas }: Ite
         e.preventDefault();
         if (isHalf && half1 && half2) {
             const description = `Meio a meio: ${half1.name} / ${half2.name}`;
-            const price = calculatePizzaPrice(item, selectedSize, selectedBorder, selectedExtras, description, allPizzas);
             onAddToCart(quantity, observation ? description + ' - ' + observation : description, selectedSize, selectedBorder, selectedExtras);
         } else {
             onAddToCart(quantity, observation, selectedSize, selectedBorder, selectedExtras);
@@ -140,7 +141,7 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas }: Ite
                                 </div>
 
                                 {/* Opção Meio a Meio */}
-                                {item.category === 'pizzas' && allPizzas && (
+                                {(item.category === 'pizzas' || item.category === 'calzone') && allPizzas && (
                                     <div className="bg-[#262525] p-4 rounded-lg mb-4">
                                         <label className="flex items-center gap-2 mb-2">
                                             <input type="checkbox" checked={isHalf} onChange={e => setIsHalf(e.target.checked)} />

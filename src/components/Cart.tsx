@@ -89,24 +89,24 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
 
     // Funções para cálculo de preços
     const calculateItemPrice = (item: CartItem) => {
-        if ((item.item.category === 'pizzas' || item.item.category === 'massas') && item.size && item.item.sizes) {
+        if ((item.item.category === 'pizzas' || item.item.category === 'calzone' || item.item.category === 'massas') && item.size && item.item.sizes) {
             const sizeKey = item.size as keyof typeof item.item.sizes;
             let price = 0;
 
-            if (item.item.category === 'pizzas') {
-                // Se for pizza meio a meio, pega o preço mais alto dos dois sabores
+            if (item.item.category === 'pizzas' || item.item.category === 'calzone') {
+                // Se for pizza ou calzone meio a meio, pega o preço mais alto dos dois sabores
                 if (item.observation && item.observation.includes('Meio a meio:')) {
                     const meioAMeioText = item.observation.split('Meio a meio:')[1];
                     // Remove observações adicionais após o slash (como "- Sem cebola")
                     const cleanMeioAMeioText = meioAMeioText.split(' - ')[0];
                     const [sabor1, sabor2] = cleanMeioAMeioText.split('/').map(s => s.trim());
-                    const pizzas = menuItems.filter((p: MenuItem) => p.category === 'pizzas');
-                    const pizza1 = pizzas.find((p: MenuItem) => p.name === sabor1);
-                    const pizza2 = pizzas.find((p: MenuItem) => p.name === sabor2);
+                    const items = menuItems.filter((p: MenuItem) => p.category === item.item.category);
+                    const item1 = items.find((p: MenuItem) => p.name === sabor1);
+                    const item2 = items.find((p: MenuItem) => p.name === sabor2);
 
-                    if (pizza1 && pizza2) {
-                        const price1 = pizza1.sizes ? pizza1.sizes[sizeKey] || pizza1.price : pizza1.price;
-                        const price2 = pizza2.sizes ? pizza2.sizes[sizeKey] || pizza2.price : pizza2.price;
+                    if (item1 && item2) {
+                        const price1 = item1.sizes ? item1.sizes[sizeKey] || item1.price : item1.price;
+                        const price2 = item2.sizes ? item2.sizes[sizeKey] || item2.price : item2.price;
                         price = Math.max(price1, price2);
                     }
                 } else {
@@ -139,24 +139,24 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
     };
 
     const calculateUnitPrice = (item: CartItem) => {
-        if ((item.item.category === 'pizzas' || item.item.category === 'massas') && item.size && item.item.sizes) {
+        if ((item.item.category === 'pizzas' || item.item.category === 'calzone' || item.item.category === 'massas') && item.size && item.item.sizes) {
             const sizeKey = item.size as keyof typeof item.item.sizes;
             let price = 0;
 
-            if (item.item.category === 'pizzas') {
-                // Se for pizza meio a meio, pega o preço mais alto dos dois sabores
+            if (item.item.category === 'pizzas' || item.item.category === 'calzone') {
+                // Se for pizza ou calzone meio a meio, pega o preço mais alto dos dois sabores
                 if (item.observation && item.observation.includes('Meio a meio:')) {
                     const meioAMeioText = item.observation.split('Meio a meio:')[1];
                     // Remove observações adicionais após o slash (como "- Sem cebola")
                     const cleanMeioAMeioText = meioAMeioText.split(' - ')[0];
                     const [sabor1, sabor2] = cleanMeioAMeioText.split('/').map(s => s.trim());
-                    const pizzas = menuItems.filter((p: MenuItem) => p.category === 'pizzas');
-                    const pizza1 = pizzas.find((p: MenuItem) => p.name === sabor1);
-                    const pizza2 = pizzas.find((p: MenuItem) => p.name === sabor2);
+                    const items = menuItems.filter((p: MenuItem) => p.category === item.item.category);
+                    const item1 = items.find((p: MenuItem) => p.name === sabor1);
+                    const item2 = items.find((p: MenuItem) => p.name === sabor2);
 
-                    if (pizza1 && pizza2) {
-                        const price1 = pizza1.sizes ? pizza1.sizes[sizeKey] || pizza1.price : pizza1.price;
-                        const price2 = pizza2.sizes ? pizza2.sizes[sizeKey] || pizza2.price : pizza2.price;
+                    if (item1 && item2) {
+                        const price1 = item1.sizes ? item1.sizes[sizeKey] || item1.price : item1.price;
+                        const price2 = item2.sizes ? item2.sizes[sizeKey] || item2.price : item2.price;
                         price = Math.max(price1, price2);
                     }
                 } else {
@@ -380,11 +380,11 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
                                             <div className="flex justify-between items-start">
                                                 <div className="flex-1">
                                                     <h3 className="font-semibold text-gray-200 text-sm sm:text-base">{item.item.name}</h3>
-                                                    {(item.item.category === 'pizzas' || item.item.category === 'massas') && (
+                                                    {(item.item.category === 'pizzas' || item.item.category === 'calzone' || item.item.category === 'massas') && (
                                                         <div className="text-xs sm:text-sm text-gray-400">
                                                             {item.size && <span>Tamanho: {item.size}</span>}
-                                                            {item.item.category === 'pizzas' && item.border && <span> • Borda: {item.border}</span>}
-                                                            {item.item.category === 'pizzas' && item.extras && item.extras.length > 0 && (
+                                                            {(item.item.category === 'pizzas' || item.item.category === 'calzone') && item.border && <span> • Borda: {item.border}</span>}
+                                                            {(item.item.category === 'pizzas' || item.item.category === 'calzone') && item.extras && item.extras.length > 0 && (
                                                                 <span> • Extras: {item.extras.join(', ')}</span>
                                                             )}
                                                         </div>
