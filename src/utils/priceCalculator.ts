@@ -9,11 +9,11 @@ export const calculatePizzaPrice = (
     allPizzas?: MenuItem[]
 ): number => {
     let price = item.price;
-    if (item.category === 'pizzas' && size && item.sizes) {
+    if (size && item.sizes) {
         const sizeKey = size as keyof typeof item.sizes;
 
         // Se for pizza meio a meio, pega o preço mais alto dos dois sabores
-        if (observation && observation.includes('Meio a meio:') && allPizzas) {
+        if (item.category === 'pizzas' && observation && observation.includes('Meio a meio:') && allPizzas) {
             const meioAMeioText = observation.split('Meio a meio:')[1];
             // Remove observações adicionais após o slash (como "- Sem cebola")
             const cleanMeioAMeioText = meioAMeioText.split(' - ')[0];
@@ -48,9 +48,8 @@ export const calculatePizzaPrice = (
 
         price = item.sizes[sizeKey] || price;
 
-        if (border && item.borderOptions) {
-            const borderPrice = sizeKey === 'G' ? 8.00 : 4.00;
-            price += borderPrice;
+        if (border && item.borderOptions && item.borderOptions[border] !== undefined) {
+            price += item.borderOptions[border];
         }
         if (extras && item.extraOptions) {
             extras.forEach(extra => {

@@ -48,6 +48,8 @@ const categoryVariants = {
 };
 
 export default function MenuDisplay() {
+    // ...existing code...
+    const categoriesContainerRef = useRef<HTMLDivElement>(null);
     const { isOpen, toggleOpen } = useMenu();
     const { items: cartItems, addToCart, removeFromCart, updateQuantity, clearCart } = useCart();
     const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
@@ -71,10 +73,6 @@ export default function MenuDisplay() {
 
     // Carregar dados do menu e categorias da API
     useEffect(() => {
-        // Inicializa a categoria selecionada como a primeira visível
-        if (categories.length > 0 && !selectedCategory) {
-            setSelectedCategory(categories[0].value);
-        }
         const fetchMenuItems = async () => {
             try {
                 setLoading(true);
@@ -102,6 +100,10 @@ export default function MenuDisplay() {
                     // Ordena as categorias pelo campo 'order' antes de exibir
                     const sorted = (data.data || []).slice().sort((a: { order?: number }, b: { order?: number }) => (a.order ?? 0) - (b.order ?? 0));
                     setCategories(sorted);
+                    // Inicializa a categoria selecionada após buscar
+                    if (sorted.length > 0) {
+                        setSelectedCategory(sorted[0].value);
+                    }
                 } else {
                     setCatError(data.error || 'Falha ao buscar categorias.');
                 }
@@ -114,6 +116,15 @@ export default function MenuDisplay() {
         fetchMenuItems();
         fetchCategories();
     }, []);
+
+    // Scroll horizontal automático da barra de categorias
+    useEffect(() => {
+        if (!selectedCategory || !categoriesContainerRef.current) return;
+        const btn = categoriesContainerRef.current.querySelector(`[data-category="${selectedCategory}"]`);
+        if (btn && typeof (btn as HTMLElement).scrollIntoView === 'function') {
+            (btn as HTMLElement).scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+    }, [selectedCategory]);
 
     // Efeito para sincronizar tipoEntrega com localStorage
     useEffect(() => {
@@ -152,7 +163,15 @@ export default function MenuDisplay() {
 
     // Categorias agora vêm da API, não só dos itens
     const allPizzas = menuItems.filter(item => item.category === 'pizzas');
-    const categoriesContainerRef = useRef<HTMLDivElement>(null);
+    // categoriesContainerRef já existe
+    // Scroll horizontal automático da barra de categorias
+    useEffect(() => {
+        if (!selectedCategory || !categoriesContainerRef.current) return;
+        const btn = categoriesContainerRef.current.querySelector(`[data-category="${selectedCategory}"]`);
+        if (btn && typeof (btn as HTMLElement).scrollIntoView === 'function') {
+            (btn as HTMLElement).scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+    }, [selectedCategory]);
 
     useEffect(() => {
         if (categories.length === 0) return;
@@ -748,7 +767,7 @@ export default function MenuDisplay() {
                                                         whileTap={isRestaurantOpen ? { scale: 0.95 } : {}}
                                                         onClick={() => {
                                                             if (!isRestaurantOpen) return;
-                                                            if (item.category === 'pizzas') {
+                                                            if (item.category === 'pizzas' || item.category === 'calzone') {
                                                                 setSelectedItem(item);
                                                             } else if (item.category === 'massas') {
                                                                 handlePastaClick(item);

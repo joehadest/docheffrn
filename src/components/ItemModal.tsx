@@ -115,7 +115,7 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas }: Ite
                     <p className="text-gray-300 mb-4">{item.description}</p>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        {item.category === 'pizzas' && item.sizes && (
+                        {item.sizes && Object.keys(item.sizes).length > 0 && (
                             <>
                                 <div className="bg-[#262525] p-4 rounded-lg mb-4">
                                     <label className="block text-sm font-medium text-gray-200 mb-3">
@@ -140,7 +140,7 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas }: Ite
                                 </div>
 
                                 {/* Opção Meio a Meio */}
-                                {allPizzas && (
+                                {item.category === 'pizzas' && allPizzas && (
                                     <div className="bg-[#262525] p-4 rounded-lg mb-4">
                                         <label className="flex items-center gap-2 mb-2">
                                             <input type="checkbox" checked={isHalf} onChange={e => setIsHalf(e.target.checked)} />
@@ -185,62 +185,67 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas }: Ite
                                 )}
 
                                 {/* Opções de Extras */}
-                                <div className="bg-[#262525] p-4 rounded-lg">
-                                    <label className="block text-sm font-medium text-gray-200 mb-3">
-                                        Extras
-                                    </label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {item.extraOptions && Object.entries(item.extraOptions).map(([extra, price]) => (
-                                            <button
-                                                key={extra}
-                                                type="button"
-                                                onClick={() => toggleExtra(extra)}
-                                                className={`p-3 rounded-lg border-2 transition-all ${selectedExtras.includes(extra)
-                                                    ? 'border-red-600 bg-red-900/20 text-red-400'
-                                                    : 'border-gray-700 hover:border-red-600 text-gray-300'
-                                                    }`}
-                                            >
-                                                <div className="font-semibold capitalize">{extra}</div>
-                                                <div className="text-sm">+ R$ {price.toFixed(2)}</div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="bg-[#262525] p-4 rounded-lg">
-                                    <label className="block text-sm font-medium text-gray-200 mb-3">
-                                        Borda
-                                    </label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={() => setSelectedBorder('')}
-                                            className={`p-3 rounded-lg border-2 transition-all ${selectedBorder === ''
-                                                ? 'border-red-600 bg-red-900/20 text-red-400'
-                                                : 'border-gray-700 hover:border-red-600 text-gray-300'
-                                                }`}
-                                        >
-                                            <div className="font-semibold">Sem Borda</div>
-                                            <div className="text-sm">+ R$ 0,00</div>
-                                        </button>
-                                        {item.borderOptions && Object.entries(item.borderOptions)
-                                            .filter(([border]) => border.toLowerCase() !== 'sem borda')
-                                            .map(([border, price]) => (
+                                {item.extraOptions && Object.keys(item.extraOptions).length > 0 && (
+                                    <div className="bg-[#262525] p-4 rounded-lg">
+                                        <label className="block text-sm font-medium text-gray-200 mb-3">
+                                            Extras
+                                        </label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {Object.entries(item.extraOptions).map(([extra, price]) => (
                                                 <button
-                                                    key={border}
+                                                    key={extra}
                                                     type="button"
-                                                    onClick={() => setSelectedBorder(border)}
-                                                    className={`p-3 rounded-lg border-2 transition-all ${selectedBorder === border
+                                                    onClick={() => toggleExtra(extra)}
+                                                    className={`p-3 rounded-lg border-2 transition-all ${selectedExtras.includes(extra)
                                                         ? 'border-red-600 bg-red-900/20 text-red-400'
                                                         : 'border-gray-700 hover:border-red-600 text-gray-300'
                                                         }`}
                                                 >
-                                                    <div className="font-semibold capitalize">{border}</div>
-                                                    <div className="text-sm">+ R$ {selectedSize === 'G' ? '8,00' : '4,00'}</div>
+                                                    <div className="font-semibold capitalize">{extra}</div>
+                                                    <div className="text-sm">+ R$ {price.toFixed(2)}</div>
                                                 </button>
                                             ))}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
+
+                                {/* Opções de Borda */}
+                                {item.borderOptions && Object.keys(item.borderOptions).length > 0 && (
+                                    <div className="bg-[#262525] p-4 rounded-lg">
+                                        <label className="block text-sm font-medium text-gray-200 mb-3">
+                                            Borda
+                                        </label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedBorder('')}
+                                                className={`p-3 rounded-lg border-2 transition-all ${selectedBorder === ''
+                                                    ? 'border-red-600 bg-red-900/20 text-red-400'
+                                                    : 'border-gray-700 hover:border-red-600 text-gray-300'
+                                                    }`}
+                                            >
+                                                <div className="font-semibold">Sem Borda</div>
+                                                <div className="text-sm">+ R$ 0,00</div>
+                                            </button>
+                                            {Object.entries(item.borderOptions)
+                                                .filter(([border]) => border.toLowerCase() !== 'sem borda')
+                                                .map(([border, price]) => (
+                                                    <button
+                                                        key={border}
+                                                        type="button"
+                                                        onClick={() => setSelectedBorder(border)}
+                                                        className={`p-3 rounded-lg border-2 transition-all ${selectedBorder === border
+                                                            ? 'border-red-600 bg-red-900/20 text-red-400'
+                                                            : 'border-gray-700 hover:border-red-600 text-gray-300'
+                                                            }`}
+                                                    >
+                                                        <div className="font-semibold capitalize">{border}</div>
+                                                        <div className="text-sm">+ R$ {item.borderOptions[border].toFixed(2)}</div>
+                                                    </button>
+                                                ))}
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         )}
 
