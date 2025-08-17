@@ -99,7 +99,9 @@ export default function MenuDisplay() {
                 const res = await fetch('/api/categories');
                 const data = await res.json();
                 if (data.success) {
-                    setCategories(data.data || []);
+                    // Ordena as categorias pelo campo 'order' antes de exibir
+                    const sorted = (data.data || []).slice().sort((a: { order?: number }, b: { order?: number }) => (a.order ?? 0) - (b.order ?? 0));
+                    setCategories(sorted);
                 } else {
                     setCatError(data.error || 'Falha ao buscar categorias.');
                 }

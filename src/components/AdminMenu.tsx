@@ -16,10 +16,10 @@ export default function AdminMenu() {
     const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
     const [selectedCategory, setSelectedCategory] = useState<string>('todas');
     const [activeTab, setActiveTab] = useState<'menu' | 'categories'>('menu');
-    const [categories, setCategories] = useState<{ _id?: string, value: string, label: string }[]>([]);
+    const [categories, setCategories] = useState<{ _id?: string, value: string, label: string, order?: number }[]>([]);
     const [catLoading, setCatLoading] = useState(false);
     const [catError, setCatError] = useState('');
-    const [catForm, setCatForm] = useState<{ value: string, label: string }>({ value: '', label: '' });
+    const [catForm, setCatForm] = useState<{ value: string, label: string, order?: number }>({ value: '', label: '', order: 0 });
     const [catEditId, setCatEditId] = useState<string | null>(null);
 
     // --- Tipo para o formulário de item ---
@@ -148,6 +148,7 @@ export default function AdminMenu() {
                                 const method = catEditId ? 'PUT' : 'POST';
                                 const url = '/api/categories';
                                 const body = catEditId ? { ...catForm, _id: catEditId } : catForm;
+                                if (typeof body.order !== 'number') body.order = 0;
                                 const res = await fetch(url, {
                                     method,
                                     headers: { 'Content-Type': 'application/json' },
@@ -155,7 +156,7 @@ export default function AdminMenu() {
                                 });
                                 const data = await res.json();
                                 if (data.success) {
-                                    setCatForm({ value: '', label: '' });
+                                    setCatForm({ value: '', label: '', order: 0 });
                                     setCatEditId(null);
                                     fetchCategories();
                                 } else {
@@ -183,6 +184,14 @@ export default function AdminMenu() {
                             className="rounded-md border border-gray-600 bg-[#262525] text-white px-3 py-2 flex-1"
                             required
                         />
+                        <input
+                            type="number"
+                            placeholder="Ordem"
+                            value={typeof catForm.order === 'number' ? catForm.order : 0}
+                            min={0}
+                            onChange={e => setCatForm({ ...catForm, order: parseInt(e.target.value) || 0 })}
+                            className="rounded-md border border-gray-600 bg-[#262525] text-white px-3 py-2 w-24"
+                        />
                         <button
                             type="submit"
                             className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-bold"
@@ -197,6 +206,7 @@ export default function AdminMenu() {
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="text-gray-400">
+                                    <th className="py-2">Ordem</th>
                                     <th className="py-2">Valor</th>
                                     <th className="py-2">Nome</th>
                                     <th className="py-2">Ações</th>
@@ -205,10 +215,37 @@ export default function AdminMenu() {
                             <tbody>
                                 {categories.map(cat => (
                                     <tr key={cat._id || cat.value} className="border-b border-gray-700">
+                                        <td className="py-2 text-white">
+                                            <input
+                                                type="number"
+                                                value={typeof cat.order === 'number' ? cat.order : 0}
+                                                min={0}
+                                                className="w-16 rounded border border-gray-600 bg-[#262525] text-white px-2 py-1"
+                                                onChange={async (e) => {
+                                                    const newOrder = parseInt(e.target.value) || 0;
+                                                    try {
+                                                        setCatLoading(true);
+                                                        setCatError('');
+                                                        const res = await fetch('/api/categories', {
+                                                            method: 'PUT',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ ...cat, order: newOrder })
+                                                        });
+                                                        const data = await res.json();
+                                                        if (data.success) fetchCategories();
+                                                        else setCatError(data.error || 'Erro ao atualizar ordem');
+                                                    } catch {
+                                                        setCatError('Erro ao conectar com o servidor');
+                                                    } finally {
+                                                        setCatLoading(false);
+                                                    }
+                                                }}
+                                            />
+                                        </td>
                                         <td className="py-2 text-white">{cat.value}</td>
                                         <td className="py-2 text-white">{cat.label}</td>
                                         <td className="py-2">
-                                            <button className="bg-blue-600 text-white px-3 py-1 rounded-lg mr-2" onClick={() => { setCatEditId(cat._id || ''); setCatForm({ value: cat.value, label: cat.label }); }}>Editar</button>
+                                            <button className="bg-blue-600 text-white px-3 py-1 rounded-lg mr-2" onClick={() => { setCatEditId(cat._id || ''); setCatForm({ value: cat.value, label: cat.label, order: cat.order ?? 0 }); }}>Editar</button>
                                             <button className="bg-red-600 text-white px-3 py-1 rounded-lg" onClick={async () => {
                                                 if (!confirm('Excluir esta categoria?')) return;
                                                 setCatLoading(true);
