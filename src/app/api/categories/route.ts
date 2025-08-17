@@ -1,40 +1,3 @@
-// Endpoint para sincronizar a ordem das categorias conforme a ordem atual do painel admin ou ordem visual desejada
-export async function PATCH(request: Request) {
-	await connectDB();
-	const body = await request.json();
-	let updated = [];
-	if (Array.isArray(body.categories)) {
-		// Sincroniza conforme o array recebido do painel admin
-		for (let i = 0; i < body.categories.length; i++) {
-			const cat = body.categories[i];
-			const result = await Category.findByIdAndUpdate(cat._id, { order: i + 1 }, { new: true });
-			if (result) updated.push(result);
-		}
-		return NextResponse.json({ success: true, updated });
-	} else {
-		// Se não receber array, mantém a ordem visual fixa
-		const visualOrder = [
-			{ value: 'pizzas', order: 1 },
-			{ value: 'esfirras', order: 2 },
-			{ value: 'massas', order: 3 },
-			{ value: 'panquecas', order: 4 },
-			{ value: 'tapiocas', order: 5 },
-			{ value: 'hamburgueres', order: 6 },
-			{ value: 'petiscos', order: 7 },
-			{ value: 'bebidas', order: 8 },
-			{ value: 'Refrigerantes', order: 9 }
-		];
-		for (const item of visualOrder) {
-			const result = await Category.findOneAndUpdate(
-				{ value: item.value },
-				{ order: item.order },
-				{ new: true }
-			);
-			if (result) updated.push(result);
-		}
-		return NextResponse.json({ success: true, updated });
-	}
-}
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 
@@ -76,6 +39,25 @@ try {
 	Category = mongoose.model<ICategory>('Category');
 } catch {
 	Category = mongoose.model<ICategory>('Category', categorySchema);
+}
+
+// Endpoint para sincronizar a ordem das categorias conforme a ordem atual do painel admin
+export async function PATCH(request: Request) {
+	await connectDB();
+	const body = await request.json();
+	let updated = [];
+	
+	if (Array.isArray(body.categories)) {
+		// Sincroniza conforme o array recebido do painel admin
+		for (let i = 0; i < body.categories.length; i++) {
+			const cat = body.categories[i];
+			const result = await Category.findByIdAndUpdate(cat._id, { order: i + 1 }, { new: true });
+			if (result) updated.push(result);
+		}
+		return NextResponse.json({ success: true, updated });
+	} else {
+		return NextResponse.json({ success: false, error: 'Array de categorias é obrigatório.' }, { status: 400 });
+	}
 }
 
 export async function GET() {

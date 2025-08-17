@@ -76,7 +76,9 @@ export default function AdminMenu() {
             const res = await fetch('/api/categories');
             const data = await res.json();
             if (data.success) {
-                setCategories(data.data || []);
+                // Ordena as categorias pelo campo 'order' para manter sincronização com o cardápio
+                const sorted = (data.data || []).slice().sort((a: { order?: number }, b: { order?: number }) => (a.order ?? 0) - (b.order ?? 0));
+                setCategories(sorted);
             } else {
                 setCatError(data.error || 'Falha ao buscar categorias.');
             }
@@ -140,7 +142,36 @@ export default function AdminMenu() {
             {/* Aba de Categorias */}
             {activeTab === 'categories' && (
                 <div className="bg-[#1a1a1a] rounded-xl border border-gray-800 p-6">
-                    <h2 className="text-xl font-bold text-red-600 mb-4">Gerenciar Categorias</h2>
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-bold text-red-600">Gerenciar Categorias</h2>
+                        <button
+                            onClick={async () => {
+                                try {
+                                    setCatLoading(true);
+                                    setCatError('');
+                                    const res = await fetch('/api/categories', {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ categories: categories })
+                                    });
+                                    const data = await res.json();
+                                    if (data.success) {
+                                        fetchCategories();
+                                    } else {
+                                        setCatError(data.error || 'Erro ao sincronizar ordem');
+                                    }
+                                } catch {
+                                    setCatError('Erro ao conectar com o servidor');
+                                } finally {
+                                    setCatLoading(false);
+                                }
+                            }}
+                            disabled={catLoading}
+                            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                            {catLoading ? 'Sincronizando...' : 'Salvar Ordem Atual'}
+                        </button>
+                    </div>
                     <form
                         onSubmit={async (e) => {
                             e.preventDefault();
@@ -202,6 +233,11 @@ export default function AdminMenu() {
                         )}
                     </form>
                     {catError && <div className="text-red-400 mb-2">{catError}</div>}
+                    <div className="bg-gray-800/50 rounded-lg p-3 mb-4">
+                        <p className="text-sm text-gray-300">
+                            <strong>Salvar Ordem Atual:</strong> Salva a ordem atual da tabela como a nova ordem padrão para o cardápio. Organize as categorias manualmente alterando os números na coluna "Ordem" e clique neste botão para aplicar as mudanças.
+                        </p>
+                    </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead>

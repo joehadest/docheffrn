@@ -157,45 +157,56 @@ export default function MenuDisplay() {
     useEffect(() => {
         // Cria um observer otimizado com throttling para melhor performance
         let scrollTimeout: NodeJS.Timeout;
+        let isScrolling = false;
+
         const observer = new IntersectionObserver(
             (entries) => {
-                entries.forEach((entry) => {
-                    if (entry.isIntersecting) {
-                        const category = entry.target.id.replace('category-', '');
-                        setSelectedCategory(category);
+                // Encontra a entrada mais visível
+                let mostVisibleEntry = null;
+                let highestRatio = 0;
 
-                        // Throttle para rolagem horizontal dos botões
-                        if (scrollTimeout) {
-                            clearTimeout(scrollTimeout);
-                        }
-                        scrollTimeout = setTimeout(() => {
-                            if (categoriesContainerRef.current) {
-                                const categoryButton = categoriesContainerRef.current.querySelector(`[data-category="${category}"]`);
-                                if (categoryButton) {
-                                    const container = categoriesContainerRef.current;
-                                    const button = categoryButton as HTMLElement;
-                                    const containerWidth = container.offsetWidth;
-                                    const buttonLeft = button.offsetLeft;
-                                    const buttonWidth = button.offsetWidth;
-                                    // Margem menor para mobile
-                                    const margin = window.innerWidth < 600 ? 8 : 20;
-                                    const scrollLeft = buttonLeft - (containerWidth / 2) + (buttonWidth / 2);
-                                    requestAnimationFrame(() => {
-                                        container.scrollTo({
-                                            left: Math.max(0, scrollLeft - margin),
-                                            behavior: 'smooth'
-                                        });
-                                    });
-                                }
-                            }
-                        }, 100);
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting && entry.intersectionRatio > highestRatio) {
+                        highestRatio = entry.intersectionRatio;
+                        mostVisibleEntry = entry;
                     }
                 });
+
+                if (mostVisibleEntry && !isScrolling) {
+                    const category = (mostVisibleEntry.target as HTMLElement).id.replace('category-', '');
+                    setSelectedCategory(category);
+
+                    // Scroll suave para centralizar o botão da categoria
+                    if (scrollTimeout) {
+                        clearTimeout(scrollTimeout);
+                    }
+                    scrollTimeout = setTimeout(() => {
+                        if (categoriesContainerRef.current) {
+                            const categoryButton = categoriesContainerRef.current.querySelector(`[data-category="${category}"]`);
+                            if (categoryButton) {
+                                const container = categoriesContainerRef.current;
+                                const button = categoryButton as HTMLElement;
+                                const containerWidth = container.offsetWidth;
+                                const buttonLeft = button.offsetLeft;
+                                const buttonWidth = button.offsetWidth;
+                                
+                                // Calcula a posição para centralizar o botão
+                                const scrollLeft = buttonLeft - (containerWidth / 2) + (buttonWidth / 2);
+                                
+                                // Aplica scroll suave
+                                container.scrollTo({
+                                    left: Math.max(0, scrollLeft),
+                                    behavior: 'smooth'
+                                });
+                            }
+                        }
+                    }, 150);
+                }
             },
             {
-                // rootMargin menor para mobile, maior para desktop
-                rootMargin: window.innerWidth < 600 ? '-40px 0px -40% 0px' : '-80px 0px -60% 0px',
-                threshold: window.innerWidth < 600 ? [0.1, 0.5, 0.9] : [0, 0.3, 0.7, 1]
+                // Configurações otimizadas para diferentes tamanhos de tela
+                rootMargin: window.innerWidth < 768 ? '-20px 0px -30% 0px' : '-50px 0px -40% 0px',
+                threshold: [0, 0.1, 0.3, 0.5, 0.7, 0.9, 1]
             }
         );
 
@@ -209,11 +220,21 @@ export default function MenuDisplay() {
 
         // Listener para detectar scroll no topo
         const handleScroll = () => {
-            if (window.scrollY === 0) {
-                setSelectedCategory('pizzas');
+            if (window.scrollY < 100) {
+                setSelectedCategory(categories[0]?.value || 'pizzas');
             }
         };
+
+        // Listener para detectar quando o usuário está fazendo scroll manual
+        const handleScrollStart = () => {
+            isScrolling = true;
+            setTimeout(() => {
+                isScrolling = false;
+            }, 1000);
+        };
+
         window.addEventListener('scroll', handleScroll);
+        window.addEventListener('scroll', handleScrollStart, { passive: true });
 
         return () => {
             if (scrollTimeout) {
@@ -221,6 +242,7 @@ export default function MenuDisplay() {
             }
             observer.disconnect();
             window.removeEventListener('scroll', handleScroll);
+            window.removeEventListener('scroll', handleScrollStart);
         };
     }, [categories]);
 
@@ -229,7 +251,14 @@ export default function MenuDisplay() {
         if (category) {
             const element = document.getElementById(`category-${category}`);
             if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // Adiciona um offset para considerar a barra de navegação fixa
+                const offset = 120; // Altura da barra de navegação + margem
+                const elementPosition = element.offsetTop - offset;
+                
+                window.scrollTo({
+                    top: elementPosition,
+                    behavior: 'smooth'
+                });
             }
         } else {
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -632,24 +661,31 @@ export default function MenuDisplay() {
                         </motion.button>
 
                         {/* Categorias visíveis em todos os dispositivos */}
-                        <div className="flex gap-4">
-                            {categories.map(category => (
-                                <motion.button
-                                    key={category.value}
-                                    variants={categoryVariants}
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={() => handleCategoryClick(category.value)}
-                                    data-category={category.value}
-                                    className={`px-4 py-2 rounded-full whitespace-nowrap flex-shrink-0 category-button ${selectedCategory === category.value
-                                        ? 'bg-red-600 text-white shadow-lg shadow-red-600/25'
-                                        : 'bg-[#262525] text-gray-200 hover:bg-gray-800'
-                                        }`}
-                                >
-                                    {category.label}
-                                </motion.button>
-                            ))}
-                        </div>
+                        {categories.map(category => (
+                            <motion.button
+                                key={category.value}
+                                variants={categoryVariants}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => handleCategoryClick(category.value)}
+                                data-category={category.value}
+                                className={`px-4 py-2 rounded-full whitespace-nowrap flex-shrink-0 category-button relative ${selectedCategory === category.value
+                                    ? 'bg-red-600 text-white shadow-lg shadow-red-600/25'
+                                    : 'bg-[#262525] text-gray-200 hover:bg-gray-800'
+                                    }`}
+                            >
+                                {category.label}
+                                {selectedCategory === category.value && (
+                                    <motion.div
+                                        layoutId="activeCategory"
+                                        className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-white rounded-full"
+                                        initial={{ opacity: 0, scale: 0 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0 }}
+                                    />
+                                )}
+                            </motion.button>
+                        ))}
                     </motion.div>
                 </div>
             </div>
