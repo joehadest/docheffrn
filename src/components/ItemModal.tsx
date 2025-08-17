@@ -8,6 +8,8 @@ interface ItemModalProps {
     item: MenuItem;
     onClose: () => void;
     onAddToCart: (quantity: number, observation: string, size?: string, border?: string, extras?: string[]) => void;
+    allPizzas?: MenuItem[];
+    allowHalfAndHalf?: boolean;
 }
 
 const modalVariants = {
@@ -36,7 +38,7 @@ const overlayVariants = {
     exit: { opacity: 0 }
 };
 
-export default function ItemModal({ item, onClose, onAddToCart, allPizzas }: ItemModalProps & { allPizzas?: MenuItem[] }) {
+export default function ItemModal({ item, onClose, onAddToCart, allPizzas, allowHalfAndHalf = true }: ItemModalProps) {
     const [quantity, setQuantity] = useState(1);
     const [observation, setObservation] = useState('');
     // Inicializa o tamanho padrão conforme o item
@@ -141,7 +143,7 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas }: Ite
                                 </div>
 
                                 {/* Opção Meio a Meio */}
-                                {(item.category === 'pizzas' || item.category === 'calzone') && allPizzas && (
+                                {(item.category === 'pizzas' || item.category === 'calzone') && allPizzas && allowHalfAndHalf && (
                                     <div className="bg-[#262525] p-4 rounded-lg mb-4">
                                         <label className="flex items-center gap-2 mb-2">
                                             <input type="checkbox" checked={isHalf} onChange={e => setIsHalf(e.target.checked)} />

@@ -17,6 +17,8 @@ interface BusinessHours {
 }
 
 export default function AdminSettings() {
+    // Estado para permitir/desabilitar pizzas meio a meio
+    const [allowHalfAndHalf, setAllowHalfAndHalf] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
     const router = useRouter();
     const [isSaving, setIsSaving] = useState(false);
@@ -34,6 +36,7 @@ export default function AdminSettings() {
     const [newNeighborhood, setNewNeighborhood] = useState('');
     const [newFee, setNewFee] = useState('');
     const [isEditing, setIsEditing] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     // Estados para alteração de senha
     const [showPasswordChange, setShowPasswordChange] = useState(false);
@@ -85,13 +88,13 @@ export default function AdminSettings() {
         let mounted = true;
         async function fetchSettings() {
             try {
+                setLoading(true);
                 const res = await fetch('/api/settings');
-                if (!res.ok) throw new Error('Erro na resposta da API');
                 const data = await res.json();
-                if (mounted && data.success && data.data) {
+                if (data.success && data.data) {
+                    setBusinessHours(data.data.businessHours || {});
                     setDeliveryFees(data.data.deliveryFees || []);
-                    setBusinessHours(mergeBusinessHours(data.data.businessHours || {}));
-                    setIsOpen(checkOpenStatus());
+                    setAllowHalfAndHalf(data.data.allowHalfAndHalf || false);
                 }
             } catch (err) {
                 if (mounted) {
@@ -151,12 +154,12 @@ export default function AdminSettings() {
         setSaveMessage('');
         try {
             const res = await fetch('/api/settings', {
-                method: 'PUT',
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    isOpen,
+                body: JSON.stringify({ 
+                    businessHours, 
                     deliveryFees,
-                    businessHours
+                    allowHalfAndHalf
                 })
             });
             const data = await res.json();
@@ -174,6 +177,29 @@ export default function AdminSettings() {
             setTimeout(() => setSaveMessage(''), 3000);
         }
     };
+    {/* SEÇÃO PIZZA MEIO A MEIO */}
+    <div className="bg-gray-800 p-6 rounded-lg shadow-md">
+        <h3 className="text-xl font-semibold text-white mb-4">Pizzas Meio a Meio</h3>
+        <div className="flex items-center justify-between bg-gray-700 p-4 rounded-lg">
+            <label htmlFor="allowHalfAndHalf" className="text-gray-300">
+                Permitir que clientes montem pizzas com dois sabores?
+            </label>
+            <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                <input
+                    type="checkbox"
+                    name="allowHalfAndHalf"
+                    id="allowHalfAndHalf"
+                    checked={allowHalfAndHalf}
+                    onChange={() => setAllowHalfAndHalf(!allowHalfAndHalf)}
+                    className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                />
+                <label htmlFor="allowHalfAndHalf" className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-600 cursor-pointer"></label>
+            </div>
+        </div>
+        <p className="text-sm text-gray-500 mt-2">
+            Se ativado, os clientes verão a opção "Adicionar Meio a Meio" no modal de pizzas.
+        </p>
+    </div>
 
     const handleLogout = () => {
         router.push('/admin/logout');

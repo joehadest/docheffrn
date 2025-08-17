@@ -89,37 +89,32 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
 
     // Funções para cálculo de preços
     const calculateItemPrice = (item: CartItem) => {
-        if ((item.item.category === 'pizzas' || item.item.category === 'calzone' || item.item.category === 'massas') && item.size && item.item.sizes) {
+        // Preço base para qualquer item com tamanho
+        if (item.size && item.item.sizes) {
             const sizeKey = item.size as keyof typeof item.item.sizes;
-            let price = 0;
+            let price = item.item.sizes[sizeKey] || item.item.price;
 
-            if (item.item.category === 'pizzas' || item.item.category === 'calzone') {
-                // Se for pizza ou calzone meio a meio, pega o preço mais alto dos dois sabores
-                if (item.observation && item.observation.includes('Meio a meio:')) {
-                    const meioAMeioText = item.observation.split('Meio a meio:')[1];
-                    // Remove observações adicionais após o slash (como "- Sem cebola")
-                    const cleanMeioAMeioText = meioAMeioText.split(' - ')[0];
-                    const [sabor1, sabor2] = cleanMeioAMeioText.split('/').map(s => s.trim());
-                    const items = menuItems.filter((p: MenuItem) => p.category === item.item.category);
-                    const item1 = items.find((p: MenuItem) => p.name === sabor1);
-                    const item2 = items.find((p: MenuItem) => p.name === sabor2);
-
-                    if (item1 && item2) {
-                        const price1 = item1.sizes ? item1.sizes[sizeKey] || item1.price : item1.price;
-                        const price2 = item2.sizes ? item2.sizes[sizeKey] || item2.price : item2.price;
-                        price = Math.max(price1, price2);
-                    }
-                } else {
-                    price = item.item.sizes[sizeKey] || item.item.price;
+            // Lógica especial para pizzas e calzones meio a meio
+            if ((item.item.category === 'pizzas' || item.item.category === 'calzone') && item.observation && item.observation.includes('Meio a meio:')) {
+                const meioAMeioText = item.observation.split('Meio a meio:')[1];
+                const cleanMeioAMeioText = meioAMeioText.split(' - ')[0];
+                const [sabor1, sabor2] = cleanMeioAMeioText.split('/').map(s => s.trim());
+                const items = menuItems.filter((p: MenuItem) => p.category === item.item.category);
+                const item1 = items.find((p: MenuItem) => p.name === sabor1);
+                const item2 = items.find((p: MenuItem) => p.name === sabor2);
+                if (item1 && item2) {
+                    const price1 = item1.sizes ? item1.sizes[sizeKey] || item1.price : item1.price;
+                    const price2 = item2.sizes ? item2.sizes[sizeKey] || item2.price : item2.price;
+                    price = Math.max(price1, price2);
                 }
+            }
 
-                // Adiciona o preço da borda se houver
+            // Lógica de borda e extras (ainda específica para pizzas/calzones)
+            if ((item.item.category === 'pizzas' || item.item.category === 'calzone')) {
                 if (item.border && item.item.borderOptions) {
                     const borderPrice = sizeKey === 'G' ? 8.00 : 4.00;
                     price += borderPrice;
                 }
-
-                // Adiciona o preço dos extras se houver
                 if (item.extras && item.item.extraOptions) {
                     item.extras.forEach(extra => {
                         const extraPrice = item.item.extraOptions![extra];
@@ -128,13 +123,10 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
                         }
                     });
                 }
-            } else {
-                // Para massas, apenas pega o preço do tamanho
-                price = item.item.sizes[sizeKey] || item.item.price;
             }
-
             return price * item.quantity;
         }
+        // Se não tem tamanho, retorna preço padrão
         return item.item.price * item.quantity;
     };
 

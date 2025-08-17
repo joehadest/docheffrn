@@ -48,6 +48,24 @@ const categoryVariants = {
 };
 
 export default function MenuDisplay() {
+    // Estado para permitir/desabilitar pizzas meio a meio
+    const [allowHalfAndHalf, setAllowHalfAndHalf] = useState(true); // Padrão true para não quebrar
+    // Buscar configuração allowHalfAndHalf junto com deliveryFees
+    useEffect(() => {
+        async function fetchSettingsData() {
+            try {
+                const res = await fetch('/api/settings');
+                const data = await res.json();
+                if (data.success && data.data) {
+                    setDeliveryFees(data.data.deliveryFees || []);
+                    setAllowHalfAndHalf(data.data.allowHalfAndHalf === true);
+                }
+            } catch (err) {
+                // erro silencioso
+            }
+        }
+        fetchSettingsData();
+    }, []);
     // ...existing code...
     const categoriesContainerRef = useRef<HTMLDivElement>(null);
     const { isOpen, toggleOpen } = useMenu();
@@ -885,6 +903,7 @@ export default function MenuDisplay() {
                                 handleAddToCart(selectedItem!, quantity, observation, size, border, extras);
                             }}
                             allPizzas={allPizzas}
+                            allowHalfAndHalf={allowHalfAndHalf}
                         />
                     )}
                 </AnimatePresence>

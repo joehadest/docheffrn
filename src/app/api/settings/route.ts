@@ -45,6 +45,10 @@ async function connectDB() {
 
 // Schema do Settings
 const settingsSchema = new mongoose.Schema({
+    allowHalfAndHalf: {
+        type: Boolean,
+        default: false
+    },
     isOpen: {
         type: Boolean,
         default: false
@@ -107,7 +111,7 @@ export async function GET() {
 
 export async function PUT(request: Request) {
     try {
-        const { isOpen, deliveryFees, businessHours } = await request.json();
+    const { isOpen, deliveryFees, businessHours, allowHalfAndHalf } = await request.json();
         console.log('Recebendo dados para atualização:', { isOpen, deliveryFees, businessHours });
 
         await connectDB();
@@ -122,6 +126,7 @@ export async function PUT(request: Request) {
                 isOpen,
                 deliveryFees,
                 businessHours,
+                allowHalfAndHalf,
                 lastUpdated: new Date()
             });
         } else {
@@ -129,6 +134,7 @@ export async function PUT(request: Request) {
             settings.isOpen = isOpen;
             settings.deliveryFees = deliveryFees;
             settings.businessHours = businessHours;
+            settings.allowHalfAndHalf = allowHalfAndHalf;
             settings.lastUpdated = new Date();
             await settings.save();
         }
