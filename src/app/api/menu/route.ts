@@ -81,6 +81,11 @@ const menuItemSchema = new mongoose.Schema({
         of: Number,
         default: {}
     }
+    ,
+    isAvailable: {
+        type: Boolean,
+        default: true
+    }
 });
 
 const MenuItem = mongoose.models.MenuItem || mongoose.model('MenuItem', menuItemSchema);
@@ -900,8 +905,9 @@ export async function GET() {
             console.log('GET /api/menu - Dados iniciais inseridos');
         }
 
-        const menuItems = await MenuItem.find({});
-        console.log('GET /api/menu - Itens encontrados:', menuItems.length);
+        // Busca itens onde 'isAvailable' não seja 'false'. Inclui antigos e novos.
+        const menuItems = await MenuItem.find({ isAvailable: { $ne: false } });
+        console.log('GET /api/menu - Itens disponíveis encontrados:', menuItems.length);
         
         return NextResponse.json({
             success: true,

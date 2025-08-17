@@ -1,6 +1,24 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .form-input {
+    @apply w-full mt-1 p-2 bg-[#2a2a2a] border border-gray-600 rounded-md text-white focus:ring-red-500 focus:border-red-500 transition-colors;
+  }
+  .form-button-primary {
+    @apply px-4 py-2 bg-red-600 rounded-md hover:bg-red-700 transition-colors flex items-center justify-center font-semibold;
+  }
+  .form-button-secondary {
+    @apply px-4 py-2 bg-gray-600 rounded-md hover:bg-gray-700 transition-colors;
+  }
+  .form-button-danger {
+    @apply px-3 py-1 bg-red-800 rounded-md hover:bg-red-700 transition-colors;
+  }
+}
 
 @keyframes slide-up {
     from {

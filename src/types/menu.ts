@@ -18,4 +18,5 @@ export interface MenuItem {
         [key: string]: number;
     };
     ingredients?: string[];
+    isAvailable?: boolean;
 } 

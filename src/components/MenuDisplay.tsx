@@ -746,12 +746,15 @@ export default function MenuDisplay() {
                                     .filter(item => item.category === category.value)
                                     .slice() // cópia para não mutar o estado
                                     .sort((a, b) => {
-                                        // Se for pizzas, força calabresa no topo
+                                        // Mantém a regra especial: se for pizza, "Calabresa" vem primeiro.
                                         if (category.value === 'pizzas') {
-                                            if (a.name.toLowerCase().includes('calabresa')) return -1;
-                                            if (b.name.toLowerCase().includes('calabresa')) return 1;
+                                            const aIsCalabresa = a.name.toLowerCase().includes('calabresa');
+                                            const bIsCalabresa = b.name.toLowerCase().includes('calabresa');
+                                            if (aIsCalabresa && !bIsCalabresa) return -1;
+                                            if (!aIsCalabresa && bIsCalabresa) return 1;
                                         }
-                                        return 0;
+                                        // Ordena todos os itens pelo preço, do menor para o maior.
+                                        return a.price - b.price;
                                     })
                                     .map((item) => (
                                         <motion.div
