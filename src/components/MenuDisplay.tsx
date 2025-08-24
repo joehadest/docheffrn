@@ -196,6 +196,7 @@ export default function MenuDisplay() {
         if (categories.length === 0) return;
 
         let isScrolling = false;
+        let scrollTimeout: NodeJS.Timeout;
 
         // Função para verificar qual categoria está mais visível
         const checkVisibleCategory = () => {
@@ -206,38 +207,55 @@ export default function MenuDisplay() {
                 value: cat.value
             })).filter(item => item.element);
 
+            if (categoryElements.length === 0) return;
+
             let bestCategory = categories[0]?.value || 'pizzas';
             let bestVisibility = 0;
+            const viewportCenter = window.innerHeight / 2;
 
             categoryElements.forEach(({ element, value }) => {
                 if (element) {
                     const rect = element.getBoundingClientRect();
-                    const windowHeight = window.innerHeight;
+                    const elementCenter = rect.top + rect.height / 2;
                     
-                    // Calcula a visibilidade do elemento
-                    const visibleHeight = Math.min(rect.bottom, windowHeight) - Math.max(rect.top, 0);
+                    // Calcula a distância do centro do elemento ao centro da viewport
+                    const distanceFromCenter = Math.abs(elementCenter - viewportCenter);
+                    
+                    // Se o elemento está visível (pelo menos 30% visível)
+                    const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
                     const visibility = Math.max(0, visibleHeight / element.offsetHeight);
                     
-                    if (visibility > bestVisibility) {
-                        bestVisibility = visibility;
-                        bestCategory = value;
+                    if (visibility > 0.3) {
+                        // Prefere elementos mais próximos do centro da viewport
+                        const score = visibility / (1 + distanceFromCenter / 100);
+                        
+                        if (score > bestVisibility) {
+                            bestVisibility = score;
+                            bestCategory = value;
+                        }
                     }
                 }
             });
 
-            if (bestVisibility > 0.2) { // Só muda se pelo menos 20% estiver visível
+            // Só atualiza se encontrou uma categoria válida
+            if (bestVisibility > 0) {
                 setSelectedCategory(bestCategory);
             }
         };
 
-        // Listener para detectar scroll no topo
+        // Listener para detectar scroll
         const handleScroll = () => {
-            if (window.scrollY < 100) {
+            // Se está no topo, seleciona a primeira categoria
+            if (window.scrollY < 150) {
                 setSelectedCategory(categories[0]?.value || 'pizzas');
-            } else {
-                // Chama a verificação de categoria visível
-                checkVisibleCategory();
+                return;
             }
+
+            // Debounce para melhor performance
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                checkVisibleCategory();
+            }, 50);
         };
 
         // Listener para detectar quando o usuário está fazendo scroll manual
@@ -245,7 +263,7 @@ export default function MenuDisplay() {
             isScrolling = true;
             setTimeout(() => {
                 isScrolling = false;
-            }, 500); // Reduzido para 500ms
+            }, 300);
         };
 
         // Adiciona os event listeners
@@ -253,11 +271,12 @@ export default function MenuDisplay() {
         window.addEventListener('scroll', handleScrollStart, { passive: true });
 
         // Executa uma verificação inicial
-        setTimeout(checkVisibleCategory, 100);
+        setTimeout(checkVisibleCategory, 200);
 
         return () => {
             window.removeEventListener('scroll', handleScroll);
             window.removeEventListener('scroll', handleScrollStart);
+            clearTimeout(scrollTimeout);
         };
     }, [categories]);
 
@@ -267,11 +286,12 @@ export default function MenuDisplay() {
             const element = document.getElementById(`category-${category}`);
             if (element) {
                 // Adiciona um offset para considerar a barra de navegação fixa
-                const offset = 120; // Altura da barra de navegação + margem
+                const offset = 140; // Aumentado para dar mais espaço
                 const elementPosition = element.offsetTop - offset;
                 
+                                // Força o scroll para a posição correta
                 window.scrollTo({
-                    top: elementPosition,
+                    top: Math.max(0, elementPosition),
                     behavior: 'smooth'
                 });
             }
