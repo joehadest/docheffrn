@@ -117,6 +117,7 @@ export default function MenuDisplay() {
                 if (data.success) {
                     // Ordena as categorias pelo campo 'order' antes de exibir
                     const sorted = (data.data || []).slice().sort((a: { order?: number }, b: { order?: number }) => (a.order ?? 0) - (b.order ?? 0));
+                    console.log('MenuDisplay - Categorias carregadas:', sorted);
                     setCategories(sorted);
                     // Inicializa a categoria selecionada após buscar
                     if (sorted.length > 0) {
@@ -907,6 +908,7 @@ export default function MenuDisplay() {
                             }}
                             allPizzas={allPizzas}
                             allowHalfAndHalf={allowHalfAndHalf}
+                            categories={categories}
                         />
                     )}
                 </AnimatePresence>

@@ -111,8 +111,8 @@ const ItemModal = ({
 
 // --- COMPONENT: CATEGORIES TAB (RESTORED) ---
 const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories: { _id?: string; value: string; label: string; order?: number }[]; onUpdate: () => void }) => {
-    const [categories, setCategories] = useState<{ _id?: string; value: string; label: string; order?: number }[]>(initialCategories);
-    const [catForm, setCatForm] = useState({ value: '', label: '', order: 0 });
+  const [categories, setCategories] = useState<{ _id?: string; value: string; label: string; order?: number; allowHalfAndHalf?: boolean }[]>(initialCategories);
+  const [catForm, setCatForm] = useState({ value: '', label: '', order: 0, allowHalfAndHalf: false });
     const [catEditId, setCatEditId] = useState<string | null>(null);
     const [catLoading, setCatLoading] = useState(false);
     const [catError, setCatError] = useState('');
@@ -135,16 +135,16 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
         e.preventDefault();
         setCatLoading(true); setCatError('');
         try {
-            const method = catEditId ? 'PUT' : 'POST';
-            const url = '/api/categories';
-            const body = catEditId ? { ...catForm, _id: catEditId } : catForm;
-            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const method = catEditId ? 'PUT' : 'POST';
+      const url = '/api/categories';
+      const body = catEditId ? { ...catForm, _id: catEditId } : catForm;
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
             const data = await res.json();
-            if (data.success) {
-                setCatForm({ value: '', label: '', order: 0 }); setCatEditId(null);
-                fetchCategories();
-                onUpdate();
-            } else { setCatError(data.error || 'Erro ao salvar categoria'); }
+      if (data.success) {
+        setCatForm({ value: '', label: '', order: 0, allowHalfAndHalf: false }); setCatEditId(null);
+        fetchCategories();
+        onUpdate();
+      } else { setCatError(data.error || 'Erro ao salvar categoria'); }
         } catch { setCatError('Erro de conexão.'); } 
         finally { setCatLoading(false); }
     };
@@ -164,23 +164,62 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
     return (
         <div className="bg-[#262525] rounded-xl p-6 border border-gray-800">
             <h2 className="text-2xl font-bold text-white mb-4">Gerenciar Categorias</h2>
-            <form onSubmit={handleSaveCategory} className="flex flex-col sm:flex-row gap-2 mb-4">
-                <input type="text" placeholder="Valor (ex: pizzas)" value={catForm.value} onChange={e => setCatForm({ ...catForm, value: e.target.value.toLowerCase().replace(/\s+/g, '-') })} className="form-input flex-1" required />
-                <input type="text" placeholder="Nome (ex: Pizzas)" value={catForm.label} onChange={e => setCatForm({ ...catForm, label: e.target.value })} className="form-input flex-1" required />
-                <input type="number" placeholder="Ordem" value={catForm.order} onChange={e => setCatForm({ ...catForm, order: parseInt(e.target.value) || 0 })} className="form-input w-24" />
-                <button type="submit" className="form-button-primary" disabled={catLoading}>{catEditId ? 'Atualizar' : 'Adicionar'}</button>
-                {catEditId && <button type="button" className="form-button-secondary" onClick={() => { setCatEditId(null); setCatForm({ value: '', label: '', order: 0 }); }}>Cancelar</button>}
-            </form>
+      <form onSubmit={handleSaveCategory} className="flex flex-col sm:flex-row gap-2 mb-4">
+        <input type="text" placeholder="Valor (ex: pizzas)" value={catForm.value} onChange={e => setCatForm({ ...catForm, value: e.target.value.toLowerCase().replace(/\s+/g, '-') })} className="form-input flex-1" required />
+        <input type="text" placeholder="Nome (ex: Pizzas)" value={catForm.label} onChange={e => setCatForm({ ...catForm, label: e.target.value })} className="form-input flex-1" required />
+        <input type="number" placeholder="Ordem" value={catForm.order} onChange={e => setCatForm({ ...catForm, order: parseInt(e.target.value) || 0 })} className="form-input w-24" />
+        <label className="flex items-center space-x-2 text-white">
+          <input
+            type="checkbox"
+            checked={catForm.allowHalfAndHalf}
+            onChange={e => setCatForm({ ...catForm, allowHalfAndHalf: e.target.checked })}
+            className="form-checkbox h-5 w-5 text-blue-600"
+          />
+          <span>Permitir Meio a Meio?</span>
+        </label>
+        <button type="submit" className="form-button-primary" disabled={catLoading}>{catEditId ? 'Atualizar' : 'Adicionar'}</button>
+        {catEditId && <button type="button" className="form-button-secondary" onClick={() => { setCatEditId(null); setCatForm({ value: '', label: '', order: 0, allowHalfAndHalf: false }); }}>Cancelar</button>}
+      </form>
             {catError && <p className="text-red-500 text-sm mb-4">{catError}</p>}
-            <div className="overflow-x-auto"><table className="w-full text-left"><thead><tr className="border-b border-gray-700 text-gray-400"><th className="p-2">Ordem</th><th className="p-2">Nome</th><th className="p-2">Valor</th><th className="p-2">Ações</th></tr></thead><tbody>
-            {categories.sort((a,b) => (a.order || 0) - (b.order || 0)).map(cat => (<tr key={cat._id} className="border-b border-gray-700">
-                <td className="p-2">{cat.order}</td><td className="p-2">{cat.label}</td><td className="p-2">{cat.value}</td>
-                <td className="p-2 flex gap-2">
-                    <button onClick={() => {setCatEditId(cat._id!); setCatForm(cat as any);}} className="form-button-secondary p-2"><FaEdit/></button>
-                    <button onClick={() => handleDeleteCategory(cat._id)} className="form-button-danger p-2"><FaTrash/></button>
-                </td>
-            </tr>))}
-            </tbody></table></div>
+            <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                    <thead>
+                        <tr className="border-b border-gray-700 text-gray-400">
+                            <th className="p-2">Ordem</th>
+                            <th className="p-2">Nome</th>
+                            <th className="p-2">Valor</th>
+                            <th className="p-2">Meio a Meio</th>
+                            <th className="p-2">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {categories.sort((a,b) => (a.order || 0) - (b.order || 0)).map(cat => (
+                            <tr key={cat._id} className="border-b border-gray-700">
+                                <td className="p-2">{cat.order}</td>
+                                <td className="p-2">{cat.label}</td>
+                                <td className="p-2">{cat.value}</td>
+                                <td className="p-2">
+                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                        cat.allowHalfAndHalf 
+                                            ? 'bg-green-900/30 text-green-400 border border-green-600/50' 
+                                            : 'bg-gray-700/50 text-gray-400 border border-gray-600/50'
+                                    }`}>
+                                        {cat.allowHalfAndHalf ? '✅ Ativo' : '❌ Inativo'}
+                                    </span>
+                                </td>
+                                <td className="p-2 flex gap-2">
+                                    <button onClick={() => {setCatEditId(cat._id!); setCatForm(cat as any);}} className="form-button-secondary p-2">
+                                        <FaEdit/>
+                                    </button>
+                                    <button onClick={() => handleDeleteCategory(cat._id)} className="form-button-danger p-2">
+                                        <FaTrash/>
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 };

@@ -1,3 +1,10 @@
+// Interface para categoria, compatível com o backend
+export interface Category {
+    value: string;
+    label: string;
+    order?: number;
+    allowHalfAndHalf?: boolean;
+}
 export interface MenuItem {
     _id: string;
     name: string;

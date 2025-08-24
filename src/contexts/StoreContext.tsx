@@ -5,12 +5,29 @@ import Cookies from 'js-cookie';
 interface StoreContextType {
     isOpen: boolean;
     toggleStatus: () => void;
+    allowHalfAndHalf: boolean;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
     const [isOpen, setIsOpen] = useState(true);
+    const [allowHalfAndHalf, setAllowHalfAndHalf] = useState(false);
+
+    useEffect(() => {
+        async function fetchSettings() {
+            try {
+                const res = await fetch('/api/settings');
+                const data = await res.json();
+                if (data.success && data.data) {
+                    setAllowHalfAndHalf(data.data.allowHalfAndHalf || false);
+                }
+            } catch (err) {
+                // erro silencioso
+            }
+        }
+        fetchSettings();
+    }, []);
 
     useEffect(() => {
         // Carrega o estado inicial do cookie
@@ -27,7 +44,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     };
 
     return (
-        <StoreContext.Provider value={{ isOpen, toggleStatus }}>
+    <StoreContext.Provider value={{ isOpen, toggleStatus, allowHalfAndHalf }}>
             {children}
         </StoreContext.Provider>
     );

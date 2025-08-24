@@ -177,29 +177,6 @@ export default function AdminSettings() {
             setTimeout(() => setSaveMessage(''), 3000);
         }
     };
-    {/* SEÇÃO PIZZA MEIO A MEIO */}
-    <div className="bg-gray-800 p-6 rounded-lg shadow-md">
-        <h3 className="text-xl font-semibold text-white mb-4">Pizzas Meio a Meio</h3>
-        <div className="flex items-center justify-between bg-gray-700 p-4 rounded-lg">
-            <label htmlFor="allowHalfAndHalf" className="text-gray-300">
-                Permitir que clientes montem pizzas com dois sabores?
-            </label>
-            <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                <input
-                    type="checkbox"
-                    name="allowHalfAndHalf"
-                    id="allowHalfAndHalf"
-                    checked={allowHalfAndHalf}
-                    onChange={() => setAllowHalfAndHalf(!allowHalfAndHalf)}
-                    className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
-                />
-                <label htmlFor="allowHalfAndHalf" className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-600 cursor-pointer"></label>
-            </div>
-        </div>
-        <p className="text-sm text-gray-500 mt-2">
-            Se ativado, os clientes verão a opção "Adicionar Meio a Meio" no modal de pizzas.
-        </p>
-    </div>
 
     const handleLogout = () => {
         router.push('/admin/logout');
@@ -326,6 +303,30 @@ export default function AdminSettings() {
                     ))}
                 </div>
             </div>
+
+                {/* SEÇÃO PIZZA MEIO A MEIO */}
+                <div className="mb-8 p-4 bg-[#262525] text-white border border-gray-700 rounded-lg shadow w-full">
+                    <h3 className="text-xl font-semibold text-white mb-4">Pizzas Meio a Meio</h3>
+                    <div className="flex items-center justify-between bg-gray-700 p-4 rounded-lg">
+                        <label htmlFor="allowHalfAndHalf" className="text-gray-300">
+                            Permitir que clientes montem pizzas com dois sabores?
+                        </label>
+                        <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                            <input
+                                type="checkbox"
+                                name="allowHalfAndHalf"
+                                id="allowHalfAndHalf"
+                                checked={allowHalfAndHalf}
+                                onChange={() => setAllowHalfAndHalf(!allowHalfAndHalf)}
+                                className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                            />
+                            <label htmlFor="allowHalfAndHalf" className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-600 cursor-pointer"></label>
+                        </div>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-2">
+                        Se ativado, os clientes verão a opção "Adicionar Meio a Meio" no modal de pizzas.
+                    </p>
+                </div>
 
             {/* Alterar Senha */}
             <div className="mb-8 p-4 bg-[#262525] text-white border border-gray-700 rounded-lg shadow w-full">

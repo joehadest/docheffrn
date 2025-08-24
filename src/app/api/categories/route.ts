@@ -26,12 +26,14 @@ interface ICategory {
 	value: string;
 	label: string;
 	order?: number;
+	allowHalfAndHalf?: boolean;
 }
 
 const categorySchema = new mongoose.Schema<ICategory>({
 	value: { type: String, required: true },
 	label: { type: String, required: true },
-	order: { type: Number, default: 0 }
+	order: { type: Number, default: 0 },
+	allowHalfAndHalf: { type: Boolean, default: false }
 });
 
 let Category: mongoose.Model<ICategory>;
@@ -73,7 +75,8 @@ export async function POST(request: Request) {
 		return NextResponse.json({ success: false, error: 'Campos obrigatórios.' }, { status: 400 });
 	}
 	const order = typeof body.order === 'number' ? body.order : 0;
-	const result = await Category.create({ value: body.value, label: body.label, order });
+	const allowHalfAndHalf = typeof body.allowHalfAndHalf === 'boolean' ? body.allowHalfAndHalf : false;
+	const result = await Category.create({ value: body.value, label: body.label, order, allowHalfAndHalf });
 	return NextResponse.json({ success: true, data: result });
 }
 
@@ -83,9 +86,12 @@ export async function PUT(request:Request) {
 	if (!body._id || !body.value || !body.label) {
 		return NextResponse.json({ success: false, error: 'Campos obrigatórios.' }, { status: 400 });
 	}
-	const update: { value: any; label: any; order?: number } = { value: body.value, label: body.label };
+	const update: { value: any; label: any; order?: number; allowHalfAndHalf?: boolean } = { value: body.value, label: body.label };
 	if (body.order !== undefined) {
 		update.order = typeof body.order === 'number' ? body.order : parseInt(body.order) || 0;
+	}
+	if (body.allowHalfAndHalf !== undefined) {
+		update.allowHalfAndHalf = typeof body.allowHalfAndHalf === 'boolean' ? body.allowHalfAndHalf : false;
 	}
 	const result = await Category.findByIdAndUpdate(body._id, update, { new: true });
 	return NextResponse.json({ success: true, data: result });
