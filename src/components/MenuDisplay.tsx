@@ -201,7 +201,7 @@ export default function MenuDisplay() {
         // Função para verificar qual categoria está mais visível
         const checkVisibleCategory = () => {
             if (isScrolling) return;
-            
+
             const categoryElements = categories.map(cat => ({
                 element: document.getElementById(`category-${cat.value}`),
                 value: cat.value
@@ -209,61 +209,74 @@ export default function MenuDisplay() {
 
             if (categoryElements.length === 0) return;
 
-            let bestCategory = categories[0]?.value || 'pizzas';
-            let bestVisibility = 0;
+            let bestCategory = null;
+            let bestScore = 0;
             const viewportCenter = window.innerHeight / 2;
+            const viewportTop = window.scrollY;
+            const viewportBottom = viewportTop + window.innerHeight;
 
             categoryElements.forEach(({ element, value }) => {
                 if (element) {
                     const rect = element.getBoundingClientRect();
-                    const elementCenter = rect.top + rect.height / 2;
-                    
-                    // Calcula a distância do centro do elemento ao centro da viewport
-                    const distanceFromCenter = Math.abs(elementCenter - viewportCenter);
-                    
-                    // Se o elemento está visível (pelo menos 30% visível)
-                    const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
-                    const visibility = Math.max(0, visibleHeight / element.offsetHeight);
-                    
-                    if (visibility > 0.3) {
-                        // Prefere elementos mais próximos do centro da viewport
-                        const score = visibility / (1 + distanceFromCenter / 100);
-                        
-                        if (score > bestVisibility) {
-                            bestVisibility = score;
+                    const elementTop = viewportTop + rect.top;
+                    const elementBottom = viewportTop + rect.bottom;
+                    const elementCenter = elementTop + (elementBottom - elementTop) / 2;
+
+                    // Verifica se o elemento está na viewport
+                    const isInViewport = elementBottom > viewportTop && elementTop < viewportBottom;
+
+                    if (isInViewport) {
+                        // Calcula a porcentagem de visibilidade
+                        const visibleTop = Math.max(elementTop, viewportTop);
+                        const visibleBottom = Math.min(elementBottom, viewportBottom);
+                        const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+                        const totalHeight = elementBottom - elementTop;
+                        const visibility = totalHeight > 0 ? visibleHeight / totalHeight : 0;
+
+                        // Calcula a distância do centro do elemento ao centro da viewport
+                        const distanceFromCenter = Math.abs(elementCenter - (viewportTop + viewportCenter));
+
+                        // Score baseado na visibilidade e proximidade do centro
+                        const score = visibility * (1 / (1 + distanceFromCenter / 300));
+
+                        if (score > bestScore && visibility > 0.05) {
+                            bestScore = score;
                             bestCategory = value;
                         }
                     }
                 }
             });
 
-            // Só atualiza se encontrou uma categoria válida
-            if (bestVisibility > 0) {
+            // Só atualiza se encontrou uma categoria com score significativo
+            if (bestCategory && bestScore > 0.01) {
                 setSelectedCategory(bestCategory);
             }
-        };
-
-        // Listener para detectar scroll
+            // Não faz fallback automático para evitar seleção incorreta
+        };        // Listener para detectar scroll
         const handleScroll = () => {
-            // Se está no topo, seleciona a primeira categoria
-            if (window.scrollY < 150) {
+            // Se está muito próximo do topo, seleciona a primeira categoria
+            if (window.scrollY < 100) {
                 setSelectedCategory(categories[0]?.value || 'pizzas');
                 return;
             }
 
-            // Debounce para melhor performance
+            // Debounce para melhor performance - mais rápido em mobile
             clearTimeout(scrollTimeout);
+            const isMobile = window.innerWidth < 768;
+            const debounceTime = isMobile ? 15 : 25; // Mais rápido em mobile
             scrollTimeout = setTimeout(() => {
                 checkVisibleCategory();
-            }, 50);
+            }, debounceTime);
         };
 
         // Listener para detectar quando o usuário está fazendo scroll manual
         const handleScrollStart = () => {
             isScrolling = true;
+            const isMobile = window.innerWidth < 768;
+            const scrollTimeoutMs = isMobile ? 100 : 150; // Mais rápido em mobile
             setTimeout(() => {
                 isScrolling = false;
-            }, 300);
+            }, scrollTimeoutMs);
         };
 
         // Adiciona os event listeners
@@ -271,7 +284,9 @@ export default function MenuDisplay() {
         window.addEventListener('scroll', handleScrollStart, { passive: true });
 
         // Executa uma verificação inicial
-        setTimeout(checkVisibleCategory, 200);
+        const isMobile = window.innerWidth < 768;
+        const initialDelay = isMobile ? 100 : 200;
+        setTimeout(checkVisibleCategory, initialDelay);
 
         return () => {
             window.removeEventListener('scroll', handleScroll);
@@ -288,8 +303,8 @@ export default function MenuDisplay() {
                 // Adiciona um offset para considerar a barra de navegação fixa
                 const offset = 140; // Aumentado para dar mais espaço
                 const elementPosition = element.offsetTop - offset;
-                
-                                // Força o scroll para a posição correta
+
+                // Força o scroll para a posição correta
                 window.scrollTo({
                     top: Math.max(0, elementPosition),
                     behavior: 'smooth'
