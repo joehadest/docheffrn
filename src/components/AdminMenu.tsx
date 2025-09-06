@@ -122,14 +122,20 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
         try {
             const res = await fetch('/api/categories');
             const data = await res.json();
-            if (data.success) { setCategories(data.data); } 
+            if (data.success) { 
+              const ordered = (data.data || []).slice().sort((a: { order?: number }, b: { order?: number }) => (a.order ?? 0) - (b.order ?? 0));
+              setCategories(ordered); 
+            } 
             else { setCatError(data.error || 'Erro ao carregar categorias'); }
         } catch { setCatError('Erro de conexão.'); } 
         finally { setCatLoading(false); }
     };
 
     useEffect(() => { fetchCategories(); }, []);
-    useEffect(() => { setCategories(initialCategories); }, [initialCategories]);
+    useEffect(() => { 
+      const ordered = (initialCategories || []).slice().sort((a: { order?: number }, b: { order?: number }) => (a.order ?? 0) - (b.order ?? 0));
+      setCategories(ordered); 
+    }, [initialCategories]);
 
     const handleSaveCategory = async (e: FormEvent) => {
         e.preventDefault();
@@ -242,11 +248,25 @@ export default function AdminMenu() {
       const [menuRes, catRes] = await Promise.all([ fetch('/api/menu/all'), fetch('/api/categories') ]);
       const menuData = await menuRes.json();
       if (menuData.success) {
-          const sorted = menuData.data.sort((a: MenuItem, b: MenuItem) => (a.isAvailable === b.isAvailable) ? 0 : a.isAvailable ? -1 : 1);
+          const sorted = menuData.data
+            .slice()
+            .sort((a: MenuItem, b: MenuItem) => {
+              if ((a.isAvailable === false) !== (b.isAvailable === false)) {
+                return a.isAvailable === false ? 1 : -1;
+              }
+              const aIsCalabresa = a.category === 'pizzas' && a.name.toLowerCase().includes('calabresa');
+              const bIsCalabresa = b.category === 'pizzas' && b.name.toLowerCase().includes('calabresa');
+              if (aIsCalabresa && !bIsCalabresa) return -1;
+              if (!aIsCalabresa && bIsCalabresa) return 1;
+              return a.price - b.price;
+            });
           setMenuItems(sorted);
       } else { setError('Falha ao carregar o cardápio.'); }
       const catData = await catRes.json();
-      if (catData.success) { setCategories(catData.data); } 
+      if (catData.success) { 
+        const orderedCats = (catData.data || []).slice().sort((a: { order?: number }, b: { order?: number }) => (a.order ?? 0) - (b.order ?? 0));
+        setCategories(orderedCats); 
+      } 
       else { setError((prev) => prev + ' Falha ao carregar categorias.'); }
     } catch (err) { setError('Erro de conexão.');
     } finally { setLoading(false); }
