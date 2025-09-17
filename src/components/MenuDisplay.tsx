@@ -414,7 +414,7 @@ export default function MenuDisplay() {
     const handleCheckout = () => {
         const customerName = localStorage.getItem('customerName') || '';
         const customerPhone = localStorage.getItem('customerPhone') || '';
-        const customerAddress = localStorage.getItem('customerAddress') || '';
+        const customerStreet = localStorage.getItem('customerStreet') || '';
         const customerNeighborhood = localStorage.getItem('customerNeighborhood') || '';
         const customerComplement = localStorage.getItem('customerComplement') || '';
         const customerReferencePoint = localStorage.getItem('customerReferencePoint') || '';
@@ -427,7 +427,7 @@ export default function MenuDisplay() {
 
         const customerInfo = `\nNome: ${customerName}\nTelefone: ${customerPhone}`;
         const addressInfo = tipoEntrega === 'entrega'
-            ? `\nEndereço: ${customerAddress}, ${customerNumber}${customerComplement ? `, ${customerComplement}` : ''}\nBairro: ${customerNeighborhood}\nPonto de Referência: ${customerReferencePoint}`
+            ? `\nEndereço: ${customerStreet}, ${customerNumber}${customerComplement ? `, ${customerComplement}` : ''}\nBairro: ${customerNeighborhood}\nPonto de Referência: ${customerReferencePoint}`
             : '\nTipo de Entrega: Retirada no Local';
         const paymentInfo = formaPagamento === 'pix' ? '\nForma de Pagamento: PIX\n' :
             formaPagamento === 'dinheiro' ? `\nForma de Pagamento: Dinheiro${troco ? `\nTroco para: R$ ${troco}` : ''}\n` :
@@ -495,7 +495,7 @@ export default function MenuDisplay() {
     const handleShareClick = () => {
         const customerName = localStorage.getItem('customerName') || '';
         const customerPhone = localStorage.getItem('customerPhone') || '';
-        const customerAddress = localStorage.getItem('customerAddress') || '';
+        const customerStreet = localStorage.getItem('customerStreet') || '';
         const customerNeighborhood = localStorage.getItem('customerNeighborhood') || '';
         const customerComplement = localStorage.getItem('customerComplement') || '';
         const customerReferencePoint = localStorage.getItem('customerReferencePoint') || '';
@@ -508,7 +508,7 @@ export default function MenuDisplay() {
 
         const customerInfo = `\nNome: ${customerName}\nTelefone: ${customerPhone}`;
         const addressInfo = tipoEntrega === 'entrega'
-            ? `\nEndereço: ${customerAddress}, ${customerNumber}${customerComplement ? `, ${customerComplement}` : ''}\nBairro: ${customerNeighborhood}\nPonto de Referência: ${customerReferencePoint}`
+            ? `\nEndereço: ${customerStreet}, ${customerNumber}${customerComplement ? `, ${customerComplement}` : ''}\nBairro: ${customerNeighborhood}\nPonto de Referência: ${customerReferencePoint}`
             : '\nTipo de Entrega: Retirada no Local';
         const paymentInfo = formaPagamento === 'pix' ? '\nForma de Pagamento: PIX\n' :
             formaPagamento === 'dinheiro' ? `\nForma de Pagamento: Dinheiro${troco ? `\nTroco para: R$ ${troco}` : ''}\n` :
@@ -534,7 +534,7 @@ export default function MenuDisplay() {
     const handleWhatsAppClick = () => {
         const customerName = localStorage.getItem('customerName') || '';
         const customerPhone = localStorage.getItem('customerPhone') || '';
-        const customerAddress = localStorage.getItem('customerAddress') || '';
+        const customerStreet = localStorage.getItem('customerStreet') || '';
         const customerNeighborhood = localStorage.getItem('customerNeighborhood') || '';
         const customerComplement = localStorage.getItem('customerComplement') || '';
         const customerReferencePoint = localStorage.getItem('customerReferencePoint') || '';
@@ -545,19 +545,46 @@ export default function MenuDisplay() {
         const subtotal = cartItems.reduce((sum, item) => sum + calculateItemPrice(item), 0);
         const valorFinal = subtotal + deliveryFee;
 
-        const customerInfo = `\nNome: ${customerName}\nTelefone: ${customerPhone}`;
+        // Formatação melhorada da mensagem
+        const header = `🍕 *DO'CHEFF - NOVO PEDIDO* 🍕`;
+        
+        const customerInfo = `\n\n👤 *DADOS DO CLIENTE*\n` +
+            `📝 Nome: ${customerName}\n` +
+            `📱 Telefone: ${customerPhone}`;
+        
         const addressInfo = tipoEntrega === 'entrega'
-            ? `\nEndereço: ${customerAddress}, ${customerNumber}${customerComplement ? `, ${customerComplement}` : ''}\nBairro: ${customerNeighborhood}\nPonto de Referência: ${customerReferencePoint}`
-            : '\nTipo de Entrega: Retirada no Local';
-        const paymentInfo = formaPagamento === 'pix' ? '\nForma de Pagamento: PIX\n' :
-            formaPagamento === 'dinheiro' ? `\nForma de Pagamento: Dinheiro${troco ? `\nTroco para: R$ ${troco}` : ''}\n` :
-                formaPagamento === 'cartao' ? '\nForma de Pagamento: Cartão\n' : '';
+            ? `\n\n📍 *ENDEREÇO DE ENTREGA*\n` +
+              `🏠 ${customerStreet}, ${customerNumber}\n` +
+              `${customerComplement ? `📋 Complemento: ${customerComplement}\n` : ''}` +
+              `🏘️ Bairro: ${customerNeighborhood}\n` +
+              `📌 Ponto de Referência: ${customerReferencePoint}\n` +
+              `🚚 Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}`
+            : `\n\n📍 *TIPO DE ENTREGA*\n🏪 Retirada no Local`;
+        
+        const paymentInfo = formaPagamento === 'pix' ? '\n\n💳 *FORMA DE PAGAMENTO*\n🏦 PIX' :
+            formaPagamento === 'dinheiro' ? `\n\n💳 *FORMA DE PAGAMENTO*\n💵 Dinheiro${troco ? `\n💰 Troco para: R$ ${troco}` : ''}` :
+                formaPagamento === 'cartao' ? '\n\n💳 *FORMA DE PAGAMENTO*\n💳 Cartão' : '';
 
-        const itemsInfo = cartItems.map(item =>
-            `${item.quantity}x ${item.item.name}${item.size ? ` (${item.size})` : ''}${item.observation ? ` - ${item.observation}` : ''} - R$ ${calculateItemPrice(item).toFixed(2)}`
-        ).join('\n');
+        const itemsInfo = cartItems.map((item, index) => {
+            let itemText = `${index + 1}. ${item.quantity}x ${item.item.name}`;
+            if (item.size) itemText += ` (${item.size})`;
+            if (item.border) itemText += `\n   🔥 Borda: ${item.border}`;
+            if (item.extras && item.extras.length > 0) itemText += `\n   ➕ Extras: ${item.extras.join(', ')}`;
+            if (item.observation) itemText += `\n   📝 Obs: ${item.observation}`;
+            itemText += `\n   💰 R$ ${calculateItemPrice(item).toFixed(2)}`;
+            return itemText;
+        }).join('\n\n');
 
-        const message = `*Novo Pedido*\n${customerInfo}${addressInfo}${paymentInfo}\n*Itens:*\n${itemsInfo}\n\n*Valor Final: R$ ${valorFinal.toFixed(2)}*\n\n*Chave PIX do estabelecimento:* 84 99872-9126`;
+        const totals = `\n\n💰 *VALORES*\n` +
+            `🧾 Subtotal: R$ ${subtotal.toFixed(2)}\n` +
+            (deliveryFee > 0 ? `🚚 Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n` : '') +
+            `💵 *TOTAL: R$ ${valorFinal.toFixed(2)}*`;
+
+        const footer = formaPagamento === 'pix' ? 
+            `\n\n🏦 *CHAVE PIX PARA PAGAMENTO*\n📱 84 99872-9126\n\n✅ Envie o comprovante após o pagamento!` :
+            `\n\n⏰ Tempo estimado: 30-45 minutos\n📞 Em caso de dúvidas, entre em contato!`;
+
+        const message = `${header}${customerInfo}${addressInfo}${paymentInfo}\n\n🛒 *ITENS DO PEDIDO*\n${itemsInfo}${totals}${footer}`;
 
         const whatsappUrl = `https://wa.me/558498729126?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, '_blank');
@@ -686,6 +713,14 @@ export default function MenuDisplay() {
 
     return (
         <div className="min-h-screen bg-[#262525] p-4">
+            <style jsx global>{`
+                .line-clamp-2 {
+                    display: -webkit-box;
+                    -webkit-line-clamp: 2;
+                    -webkit-box-orient: vertical;
+                    overflow: hidden;
+                }
+            `}</style>
             {/* Barra de categorias */}
             <div className="sticky top-0 z-10 bg-[#262525] pb-4 mb-6">
                 {/* Container centralizado para desktop, sem limites laterais em mobile */}
@@ -777,7 +812,7 @@ export default function MenuDisplay() {
                     {categories.map(category => (
                         <div key={category.value} id={`category-${category.value}`} className="space-y-4">
                             <h2 className="text-2xl font-bold text-red-600 capitalize">{category.label}</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                                 {menuItems
                                     .filter(item => item.category === category.value)
                                     .slice() // cópia para não mutar o estado
@@ -798,49 +833,54 @@ export default function MenuDisplay() {
                                             variants={itemVariants}
                                             initial="hidden"
                                             animate="visible"
-                                            className="bg-[#262525] rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 border border-gray-800"
+                                            className="bg-[#2a2a2a] rounded-2xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden group cursor-pointer"
+                                            onClick={() => {
+                                                if (!isRestaurantOpen) return;
+                                                if (item.category === 'pizzas' || item.category === 'calzone') {
+                                                    setSelectedItem(item);
+                                                } else if (item.category === 'massas') {
+                                                    handlePastaClick(item);
+                                                } else {
+                                                    setSelectedItem(item);
+                                                }
+                                            }}
                                         >
-                                            <div className="relative h-48">
+                                            <div className="relative aspect-square overflow-hidden">
                                                 <Image
                                                     src={item.image || '/placeholder.jpg'}
                                                     alt={item.name}
                                                     fill
-                                                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                                                    className="object-cover"
+                                                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                                                    className="object-cover group-hover:scale-105 transition-transform duration-300"
                                                 />
+                                                {/* Badge de preço na imagem */}
+                                                <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded-lg text-sm font-bold shadow-lg">
+                                                    R$ {item.price.toFixed(2)}
+                                                </div>
                                                 {item.destaque && (
-                                                    <div className="absolute top-2 right-2 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                                                    <div className="absolute bottom-2 right-2 bg-yellow-500 text-black px-2 py-1 rounded-full text-xs font-semibold shadow-lg">
                                                         Destaque
+                                                    </div>
+                                                )}
+                                                {!isRestaurantOpen && (
+                                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                        <span className="text-white font-semibold text-sm bg-gray-800 px-3 py-1 rounded-full">
+                                                            Fechado
+                                                        </span>
                                                     </div>
                                                 )}
                                             </div>
                                             <div className="p-4">
-                                                <h3 className="text-xl font-semibold text-white mb-2">{item.name}</h3>
-                                                <p className="text-gray-300 mb-4">{item.description}</p>
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-red-500 font-bold text-lg">R$ {item.price.toFixed(2)}</span>
-                                                    <motion.button
-                                                        whileHover={isRestaurantOpen ? { scale: 1.05 } : {}}
-                                                        whileTap={isRestaurantOpen ? { scale: 0.95 } : {}}
-                                                        onClick={() => {
-                                                            if (!isRestaurantOpen) return;
-                                                            if (item.category === 'pizzas' || item.category === 'calzone') {
-                                                                setSelectedItem(item);
-                                                            } else if (item.category === 'massas') {
-                                                                handlePastaClick(item);
-                                                            } else {
-                                                                setSelectedItem(item);
-                                                            }
-                                                        }}
-                                                        disabled={!isRestaurantOpen}
-                                                        className={`px-4 py-2 rounded-lg transition-colors duration-300 ${isRestaurantOpen
-                                                            ? 'bg-red-600 text-white hover:bg-red-700'
-                                                            : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                                                            }`}
-                                                    >
-                                                        {isRestaurantOpen ? 'Adicionar' : 'Fechado'}
-                                                    </motion.button>
-                                                </div>
+                                                <h3 className="font-bold text-white text-base mb-3 line-clamp-2 min-h-[3rem]">
+                                                    {item.name}
+                                                </h3>
+                                                <button className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition-colors duration-300 ${
+                                                    isRestaurantOpen 
+                                                        ? 'bg-red-500 hover:bg-red-600 text-white' 
+                                                        : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                                                }`}>
+                                                    {isRestaurantOpen ? 'Adicionar' : 'Indisponível'}
+                                                </button>
                                             </div>
                                         </motion.div>
                                     ))}
@@ -992,7 +1032,7 @@ export default function MenuDisplay() {
                                         {(() => {
                                             const customerName = localStorage.getItem('customerName') || '';
                                             const customerPhone = localStorage.getItem('customerPhone') || '';
-                                            const customerAddress = localStorage.getItem('customerAddress') || '';
+                                            const customerStreet = localStorage.getItem('customerStreet') || '';
                                             const customerNeighborhood = localStorage.getItem('customerNeighborhood') || '';
                                             const customerComplement = localStorage.getItem('customerComplement') || '';
                                             const customerReferencePoint = localStorage.getItem('customerReferencePoint') || '';
@@ -1003,19 +1043,46 @@ export default function MenuDisplay() {
                                             const subtotal = cartItems.reduce((sum, item) => sum + calculateItemPrice(item), 0);
                                             const valorFinal = subtotal + deliveryFee;
 
-                                            const customerInfo = `\nNome: ${customerName}\nTelefone: ${customerPhone}`;
+                                            // Formatação melhorada da mensagem de preview
+                                            const header = `🍕 DO'CHEFF - NOVO PEDIDO 🍕`;
+                                            
+                                            const customerInfo = `\n\n👤 DADOS DO CLIENTE\n` +
+                                                `📝 Nome: ${customerName}\n` +
+                                                `📱 Telefone: ${customerPhone}`;
+                                            
                                             const addressInfo = tipoEntrega === 'entrega'
-                                                ? `\nEndereço: ${customerAddress}, ${customerNumber}${customerComplement ? `, ${customerComplement}` : ''}\nBairro: ${customerNeighborhood}\nPonto de Referência: ${customerReferencePoint}`
-                                                : '\nTipo de Entrega: Retirada no Local';
-                                            const paymentInfo = formaPagamento === 'pix' ? '\nForma de Pagamento: PIX\n' :
-                                                formaPagamento === 'dinheiro' ? `\nForma de Pagamento: Dinheiro${troco ? `\nTroco para: R$ ${troco}` : ''}\n` :
-                                                    formaPagamento === 'cartao' ? '\nForma de Pagamento: Cartão\n' : '';
+                                                ? `\n\n📍 ENDEREÇO DE ENTREGA\n` +
+                                                  `🏠 ${customerStreet}, ${customerNumber}\n` +
+                                                  `${customerComplement ? `📋 Complemento: ${customerComplement}\n` : ''}` +
+                                                  `🏘️ Bairro: ${customerNeighborhood}\n` +
+                                                  `📌 Ponto de Referência: ${customerReferencePoint}\n` +
+                                                  `🚚 Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}`
+                                                : `\n\n📍 TIPO DE ENTREGA\n🏪 Retirada no Local`;
+                                            
+                                            const paymentInfo = formaPagamento === 'pix' ? '\n\n💳 FORMA DE PAGAMENTO\n🏦 PIX' :
+                                                formaPagamento === 'dinheiro' ? `\n\n💳 FORMA DE PAGAMENTO\n💵 Dinheiro${troco ? `\n💰 Troco para: R$ ${troco}` : ''}` :
+                                                    formaPagamento === 'cartao' ? '\n\n💳 FORMA DE PAGAMENTO\n💳 Cartão' : '';
 
-                                            const itemsInfo = cartItems.map(item =>
-                                                `${item.quantity}x ${item.item.name}${item.size ? ` (${item.size})` : ''}${item.observation ? ` - ${item.observation}` : ''} - R$ ${calculateItemPrice(item).toFixed(2)}`
-                                            ).join('\n');
+                                            const itemsInfo = cartItems.map((item, index) => {
+                                                let itemText = `${index + 1}. ${item.quantity}x ${item.item.name}`;
+                                                if (item.size) itemText += ` (${item.size})`;
+                                                if (item.border) itemText += `\n   🔥 Borda: ${item.border}`;
+                                                if (item.extras && item.extras.length > 0) itemText += `\n   ➕ Extras: ${item.extras.join(', ')}`;
+                                                if (item.observation) itemText += `\n   📝 Obs: ${item.observation}`;
+                                                itemText += `\n   💰 R$ ${calculateItemPrice(item).toFixed(2)}`;
+                                                return itemText;
+                                            }).join('\n\n');
 
-                                            return `*Novo Pedido*\n${customerInfo}${addressInfo}${paymentInfo}\n*Itens:*\n${itemsInfo}\n\n*Valor Final: R$ ${valorFinal.toFixed(2)}*\n\n*Chave PIX do estabelecimento:* 84 99872-9126`;
+                                            const totals = `\n\n💰 VALORES\n` +
+                                                `🧾 Subtotal: R$ ${subtotal.toFixed(2)}\n` +
+                                                (deliveryFee > 0 ? `🚚 Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n` : '') +
+                                                `💵 TOTAL: R$ ${valorFinal.toFixed(2)}`;
+
+                                            const footer = formaPagamento === 'pix' ? 
+                                                `\n\n🏦 CHAVE PIX PARA PAGAMENTO\n📱 84 99872-9126\n\n✅ Envie o comprovante após o pagamento!` :
+                                                `\n\n⏰ Tempo estimado: 30-45 minutos\n📞 Em caso de dúvidas, entre em contato!`;
+
+                                            return `${header}${customerInfo}${addressInfo}${paymentInfo}\n\n🛒 ITENS DO PEDIDO\n${itemsInfo}${totals}${footer}`;
                                         })()}
                                     </pre>
                                 </div>

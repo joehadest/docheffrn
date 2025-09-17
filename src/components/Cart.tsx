@@ -18,9 +18,9 @@ interface CartProps {
 }
 
 const cartVariants = {
-    hidden: { x: '100%' },
+    hidden: { y: '100%' },
     visible: {
-        x: 0,
+        y: 0,
         transition: {
             type: "spring",
             damping: 25,
@@ -28,9 +28,9 @@ const cartVariants = {
         }
     },
     exit: {
-        x: '100%',
+        y: '100%',
         transition: {
-            duration: 0.2
+            duration: 0.3
         }
     }
 };
@@ -61,6 +61,7 @@ const itemVariants = {
 };
 
 export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout, onClose }: CartProps) {
+    const [currentPage, setCurrentPage] = useState<'items' | 'address'>('items');
     const [showAddressForm, setShowAddressForm] = useState(false);
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [address, setAddress] = useState({
@@ -331,38 +332,94 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
     return (
         <AnimatePresence>
             <motion.div
-                className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4 overflow-y-auto"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 bg-black bg-opacity-50"
+                variants={overlayVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                onClick={onClose}
             >
                 <motion.div
-                    className="bg-[#262525] rounded-xl shadow-xl p-3 sm:p-6 w-full max-w-md relative border border-gray-800 my-4 sm:my-8"
-                    initial={{ y: 100, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: 100, opacity: 0 }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                    className="fixed bottom-0 left-0 right-0 bg-[#262525] rounded-t-3xl shadow-2xl border-t border-gray-700 max-h-[95vh] min-h-[80vh] flex flex-col"
+                    variants={cartVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    onClick={(e) => e.stopPropagation()}
                 >
-                    <button
-                        onClick={onClose}
-                        className="absolute top-2 right-2 text-gray-400 hover:text-white"
-                    >
-                        <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+                    {/* Handle para indicar que é arrastável */}
+                    <div className="flex justify-center pt-3 pb-2">
+                        <div className="w-12 h-1 bg-gray-600 rounded-full"></div>
+                    </div>
+                    
+                    {/* Header */}
+                    <div className="px-4 sm:px-6 pb-4">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+                                🛒 Carrinho
+                                {items.length > 0 && (
+                                    <span className="bg-red-600 text-white text-sm px-2 py-1 rounded-full">
+                                        {items.reduce((total, item) => total + item.quantity, 0)}
+                                    </span>
+                                )}
+                            </h2>
+                            <button
+                                onClick={onClose}
+                                className="text-gray-400 hover:text-white transition-colors p-2"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        {/* Navegação entre páginas */}
+                        <div className="flex bg-[#2a2a2a] rounded-xl p-1">
+                            <button
+                                onClick={() => setCurrentPage('items')}
+                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+                                    currentPage === 'items'
+                                        ? 'bg-red-600 text-white'
+                                        : 'text-gray-400 hover:text-white'
+                                }`}
+                            >
+                                📋 Itens ({items.length})
+                            </button>
+                            <button
+                                onClick={() => setCurrentPage('address')}
+                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+                                    currentPage === 'address'
+                                        ? 'bg-red-600 text-white'
+                                        : 'text-gray-400 hover:text-white'
+                                }`}
+                            >
+                                📍 Endereço
+                            </button>
+                        </div>
+                    </div>
 
-                    <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 text-white">Carrinho</h2>
-
-                    {items.length === 0 ? (
-                        <p className="text-gray-300 text-center py-4">Seu carrinho está vazio</p>
-                    ) : (
-                        <>
-                            <div className="space-y-3 sm:space-y-4 max-h-[25vh] sm:max-h-[30vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-red-600 scrollbar-track-gray-800">
+                    {/* Conteúdo scrollável */}
+                    <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-4">
+                        {currentPage === 'items' ? (
+                            // Página de Itens
+                            <>
+                                {items.length === 0 ? (
+                                    <div className="text-center py-8">
+                                        <p className="text-gray-300 text-lg mb-4">Seu carrinho está vazio</p>
+                                        <button
+                                            onClick={onClose}
+                                            className="px-6 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors"
+                                        >
+                                            Continuar Comprando
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="space-y-3 sm:space-y-4 mb-6">
                                 {items.map((item, index) => (
                                     <motion.div
                                         key={index}
-                                        className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-[#262525] rounded-lg"
+                                        className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-[#2a2a2a] rounded-xl border border-gray-700"
                                         variants={itemVariants}
                                         initial="hidden"
                                         animate="visible"
@@ -424,14 +481,60 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
                                 ))}
                             </div>
 
-                            <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-800">
-                                <div className="flex justify-between text-base sm:text-lg font-semibold text-white">
+                            <div className="mt-6 pt-4 border-t border-gray-800">
+                                <div className="flex justify-between text-base sm:text-lg font-semibold text-white mb-6">
                                     <span>Total:</span>
                                     <span>R$ {total.toFixed(2)}</span>
                                 </div>
+                                
+                                {/* Botões da página de itens */}
+                                <div className="flex flex-col gap-3">
+                                    <button
+                                        onClick={onClose}
+                                        className="w-full px-4 py-3 bg-gray-700 text-white text-sm sm:text-base rounded-xl hover:bg-gray-600 transition-colors font-medium"
+                                    >
+                                        Continuar Comprando
+                                    </button>
+                                    <button
+                                        onClick={() => setCurrentPage('address')}
+                                        className="w-full px-4 py-3 bg-red-600 text-white text-sm sm:text-base rounded-xl hover:bg-red-700 transition-colors font-medium"
+                                    >
+                                        Prosseguir para Endereço →
+                                    </button>
+                                </div>
                             </div>
+                        </>
+                    )}
+                </>
+            ) : (
+                // Página de Endereço
+                <>
+                    {/* Resumo do Pedido */}
+                    <div className="mb-6 p-4 bg-[#2a2a2a] rounded-xl border border-gray-700">
+                        <h3 className="text-lg font-semibold text-white mb-3">📦 Resumo do Pedido</h3>
+                        <div className="space-y-2">
+                            {items.slice(0, 3).map((item, index) => (
+                                <div key={index} className="flex justify-between text-sm">
+                                    <span className="text-gray-300">
+                                        {item.quantity}x {item.item.name}
+                                        {item.size && ` (${item.size})`}
+                                    </span>
+                                    <span className="text-white">R$ {calculateItemPrice(item).toFixed(2)}</span>
+                                </div>
+                            ))}
+                            {items.length > 3 && (
+                                <div className="text-gray-400 text-sm">
+                                    ... e mais {items.length - 3} item(s)
+                                </div>
+                            )}
+                        </div>
+                        <div className="mt-3 pt-3 border-t border-gray-600 flex justify-between font-semibold">
+                            <span className="text-white">Total:</span>
+                            <span className="text-red-400">R$ {total.toFixed(2)}</span>
+                        </div>
+                    </div>
 
-                            <form onSubmit={handleSubmit} className="mt-4 sm:mt-6 space-y-3 sm:space-y-4 max-h-[35vh] sm:max-h-[40vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-red-600 scrollbar-track-gray-800">
+                    <form onSubmit={handleSubmit} className="space-y-4">
                                 <div>
                                     <label htmlFor="nome" className="block text-xs sm:text-sm font-medium text-gray-200">Nome</label>
                                     <input
@@ -439,7 +542,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
                                         id="nome"
                                         value={cliente.nome}
                                         onChange={(e) => setCliente({ ...cliente, nome: e.target.value })}
-                                        className="mt-1 block w-full rounded-md border-2 border-red-600 bg-[#262525] text-white text-sm sm:text-base shadow-sm focus:border-red-600 focus:ring-red-600"
+                                        className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
                                         required
                                     />
                                 </div>
@@ -451,7 +554,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
                                         id="telefone"
                                         value={cliente.telefone}
                                         onChange={(e) => setCliente({ ...cliente, telefone: e.target.value })}
-                                        className="mt-1 block w-full rounded-md border-2 border-red-600 bg-[#262525] text-white text-sm sm:text-base shadow-sm focus:border-red-600 focus:ring-red-600"
+                                        className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
                                         required
                                     />
                                 </div>
@@ -490,7 +593,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
 
                                 {tipoEntrega === 'entrega' && (
                                     <>
-                                        <div className="mb-4 p-3 bg-gray-800 rounded-lg">
+                                        <div className="mb-4 p-4 bg-[#2a2a2a] rounded-xl border border-gray-700">
                                             <p className="text-sm text-gray-300">
                                                 Taxas de entrega:
                                                 {deliveryFees.map((fee, index) => (
@@ -510,7 +613,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
                                                     setAddress({ ...address, neighborhood: e.target.value });
                                                     localStorage.setItem('customerNeighborhood', e.target.value);
                                                 }}
-                                                className="mt-1 block w-full rounded-md border-2 border-red-600 bg-[#262525] text-white text-sm sm:text-base shadow-sm focus:border-red-600 focus:ring-red-600"
+                                                className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
                                                 required={tipoEntrega === 'entrega'}
                                             >
                                                 <option value="">Selecione o bairro</option>
@@ -531,7 +634,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
                                                     setAddress({ ...address, street: e.target.value });
                                                     localStorage.setItem('customerStreet', e.target.value);
                                                 }}
-                                                className="mt-1 block w-full rounded-md border-2 border-red-600 bg-[#262525] text-white text-sm sm:text-base shadow-sm focus:border-red-600 focus:ring-red-600"
+                                                className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
                                                 required={tipoEntrega === 'entrega'}
                                             />
                                         </div>
@@ -547,7 +650,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
                                                         setAddress({ ...address, number: e.target.value });
                                                         localStorage.setItem('customerNumber', e.target.value);
                                                     }}
-                                                    className="mt-1 block w-full rounded-md border-2 border-red-600 bg-[#262525] text-white text-sm sm:text-base shadow-sm focus:border-red-600 focus:ring-red-600"
+                                                    className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
                                                     required={tipoEntrega === 'entrega'}
                                                 />
                                             </div>
@@ -562,7 +665,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
                                                         setAddress({ ...address, complement: e.target.value });
                                                         localStorage.setItem('customerComplement', e.target.value);
                                                     }}
-                                                    className="mt-1 block w-full rounded-md border-2 border-red-600 bg-[#262525] text-white text-sm sm:text-base shadow-sm focus:border-red-600 focus:ring-red-600"
+                                                    className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
                                                 />
                                             </div>
                                         </div>
@@ -578,7 +681,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
                                                         setAddress({ ...address, referencePoint: e.target.value });
                                                         localStorage.setItem('customerReferencePoint', e.target.value);
                                                     }}
-                                                    className="mt-1 block w-full rounded-md border-2 border-red-600 bg-[#262525] text-white text-sm sm:text-base shadow-sm focus:border-red-600 focus:ring-red-600"
+                                                    className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
                                                     required
                                                 />
                                             </div>
@@ -592,7 +695,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
                                         id="formaPagamento"
                                         value={formaPagamento}
                                         onChange={(e) => setFormaPagamento(e.target.value)}
-                                        className="mt-1 block w-full rounded-md border-2 border-red-600 bg-[#262525] text-white text-sm sm:text-base shadow-sm focus:border-red-600 focus:ring-red-600"
+                                        className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
                                         required
                                     >
                                         <option value="">Selecione a forma de pagamento</option>
@@ -611,7 +714,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
                                             value={troco}
                                             onChange={(e) => setTroco(e.target.value)}
                                             placeholder="Ex: 50,00"
-                                            className="mt-1 block w-full rounded-md border-2 border-red-600 bg-[#262525] text-white text-sm sm:text-base shadow-sm focus:border-red-600 focus:ring-red-600"
+                                            className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
                                             required={formaPagamento === 'dinheiro'}
                                         />
                                     </div>
@@ -623,7 +726,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
                                         id="observacoes"
                                         value={observacoes}
                                         onChange={(e) => setObservacoes(e.target.value)}
-                                        className="mt-1 block w-full rounded-md border-2 border-red-600 bg-[#262525] text-white text-sm sm:text-base shadow-sm focus:border-red-600 focus:ring-red-600"
+                                        className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
                                         rows={2}
                                     />
                                 </div>
@@ -640,25 +743,28 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
                                     </div>
                                 )}
 
-                                <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={onClose}
-                                        className="w-full sm:flex-1 px-4 py-2 bg-gray-700 text-white text-sm sm:text-base rounded hover:bg-gray-600 transition-colors"
-                                    >
-                                        Continuar Comprando
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={loading || !isRestaurantOpen}
-                                        className="w-full sm:flex-1 px-4 py-2 bg-red-600 text-white text-sm sm:text-base rounded hover:bg-red-700 transition-colors disabled:opacity-50"
-                                    >
-                                        {loading ? 'Processando...' : !isRestaurantOpen ? 'Estabelecimento Fechado' : 'Finalizar Pedido'}
-                                    </button>
+                                <div className="mt-6 flex flex-col gap-3 sticky bottom-0 bg-[#262525] pt-4 border-t border-gray-700">
+                                    <div className="flex gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setCurrentPage('items')}
+                                            className="flex-1 px-4 py-3 bg-gray-700 text-white text-sm sm:text-base rounded-xl hover:bg-gray-600 transition-colors font-medium"
+                                        >
+                                            ← Voltar aos Itens
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={loading || !isRestaurantOpen}
+                                            className="flex-1 px-4 py-3 bg-red-600 text-white text-sm sm:text-base rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50 font-medium"
+                                        >
+                                            {loading ? 'Processando...' : !isRestaurantOpen ? 'Estabelecimento Fechado' : 'Finalizar Pedido'}
+                                        </button>
+                                    </div>
                                 </div>
                             </form>
                         </>
                     )}
+                    </div>
                 </motion.div>
             </motion.div>
         </AnimatePresence>
