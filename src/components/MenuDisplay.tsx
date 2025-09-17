@@ -136,13 +136,21 @@ export default function MenuDisplay() {
         fetchCategories();
     }, []);
 
-    // Scroll horizontal automático da barra de categorias
+    // Scroll horizontal automático da barra de categorias (somente horizontal, sem afetar a rolagem vertical)
     useEffect(() => {
         if (!selectedCategory || !categoriesContainerRef.current) return;
-        const btn = categoriesContainerRef.current.querySelector(`[data-category="${selectedCategory}"]`);
-        if (btn && typeof (btn as HTMLElement).scrollIntoView === 'function') {
-            (btn as HTMLElement).scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-        }
+        const container = categoriesContainerRef.current;
+        const btn = container.querySelector(`[data-category="${selectedCategory}"]`) as HTMLElement | null;
+        if (!btn) return;
+
+        // Calcula ajuste necessário para centralizar o botão no container, apenas no eixo X
+        const containerRect = container.getBoundingClientRect();
+        const btnRect = btn.getBoundingClientRect();
+        const btnCenter = btnRect.left + btnRect.width / 2;
+        const containerCenter = containerRect.left + containerRect.width / 2;
+        const delta = btnCenter - containerCenter;
+
+        container.scrollTo({ left: container.scrollLeft + delta, behavior: 'smooth' });
     }, [selectedCategory]);
 
     // Efeito para sincronizar tipoEntrega com localStorage
@@ -183,14 +191,7 @@ export default function MenuDisplay() {
     // Categorias agora vêm da API, não só dos itens
     const allPizzas = menuItems.filter(item => item.category === 'pizzas');
     // categoriesContainerRef já existe
-    // Scroll horizontal automático da barra de categorias
-    useEffect(() => {
-        if (!selectedCategory || !categoriesContainerRef.current) return;
-        const btn = categoriesContainerRef.current.querySelector(`[data-category="${selectedCategory}"]`);
-        if (btn && typeof (btn as HTMLElement).scrollIntoView === 'function') {
-            (btn as HTMLElement).scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-        }
-    }, [selectedCategory]);
+    // (removido efeito duplicado de scrollIntoView para evitar rolagem desnecessária)
 
     useEffect(() => {
         if (categories.length === 0) return;
@@ -721,8 +722,11 @@ export default function MenuDisplay() {
                     overflow: hidden;
                 }
             `}</style>
-            {/* Barra de categorias */}
-            <div className="sticky top-0 z-10 bg-[#262525] pb-4 mb-6">
+            {/* Barra de categorias (respeita área segura do notch) */}
+            <div
+                className="sticky top-0 z-20 bg-[#262525] pb-4 mb-6 pt-2"
+                style={{ paddingTop: 'env(safe-area-inset-top)' }}
+            >
                 {/* Container centralizado para desktop, sem limites laterais em mobile */}
                 <div className="max-w-7xl mx-auto px-0 sm:px-4">
                     <motion.div
