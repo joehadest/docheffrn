@@ -95,27 +95,32 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas, categ
     return (
         <AnimatePresence>
             <motion.div
-                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+                className="modal-overlay"
                 variants={overlayVariants}
                 initial="hidden"
                 animate="visible"
                 exit="exit"
                 onClick={onClose}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="item-modal-title"
             >
                 <motion.div
-                    className="bg-[#262525] rounded-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto"
+                    className="modal-panel"
                     variants={modalVariants}
                     onClick={e => e.stopPropagation()}
+                    role="document"
                 >
                     <div className="flex justify-between items-start mb-4">
-                        <h3 className="text-xl font-bold text-white">{item.name}</h3>
+                        <h3 id="item-modal-title" className="text-xl font-bold text-white">{item.name}</h3>
                         <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
-                            className="text-gray-500 hover:text-gray-700"
+                            className="modal-close-btn focus-outline"
                             onClick={onClose}
+                            aria-label="Fechar modal"
                         >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </motion.button>

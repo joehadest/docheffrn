@@ -77,16 +77,21 @@ const ItemModal = ({
   return (
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4"
+        className="modal-overlay"
         onClick={onClose}
+        role="dialog" aria-modal="true" aria-labelledby="edit-item-modal-title"
       >
         <motion.div
-          initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-          className="bg-[#1e1e1e] rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto text-white border border-gray-700"
+          initial={{ scale: 0.94, y: 18 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.94, y: 18 }}
+          className="modal-panel wide text-white"
           onClick={(e) => e.stopPropagation()}
+          role="document"
         >
-          <h2 className="text-2xl font-bold mb-6 text-red-500">{formData._id ? 'Editar Item' : 'Adicionar Novo Item'}</h2>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <button onClick={onClose} className="modal-close-btn focus-outline" aria-label="Fechar modal">
+            <FaTimes />
+          </button>
+          <h2 id="edit-item-modal-title" className="text-2xl font-bold mb-6 text-red-500">{formData._id ? 'Editar Item' : 'Adicionar Novo Item'}</h2>
+          <form onSubmit={handleSubmit} className="space-y-6 text-sm">
             <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
               <div><label className="form-label">Nome *</label><input type="text" name="name" value={formData.name} onChange={handleChange} className="form-input" required /></div>
               <div><label className="form-label">Categoria *</label><select name="category" value={formData.category} onChange={handleChange} className="form-input" required>{categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
@@ -102,132 +107,225 @@ const ItemModal = ({
             <div className="space-y-2"><label className="form-label">Tamanhos e Preços</label>{Object.entries(formData.sizes || {}).map(([key, value]) => (<div key={key} className="flex items-center gap-2"><input type="text" value={key} onChange={e => handleDynamicChange('sizes', key, 'name', e.target.value)} className="form-input w-1/3" /><span className="text-gray-400">R$</span><input type="number" value={value} onChange={e => handleDynamicChange('sizes', key, 'price', e.target.value)} className="form-input flex-grow" step="0.01" /><button type="button" onClick={() => removeDynamicField('sizes', key)} className="form-button-danger p-2"><FaTrash /></button></div>))}<button type="button" onClick={() => addDynamicField('sizes')} className="form-button-secondary text-sm">+ Adicionar</button></div>
             <div className="space-y-2"><label className="form-label">Opções de Borda</label>{Object.entries(formData.borderOptions || {}).map(([key, value]) => (<div key={key} className="flex items-center gap-2"><input type="text" value={key} onChange={e => handleDynamicChange('borderOptions', key, 'name', e.target.value)} className="form-input w-1/3" /><span className="text-gray-400">+ R$</span><input type="number" value={value} onChange={e => handleDynamicChange('borderOptions', key, 'price', e.target.value)} className="form-input flex-grow" step="0.01" /><button type="button" onClick={() => removeDynamicField('borderOptions', key)} className="form-button-danger p-2"><FaTrash /></button></div>))}<button type="button" onClick={() => addDynamicField('borderOptions')} className="form-button-secondary text-sm">+ Adicionar</button></div>
             <div className="space-y-2"><label className="form-label">Opções de Extras</label>{Object.entries(formData.extraOptions || {}).map(([key, value]) => (<div key={key} className="flex items-center gap-2"><input type="text" value={key} onChange={e => handleDynamicChange('extraOptions', key, 'name', e.target.value)} className="form-input w-1/3" /><span className="text-gray-400">+ R$</span><input type="number" value={value} onChange={e => handleDynamicChange('extraOptions', key, 'price', e.target.value)} className="form-input flex-grow" step="0.01" /><button type="button" onClick={() => removeDynamicField('extraOptions', key)} className="form-button-danger p-2"><FaTrash /></button></div>))}<button type="button" onClick={() => addDynamicField('extraOptions')} className="form-button-secondary text-sm">+ Adicionar</button></div>
-            <div className="flex justify-end gap-4 pt-4"><button type="button" onClick={onClose} className="form-button-secondary">Cancelar</button><button type="submit" className="form-button-primary"><FaSave className="mr-2" />{formData._id ? 'Atualizar' : 'Salvar'}</button></div>
+            <div className="flex justify-end gap-4 pt-4"><button type="button" onClick={onClose} className="form-button-secondary">Cancelar</button><button type="submit" className="form-button-primary inline-flex items-center gap-2"><FaSave /> {formData._id ? 'Atualizar' : 'Salvar'}</button></div>
           </form>
         </motion.div>
       </motion.div>
   );
 };
 
-// --- COMPONENT: CATEGORIES TAB (RESTORED) ---
-const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories: { _id?: string; value: string; label: string; order?: number }[]; onUpdate: () => void }) => {
-  const [categories, setCategories] = useState<{ _id?: string; value: string; label: string; order?: number; allowHalfAndHalf?: boolean }[]>(initialCategories);
-  const [catForm, setCatForm] = useState({ value: '', label: '', order: 0, allowHalfAndHalf: false });
-    const [catEditId, setCatEditId] = useState<string | null>(null);
-    const [catLoading, setCatLoading] = useState(false);
-    const [catError, setCatError] = useState('');
+// --- COMPONENT: CATEGORY MODAL ---
+const CategoryModal = ({
+  category,
+  onClose,
+  onSaved
+}: {
+  category: { _id?: string; value: string; label: string; order?: number; allowHalfAndHalf?: boolean } | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) => {
+  const isEdit = !!category?._id;
+  const [form, setForm] = useState({
+    value: category?.value || '',
+    label: category?.label || '',
+    order: category?.order || 0,
+    allowHalfAndHalf: category?.allowHalfAndHalf || false,
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-    const fetchCategories = async () => {
-        setCatLoading(true);
-        try {
-            const res = await fetch('/api/categories');
-            const data = await res.json();
-            if (data.success) { 
-              const ordered = (data.data || []).slice().sort((a: { order?: number }, b: { order?: number }) => (a.order ?? 0) - (b.order ?? 0));
-              setCategories(ordered); 
-            } 
-            else { setCatError(data.error || 'Erro ao carregar categorias'); }
-        } catch { setCatError('Erro de conexão.'); } 
-        finally { setCatLoading(false); }
-    };
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault(); setLoading(true); setError('');
+    try {
+      const method = isEdit ? 'PUT' : 'POST';
+      const body = isEdit ? { ...form, _id: category?._id } : form;
+      const res = await fetch('/api/categories', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (data.success) { onSaved(); onClose(); }
+      else setError(data.error || 'Erro ao salvar');
+    } catch { setError('Erro de conexão'); }
+    finally { setLoading(false); }
+  };
 
-    useEffect(() => { fetchCategories(); }, []);
-    useEffect(() => { 
-      const ordered = (initialCategories || []).slice().sort((a: { order?: number }, b: { order?: number }) => (a.order ?? 0) - (b.order ?? 0));
-      setCategories(ordered); 
-    }, [initialCategories]);
-
-    const handleSaveCategory = async (e: FormEvent) => {
-        e.preventDefault();
-        setCatLoading(true); setCatError('');
-        try {
-      const method = catEditId ? 'PUT' : 'POST';
-      const url = '/api/categories';
-      const body = catEditId ? { ...catForm, _id: catEditId } : catForm;
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-            const data = await res.json();
-      if (data.success) {
-        setCatForm({ value: '', label: '', order: 0, allowHalfAndHalf: false }); setCatEditId(null);
-        fetchCategories();
-        onUpdate();
-      } else { setCatError(data.error || 'Erro ao salvar categoria'); }
-        } catch { setCatError('Erro de conexão.'); } 
-        finally { setCatLoading(false); }
-    };
-
-    const handleDeleteCategory = async (id?: string) => {
-        if (!id || !confirm('Tem certeza que deseja excluir esta categoria?')) return;
-        setCatLoading(true);
-        try {
-            const res = await fetch(`/api/categories?id=${id}`, { method: 'DELETE' });
-            const data = await res.json();
-            if (data.success) { fetchCategories(); onUpdate(); }
-            else { setCatError(data.error || 'Erro ao excluir'); }
-        } catch { setCatError('Erro de conexão.'); }
-        finally { setCatLoading(false); }
-    };
-
-    return (
-        <div className="bg-[#262525] rounded-xl p-6 border border-gray-800">
-            <h2 className="text-2xl font-bold text-white mb-4">Gerenciar Categorias</h2>
-      <form onSubmit={handleSaveCategory} className="flex flex-col sm:flex-row gap-2 mb-4">
-        <input type="text" placeholder="Valor (ex: pizzas)" value={catForm.value} onChange={e => setCatForm({ ...catForm, value: e.target.value.toLowerCase().replace(/\s+/g, '-') })} className="form-input flex-1" required />
-        <input type="text" placeholder="Nome (ex: Pizzas)" value={catForm.label} onChange={e => setCatForm({ ...catForm, label: e.target.value })} className="form-input flex-1" required />
-        <input type="number" placeholder="Ordem" value={catForm.order} onChange={e => setCatForm({ ...catForm, order: parseInt(e.target.value) || 0 })} className="form-input w-24" />
-        <label className="flex items-center space-x-2 text-white">
-          <input
-            type="checkbox"
-            checked={catForm.allowHalfAndHalf}
-            onChange={e => setCatForm({ ...catForm, allowHalfAndHalf: e.target.checked })}
-            className="form-checkbox h-5 w-5 text-blue-600"
-          />
-          <span>Permitir Meio a Meio?</span>
-        </label>
-        <button type="submit" className="form-button-primary" disabled={catLoading}>{catEditId ? 'Atualizar' : 'Adicionar'}</button>
-        {catEditId && <button type="button" className="form-button-secondary" onClick={() => { setCatEditId(null); setCatForm({ value: '', label: '', order: 0, allowHalfAndHalf: false }); }}>Cancelar</button>}
-      </form>
-            {catError && <p className="text-red-500 text-sm mb-4">{catError}</p>}
-            <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                    <thead>
-                        <tr className="border-b border-gray-700 text-gray-400">
-                            <th className="p-2">Ordem</th>
-                            <th className="p-2">Nome</th>
-                            <th className="p-2">Valor</th>
-                            <th className="p-2">Meio a Meio</th>
-                            <th className="p-2">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {categories.sort((a,b) => (a.order || 0) - (b.order || 0)).map(cat => (
-                            <tr key={cat._id} className="border-b border-gray-700">
-                                <td className="p-2">{cat.order}</td>
-                                <td className="p-2">{cat.label}</td>
-                                <td className="p-2">{cat.value}</td>
-                                <td className="p-2">
-                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                        cat.allowHalfAndHalf 
-                                            ? 'bg-green-900/30 text-green-400 border border-green-600/50' 
-                                            : 'bg-gray-700/50 text-gray-400 border border-gray-600/50'
-                                    }`}>
-                                        {cat.allowHalfAndHalf ? '✅ Ativo' : '❌ Inativo'}
-                                    </span>
-                                </td>
-                                <td className="p-2 flex gap-2">
-                                    <button onClick={() => {setCatEditId(cat._id!); setCatForm(cat as any);}} className="form-button-secondary p-2">
-                                        <FaEdit/>
-                                    </button>
-                                    <button onClick={() => handleDeleteCategory(cat._id)} className="form-button-danger p-2">
-                                        <FaTrash/>
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="modal-overlay"
+        onClick={onClose}
+        role="dialog" aria-modal="true" aria-labelledby="category-modal-title"
+      >
+        <motion.div
+          initial={{ scale: 0.94, y: 18 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.94, y: 18 }}
+          className="modal-panel slim"
+          role="document"
+          onClick={e => e.stopPropagation()}
+        >
+          <button className="modal-close-btn focus-outline" onClick={onClose} aria-label="Fechar modal de categoria"><FaTimes/></button>
+          <h2 id="category-modal-title" className="text-xl font-bold mb-4 text-red-500">{isEdit ? 'Editar Categoria' : 'Nova Categoria'}</h2>
+          <form onSubmit={handleSubmit} className="space-y-4 text-sm">
+            <div>
+              <label className="form-label">Valor (slug)</label>
+              <input
+                type="text"
+                className="form-input"
+                value={form.value}
+                onChange={e => setForm({ ...form, value: e.target.value.toLowerCase().replace(/\s+/g,'-') })}
+                required
+              />
             </div>
-        </div>
-    );
+            <div>
+              <label className="form-label">Nome</label>
+              <input
+                type="text"
+                className="form-input"
+                value={form.label}
+                onChange={e => setForm({ ...form, label: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <label className="form-label">Ordem</label>
+              <input
+                type="number"
+                className="form-input"
+                value={form.order}
+                onChange={e => setForm({ ...form, order: parseInt(e.target.value) || 0 })}
+              />
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <input
+                id="allowHalfAndHalf"
+                type="checkbox"
+                className="form-checkbox"
+                checked={form.allowHalfAndHalf}
+                onChange={e => setForm({ ...form, allowHalfAndHalf: e.target.checked })}
+              />
+              <label htmlFor="allowHalfAndHalf" className="text-gray-300">Permitir Meio a Meio?</label>
+            </div>
+            {error && <p className="text-red-500 text-xs">{error}</p>}
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={onClose} className="form-button-secondary">Cancelar</button>
+              <button type="submit" disabled={loading} className="form-button-primary gap-2 inline-flex items-center">{loading ? 'Salvando...' : (isEdit ? 'Atualizar' : 'Salvar')}</button>
+            </div>
+          </form>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
+// --- COMPONENT: CATEGORIES TAB (MODAL VERSION) ---
+const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories: { _id?: string; value: string; label: string; order?: number; allowHalfAndHalf?: boolean }[]; onUpdate: () => void }) => {
+  const [categories, setCategories] = useState<{ _id?: string; value: string; label: string; order?: number; allowHalfAndHalf?: boolean }[]>(initialCategories);
+  const [catLoading, setCatLoading] = useState(false);
+  const [catError, setCatError] = useState('');
+  const [modalCategory, setModalCategory] = useState<{ _id?: string; value: string; label: string; order?: number; allowHalfAndHalf?: boolean } | null>(null);
+
+  const fetchCategories = async () => {
+    setCatLoading(true);
+    try {
+      const res = await fetch('/api/categories');
+      const data = await res.json();
+      if (data.success) {
+        const ordered = (data.data || []).slice().sort((a: { order?: number }, b: { order?: number }) => (a.order ?? 0) - (b.order ?? 0));
+        setCategories(ordered);
+      } else { setCatError(data.error || 'Erro ao carregar categorias'); }
+    } catch { setCatError('Erro de conexão.'); }
+    finally { setCatLoading(false); }
+  };
+
+  useEffect(() => { fetchCategories(); }, []);
+  useEffect(() => {
+    const ordered = (initialCategories || []).slice().sort((a: { order?: number }, b: { order?: number }) => (a.order ?? 0) - (b.order ?? 0));
+    setCategories(ordered);
+  }, [initialCategories]);
+
+  const handleDeleteCategory = async (id?: string) => {
+    if (!id || !confirm('Excluir esta categoria?')) return;
+    setCatLoading(true);
+    try {
+      const res = await fetch(`/api/categories?id=${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) { fetchCategories(); onUpdate(); }
+      else { setCatError(data.error || 'Erro ao excluir'); }
+    } catch { setCatError('Erro de conexão.'); }
+    finally { setCatLoading(false); }
+  };
+
+  return (
+    <div className="p-0">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+        <h2 className="text-2xl font-bold text-white">Categorias</h2>
+        <button
+          onClick={() => setModalCategory({ value: '', label: '', order: 0, allowHalfAndHalf: false })}
+          className="form-button-primary flex items-center gap-2"
+        >
+          <FaPlus/> Nova Categoria
+        </button>
+      </div>
+      {catError && <p className="text-red-500 text-sm mb-4">{catError}</p>}
+      <div className="overflow-x-auto rounded-xl border border-gray-800 bg-[#262525]">
+        <table className="w-full text-left" aria-describedby="categories-table-caption">
+          <caption id="categories-table-caption" className="sr-only">Tabela de categorias do cardápio</caption>
+          <thead>
+            <tr className="border-b border-gray-700 text-gray-400 text-sm">
+              <th className="p-2">Ordem</th>
+              <th className="p-2">Nome</th>
+              <th className="p-2">Valor</th>
+              <th className="p-2">Meio a Meio</th>
+              <th className="p-2">Ações</th>
+            </tr>
+          </thead>
+          <tbody className="text-sm">
+            {categories.sort((a,b) => (a.order || 0) - (b.order || 0)).map(cat => (
+              <tr key={cat._id} className="border-b border-gray-800/60 last:border-0">
+                <td className="p-2 w-20">{cat.order}</td>
+                <td className="p-2">{cat.label}</td>
+                <td className="p-2 text-gray-400">{cat.value}</td>
+                <td className="p-2">
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${cat.allowHalfAndHalf ? 'bg-green-900/30 text-green-400 border border-green-600/50' : 'bg-gray-700/40 text-gray-400 border border-gray-600/40'}`}>{cat.allowHalfAndHalf ? '✅ Sim' : '—'}</span>
+                </td>
+                <td className="p-2 flex gap-2">
+                  <button
+                    onClick={() => setModalCategory(cat)}
+                    className="form-button-secondary p-2"
+                    aria-label={`Editar categoria ${cat.label}`}
+                    title={`Editar ${cat.label}`}
+                  >
+                    <FaEdit/>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteCategory(cat._id)}
+                    className="form-button-danger p-2"
+                    aria-label={`Excluir categoria ${cat.label}`}
+                    title={`Excluir ${cat.label}`}
+                  >
+                    <FaTrash/>
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {categories.length === 0 && (
+              <tr><td colSpan={5} className="p-4 text-center text-gray-400">Nenhuma categoria cadastrada.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      {catLoading && <p className="text-xs text-gray-400 mt-2">Carregando...</p>}
+      {modalCategory && (
+        <CategoryModal
+          category={modalCategory}
+          onClose={() => setModalCategory(null)}
+          onSaved={() => { fetchCategories(); onUpdate(); }}
+        />
+      )}
+    </div>
+  );
 };
 
 // --- COMPONENTE PRINCIPAL ---
@@ -314,7 +412,7 @@ export default function AdminMenu() {
   const filteredItems = menuItems.filter((item) => selectedCategory === 'todas' || item.category === selectedCategory);
 
   return (
-    <div className="bg-[#1a1a1a] min-h-screen text-gray-200 p-4 sm:p-6 lg:p-8">
+  <div className="p-6 text-gray-200">
       <style jsx global>{`
         .form-input { @apply w-full mt-1 p-2 bg-[#2a2a2a] border border-gray-600 rounded-md text-white focus:ring-red-500 focus:border-red-500 transition-colors; }
         .form-label { @apply block text-sm font-medium text-gray-300; }
@@ -342,19 +440,60 @@ export default function AdminMenu() {
               <motion.button onClick={() => handleOpenModal()} whileHover={{ scale: 1.05 }} className="w-full md:w-auto form-button-primary"><FaPlus /> Adicionar Novo Item</motion.button>
             </div>
             {loading ? <p className="text-center py-10">Carregando...</p> : error ? <p className="text-red-500 text-center py-10">{error}</p> : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="auto-grid">
                 {filteredItems.map((item) => (
-                  <motion.div key={item._id} layout className={`bg-[#2a2a2a] rounded-xl overflow-hidden border border-gray-800 flex flex-col justify-between transition-all hover:border-red-500 ${item.isAvailable === false ? 'opacity-50' : ''}`}>
-                    <div>
-                      <div className="relative h-40 w-full"><Image src={item.image || '/placeholder.jpg'} alt={item.name} layout="fill" className="object-cover" /></div>
-                      <div className="p-4"><h3 className="text-lg font-bold text-white truncate">{item.name}</h3><p className="text-gray-400 text-sm mt-1">R$ {item.price.toFixed(2)}</p></div>
+                  <motion.div
+                    key={item._id}
+                    layout
+                    className={`bubble-card flex flex-col justify-between ${item.isAvailable === false ? 'opacity-50' : ''}`}
+                    onMouseMove={(e) => {
+                      const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - r.left}px`);
+                      e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - r.top}px`);
+                    }}
+                  >
+                    <span className="bubble-glow" />
+                    <span className="bubble-press-overlay" />
+                    <span className="bubble-border-gradient" />
+                    <div className="bubble-content">
+                      <div className="relative h-40 w-full">
+                        <Image src={item.image || '/placeholder.jpg'} alt={item.image ? `Imagem do item ${item.name}` : `Sem imagem cadastrada para ${item.name}`} layout="fill" className="object-cover" />
+                      </div>
+                      <div className="p-4">
+                        <h3 className="text-lg font-bold text-white truncate">{item.name}</h3>
+                        <p className="text-gray-400 text-sm mt-1">R$ {item.price.toFixed(2)}</p>
+                      </div>
                     </div>
-                    <div className="p-4 border-t border-gray-800 bg-[#1e1e1e]/50 flex justify-between items-center gap-2">
-                        <div className="flex flex-col items-center"><label className="relative inline-flex items-center cursor-pointer"><input type="checkbox" checked={item.isAvailable ?? true} onChange={(e) => handleAvailabilityChange(item, e.target.checked)} className="sr-only peer"/><div className="w-11 h-6 bg-gray-600 rounded-full peer peer-focus:ring-2 peer-focus:ring-red-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div></label><span className={`text-xs mt-1 font-medium ${item.isAvailable ?? true ? 'text-green-400' : 'text-gray-400'}`}>{item.isAvailable ?? true ? 'On' : 'Off'}</span></div>
-                        <div className='flex gap-2'>
-                          <button className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700" onClick={() => handleOpenModal(item)}><FaEdit /></button>
-                          <button className="bg-gray-600 text-white p-2 rounded-lg hover:bg-gray-700 disabled:opacity-50" onClick={() => handleDeleteItem(item._id, item.name)} disabled={deletingItems.has(item._id!)}>{deletingItems.has(item._id!) ? '...' : <FaTrash />}</button>
-                        </div>
+                    <div className="p-4 border-t border-gray-800/70 bg-[#1e1e1e]/60 flex justify-between items-center gap-2 relative z-10">
+                      <div className="flex flex-col items-center">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={item.isAvailable ?? true}
+                            onChange={(e) => handleAvailabilityChange(item, e.target.checked)}
+                            className="sr-only peer"
+                            aria-label={item.isAvailable ? `Desativar disponibilidade de ${item.name}` : `Ativar disponibilidade de ${item.name}`}
+                            role="switch"
+                            aria-checked={item.isAvailable ?? true}
+                          />
+                          <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-focus:ring-2 peer-focus:ring-red-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                        </label>
+                        <span className={`text-xs mt-1 font-medium ${item.isAvailable ?? true ? 'text-green-400' : 'text-gray-400'}`}>
+                          {item.isAvailable ?? true ? 'On' : 'Off'}
+                        </span>
+                      </div>
+                      <div className='flex gap-2'>
+                        <button className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700" onClick={() => handleOpenModal(item)} aria-label={`Editar item ${item.name}`} title={`Editar ${item.name}`}><FaEdit /></button>
+                        <button
+                          className="bg-gray-600 text-white p-2 rounded-lg hover:bg-gray-700 disabled:opacity-50"
+                          onClick={() => handleDeleteItem(item._id, item.name)}
+                          disabled={deletingItems.has(item._id!)}
+                          aria-label={deletingItems.has(item._id!) ? `Excluindo ${item.name}` : `Excluir item ${item.name}`}
+                          title={`Excluir ${item.name}`}
+                        >
+                          {deletingItems.has(item._id!) ? '...' : <FaTrash />}
+                        </button>
+                      </div>
                     </div>
                   </motion.div>
                 ))}

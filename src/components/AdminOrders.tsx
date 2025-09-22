@@ -43,17 +43,88 @@ export default function AdminOrders() {
     const [statusFilter, setStatusFilter] = useState('');
     const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
     const [notification, setNotification] = useState<string | null>(null);
+    const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+    const [audioReady, setAudioReady] = useState(false);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const firstLoadRef = useRef<boolean>(true);
+    const userInteractedRef = useRef<boolean>(false);
+    const lastHeardOrderIdsRef = useRef<Set<string>>(new Set());
+    const sseRef = useRef<EventSource | null>(null);
+    const soundLoopRef = useRef<number | null>(null);
+    const soundLoopCountRef = useRef<number>(0);
+
+    // Função robusta de reprodução de som
+    const playNotificationSound = async () => {
+        if (!soundEnabled) return;
+        // Tenta com elemento principal
+        if (audioRef.current) {
+            try {
+                audioRef.current.currentTime = 0;
+                await audioRef.current.play();
+                return;
+            } catch (err) {
+                if (process.env.NODE_ENV !== 'production') {
+                    console.warn('[Pedidos] Falha play principal, tentando fallback', err);
+                }
+            }
+        }
+        // Fallback: instancia novo Audio (alguns browsers tocam melhor instância recém criada)
+        try {
+            const alt = new Audio('/sound/bell-notification-337658.mp3');
+            alt.volume = audioRef.current?.volume ?? 1;
+            await alt.play();
+        } catch (err2) {
+            if (process.env.NODE_ENV !== 'production') {
+                console.warn('[Pedidos] Falha fallback de áudio', err2);
+            }
+        }
+    };
+
+    // Inicializa preferencia de som do localStorage
+    useEffect(() => {
+        const saved = typeof window !== 'undefined' ? localStorage.getItem('ordersSoundEnabled') : null;
+        if (saved !== null) setSoundEnabled(saved === 'true');
+        // Listener para primeira interação (desbloquear áudio em navegadores que exigem gesto)
+        const enableAudio = () => {
+            userInteractedRef.current = true;
+            if (audioRef.current) {
+                audioRef.current.play().then(() => {
+                    audioRef.current?.pause();
+                    audioRef.current!.currentTime = 0;
+                    setAudioReady(true);
+                }).catch(() => {/* ignore */});
+            }
+            window.removeEventListener('click', enableAudio);
+            window.removeEventListener('keydown', enableAudio);
+        };
+        window.addEventListener('click', enableAudio, { once: true });
+        window.addEventListener('keydown', enableAudio, { once: true });
+        return () => {
+            window.removeEventListener('click', enableAudio);
+            window.removeEventListener('keydown', enableAudio);
+        };
+    }, []);
 
     const fetchPedidos = async () => {
         try {
-            const res = await fetch('/api/pedidos');
+            const res = await fetch(`/api/pedidos?ts=${Date.now()}`, { cache: 'no-store' });
             const data = await res.json();
             if (data.success) {
                 const novosPedidos = data.data.filter((novoPedido: Pedido) =>
                     !pedidos.some(pedido => pedido._id === novoPedido._id)
                 );
-
                 if (novosPedidos.length > 0) {
+                    // Evita tocar na carga inicial
+                    if (!firstLoadRef.current && userInteractedRef.current) {
+                        // Filtra apenas ids realmente novos que ainda não notificamos som (evita duplicar se API envia repetido)
+                                                const novosIds = novosPedidos
+                                                    .map((p: Pedido) => p._id)
+                                                    .filter((id: string) => !lastHeardOrderIdsRef.current.has(id));
+                        if (novosIds.length > 0) {
+                            await playNotificationSound();
+                            novosIds.forEach((id: string) => lastHeardOrderIdsRef.current.add(id));
+                        }
+                    }
                     setNotification(`Novo pedido recebido! #${novosPedidos[0]._id.slice(-6)}`);
                     const notifyOrders = JSON.parse(localStorage.getItem('notifyOrders') || '[]');
                     if (!notifyOrders.includes(novosPedidos[0]._id)) {
@@ -63,6 +134,7 @@ export default function AdminOrders() {
                 }
 
                 setPedidos(data.data);
+                firstLoadRef.current = false;
             }
         } catch (err) {
             console.error('Erro ao buscar pedidos:', err);
@@ -75,10 +147,102 @@ export default function AdminOrders() {
         fetchPedidos();
     }, []);
 
+    // Polling de fallback (caso SSE caia) a cada 2min
     useEffect(() => {
-        const interval = setInterval(fetchPedidos, 30000);
+        const interval = setInterval(fetchPedidos, 120000);
         return () => clearInterval(interval);
-    }, [pedidos]);
+    }, []);
+
+    // Assinatura SSE para novos pedidos em tempo real
+    useEffect(() => {
+        // Evita múltiplas conexões
+        if (sseRef.current) return;
+        const clientId = `admin-${Math.random().toString(36).slice(2)}`;
+        const es = new EventSource(`/api/ws?clientId=${clientId}`);
+        sseRef.current = es;
+
+        es.onmessage = async (ev) => {
+            try {
+                const payload = JSON.parse(ev.data);
+                if (payload?.type === 'novo-pedido' && payload.pedidoId) {
+                    // Busca apenas o pedido novo
+                    const res = await fetch(`/api/pedidos?id=${payload.pedidoId}&ts=${Date.now()}`, { cache: 'no-store' });
+                    const single = await res.json();
+                    if (single?.success && single.data) {
+                        const pedidoNovo: Pedido = single.data;
+                        setPedidos(prev => {
+                            // Não duplica
+                            if (prev.some(p => p._id === pedidoNovo._id)) return prev;
+                            return [pedidoNovo, ...prev];
+                        });
+                        if (userInteractedRef.current) {
+                            if (!lastHeardOrderIdsRef.current.has(pedidoNovo._id)) {
+                                await playNotificationSound();
+                                lastHeardOrderIdsRef.current.add(pedidoNovo._id);
+                            }
+                        }
+                        setNotification(`Novo pedido recebido! #${String(pedidoNovo._id).slice(-6)}`);
+                    }
+                }
+            } catch (e) {
+                if (process.env.NODE_ENV !== 'production') {
+                    console.warn('Falha ao processar evento SSE', e);
+                }
+            }
+        };
+
+        es.onerror = () => {
+            if (process.env.NODE_ENV !== 'production') console.warn('SSE desconectado, tentando reconectar...');
+            es.close();
+            sseRef.current = null;
+            setTimeout(() => {
+                // força nova conexão
+                if (!sseRef.current) {
+                    fetchPedidos(); // tenta sincronizar antes
+                    sseRef.current = new EventSource(`/api/ws?clientId=${clientId}&r=${Date.now()}`);
+                }
+            }, 5000);
+        };
+
+        return () => {
+            es.close();
+            sseRef.current = null;
+        };
+    }, []);
+
+    // Loop de som enquanto a notificação estiver aberta (máx 6 repetições para não irritar)
+    useEffect(() => {
+        if (notification && soundEnabled) {
+            // Se já existe loop ativo, apenas reinicia contador e segue
+            soundLoopCountRef.current = 0;
+            if (soundLoopRef.current === null) {
+                soundLoopRef.current = window.setInterval(async () => {
+                    if (!notification) return; // encerrado
+                    if (soundLoopCountRef.current >= 6) {
+                        // Limite atingido
+                        if (soundLoopRef.current) {
+                            clearInterval(soundLoopRef.current);
+                            soundLoopRef.current = null;
+                        }
+                        return;
+                    }
+                    soundLoopCountRef.current += 1;
+                    await playNotificationSound();
+                }, 8000); // repete a cada 8s
+            }
+        } else {
+            if (soundLoopRef.current !== null) {
+                clearInterval(soundLoopRef.current);
+                soundLoopRef.current = null;
+            }
+        }
+        return () => {
+            if (soundLoopRef.current !== null && !notification) {
+                clearInterval(soundLoopRef.current);
+                soundLoopRef.current = null;
+            }
+        };
+    }, [notification, soundEnabled]);
 
     const handleRemoverPedido = async (id: string) => {
         if (!window.confirm('Tem certeza que deseja remover este pedido?')) return;
@@ -305,7 +469,7 @@ export default function AdminOrders() {
     if (!pedidos.length) return <div className="text-center text-gray-500">Nenhum pedido recente.</div>;
 
     return (
-        <div className="min-h-screen bg-[#262525] p-4">
+    <div className="p-4 sm:p-6">
             <h2 className="text-2xl font-bold mb-4 text-red-600">Painel de Pedidos</h2>
             {mensagemCompartilhamento && (
                 <div className="mb-4 p-3 bg-green-100 border border-green-300 text-green-800 rounded text-center font-semibold">
@@ -313,65 +477,134 @@ export default function AdminOrders() {
                 </div>
             )}
             {notification && (
-                <div className="fixed top-6 right-6 z-50 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-slide-up font-semibold text-lg">
-                    <span>🔔</span>
+                <div className="fixed top-6 right-6 z-50 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-slide-up font-semibold text-lg" role="status" aria-live="polite">
+                    <span aria-hidden="true">🔔</span>
                     <span>{notification}</span>
                     <button
                         onClick={() => setNotification(null)}
                         className="ml-2 hover:text-red-200 transition-colors text-2xl font-bold"
                         aria-label="Fechar notificação"
+                        title="Fechar notificação"
                     >
                         ×
                     </button>
                 </div>
             )}
-            <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-200 mb-2">
-                    Buscar por telefone
-                </label>
-                <input
-                    type="tel"
-                    value={phoneFilter}
-                    onChange={(e) => setPhoneFilter(e.target.value)}
-                    placeholder="Digite o telefone do pedido"
-                    className="w-full max-w-md rounded-md border border-gray-700 bg-[#262525] text-gray-100 shadow-sm focus:border-red-600 focus:ring-red-600"
-                />
-            </div>
-            <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-200 mb-2">
-                    Filtrar por status
-                </label>
-                <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full max-w-md rounded-md border border-gray-700 bg-[#262525] text-gray-100 shadow-sm focus:border-red-600 focus:ring-red-600"
+                        {/* Controles de som */}
+                        <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !soundEnabled; setSoundEnabled(next); localStorage.setItem('ordersSoundEnabled', String(next));
+                  }}
+                  className={`px-3 py-1.5 rounded-md border text-xs font-semibold transition-colors ${soundEnabled ? 'bg-green-700/40 border-green-600 text-green-300 hover:bg-green-700/60' : 'bg-gray-700/40 border-gray-600 text-gray-300 hover:bg-gray-700/60'}`}
+                  aria-pressed={soundEnabled}
+                  aria-label={soundEnabled ? 'Desativar som de novos pedidos' : 'Ativar som de novos pedidos'}
                 >
-                    <option value="">Todos os status</option>
-                    <option value="pendente">Pendente</option>
-                    <option value="preparando">Preparando</option>
-                    <option value="pronto">Pronto</option>
-                    <option value="em_entrega">Em Entrega</option>
-                    <option value="entregue">Entregue</option>
-                    <option value="cancelado">Cancelado</option>
-                </select>
+                  Som: {soundEnabled ? 'Ativado' : 'Mutado'}
+                </button>
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        if (audioRef.current) {
+                                                try {
+                                                    audioRef.current.currentTime = 0;
+                                                    await audioRef.current.play();
+                                                    userInteractedRef.current = true;
+                                                    setAudioReady(true);
+                                                } catch (e) {
+                                                    console.warn('Falha ao tocar áudio manualmente', e);
+                                                }
+                                        }
+                                    }}
+                                    className="px-3 py-1.5 rounded-md border text-xs font-semibold transition-colors bg-blue-700/40 border-blue-600 text-blue-200 hover:bg-blue-700/60"
+                                >
+                                    Testar Som
+                                </button>
+                                {!audioReady && <span className="text-[11px] text-gray-400">Clique em qualquer lugar ou no botão para liberar o áudio.</span>}
+                <span className="text-xs text-gray-400">(toca apenas quando chega um novo pedido após a página carregada)</span>
             </div>
+                        {/* Elemento de áudio real no DOM */}
+                        <audio ref={audioRef} src="/sound/bell-notification-337658.mp3" preload="auto" className="hidden" aria-hidden="true" />
+            {/* Filtros responsivos */}
+            <fieldset className="mb-6 grid gap-4 sm:grid-cols-2" aria-label="Filtros de pedidos">
+                <div className="flex flex-col">
+                    <label className="block text-sm font-medium text-gray-200 mb-2" htmlFor="filtro-telefone">
+                        Buscar por telefone
+                    </label>
+                    <input
+                        id="filtro-telefone"
+                        type="tel"
+                        value={phoneFilter}
+                        onChange={(e) => setPhoneFilter(e.target.value)}
+                        placeholder="Digite o telefone do pedido"
+                        className="w-full rounded-md border border-gray-700 bg-[#262525] text-gray-100 shadow-sm focus:border-red-600 focus:ring-red-600"
+                    />
+                </div>
+                <div className="flex flex-col">
+                    <label className="block text-sm font-medium text-gray-200 mb-2" htmlFor="filtro-status">
+                        Filtrar por status
+                    </label>
+                    <div className="flex gap-2">
+                        <select
+                            id="filtro-status"
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="w-full rounded-md border border-gray-700 bg-[#262525] text-gray-100 shadow-sm focus:border-red-600 focus:ring-red-600"
+                        >
+                            <option value="">Todos os status</option>
+                            <option value="pendente">Pendente</option>
+                            <option value="preparando">Preparando</option>
+                            <option value="pronto">Pronto</option>
+                            <option value="em_entrega">Em Entrega</option>
+                            <option value="entregue">Entregue</option>
+                            <option value="cancelado">Cancelado</option>
+                        </select>
+                        {(phoneFilter || statusFilter) && (
+                            <button
+                                type="button"
+                                onClick={() => { setPhoneFilter(''); setStatusFilter(''); }}
+                                className="shrink-0 px-3 py-2 text-sm rounded-md bg-gray-700/60 hover:bg-gray-700 text-gray-200 font-medium transition-colors"
+                                aria-label="Limpar filtros"
+                            >
+                                Limpar
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </fieldset>
             <ul className="space-y-4">
                 {filteredPedidos.map((pedido) => (
-                    <li key={pedido._id} className="bg-[#262525] rounded-xl shadow-lg p-6 border border-gray-800 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <div className="font-semibold text-lg text-white">Pedido <span className="text-red-500">#{pedido._id.slice(-6)}</span></div>
+                    <li
+                        key={pedido._id}
+                        className="bubble-card p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 relative"
+                        onMouseMove={(e) => {
+                            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                            e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - r.left}px`);
+                            e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - r.top}px`);
+                        }}
+                    >
+                        <span className="bubble-glow" />
+                        <span className="bubble-press-overlay" />
+                        <span className="bubble-border-gradient" />
+                        <div className="bubble-content flex-1">
+                            <div className="font-semibold text-lg text-white">
+                                Pedido <span className="text-red-500">#{pedido._id.slice(-6)}</span>
+                            </div>
                             <div className="text-sm text-gray-400 mb-2">
                                 Data: {formatDate(pedido.data)}
                             </div>
-                            <div className="font-bold text-red-600">Total: R$ {calcularTotal(pedido).toFixed(2)}</div>
-                            <div className="flex items-center gap-2 mt-2">
-                                <div className={`inline-block px-2 py-1 rounded-full text-xs font-semibold 
-                                    ${pedido.status === 'entregue' ? 'bg-green-700 text-green-200' : ''}
-                                    ${pedido.status === 'pendente' ? 'bg-yellow-700 text-yellow-200' : ''}
-                                    ${pedido.status === 'preparando' ? 'bg-blue-700 text-blue-200' : ''}
-                                    ${pedido.status === 'em_entrega' ? 'bg-purple-700 text-purple-200' : ''}
-                                    ${pedido.status === 'cancelado' ? 'bg-red-700 text-red-200' : ''}
-                                `}>
+                            <div className="font-bold text-red-500">Total: R$ {calcularTotal(pedido).toFixed(2)}</div>
+                            <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                <div
+                                    className={`inline-block px-2 py-1 rounded-full text-xs font-semibold transition-colors
+                                        ${pedido.status === 'entregue' ? 'bg-green-700/40 text-green-300' : ''}
+                                        ${pedido.status === 'pendente' ? 'bg-yellow-700/40 text-yellow-200' : ''}
+                                        ${pedido.status === 'preparando' ? 'bg-blue-700/40 text-blue-200' : ''}
+                                        ${pedido.status === 'em_entrega' ? 'bg-purple-700/40 text-purple-200' : ''}
+                                        ${pedido.status === 'cancelado' ? 'bg-red-700/40 text-red-200' : ''}
+                                    `}
+                                >
                                     {getStatusText(pedido.status)}
                                 </div>
                                 {getNextStatus(pedido.status) && (
@@ -385,22 +618,28 @@ export default function AdminOrders() {
                                 )}
                             </div>
                         </div>
-                        <div className="flex flex-col gap-2 mt-2 sm:mt-0">
+                        <div className="flex flex-row flex-wrap gap-2 mt-2 sm:mt-0 sm:ml-4 sm:flex-col relative z-10 w-full sm:w-auto">
                             <button
                                 className="px-4 py-2 bg-red-600 text-white rounded font-semibold hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
                                 onClick={() => setPedidoSelecionado(pedido)}
+                                aria-label={`Ver detalhes do pedido ${pedido._id.slice(-6)}`}
+                                title="Ver detalhes"
                             >
                                 Ver Detalhes
                             </button>
                             <button
                                 className="px-4 py-2 bg-blue-500 text-white rounded font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
                                 onClick={() => handleCompartilharPedido(pedido)}
+                                aria-label={`Compartilhar pedido ${pedido._id.slice(-6)}`}
+                                title="Compartilhar pedido"
                             >
-                                <FaShareAlt /> Compartilhar
+                                <FaShareAlt aria-hidden="true" /> <span>Compartilhar</span>
                             </button>
                             <button
                                 className="px-4 py-2 bg-red-500 text-white rounded font-semibold hover:bg-red-600 transition-colors"
                                 onClick={() => handleRemoverPedido(pedido._id)}
+                                aria-label={`Remover pedido ${pedido._id.slice(-6)}`}
+                                title="Remover pedido"
                             >
                                 Remover
                             </button>
@@ -409,26 +648,28 @@ export default function AdminOrders() {
                 ))}
             </ul>
             {mensagem && (
-                <div className="mt-4 p-3 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded text-center font-semibold">
+                <div className="mt-4 p-3 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded text-center font-semibold" role="status" aria-live="polite">
                     {mensagem}
                 </div>
             )}
 
             {/* Modal de detalhes */}
             {pedidoSelecionado && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40" onClick={() => setPedidoSelecionado(null)}>
+                <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="order-modal-title" onClick={() => setPedidoSelecionado(null)}>
                     <div
-                        className="bg-[#262525] rounded-xl shadow-xl p-6 max-w-md w-full relative print-pedido border border-gray-800 max-h-[90vh] overflow-y-auto"
+                        className="modal-panel slim print-pedido"
                         onClick={e => e.stopPropagation()}
+                        role="document"
                     >
                         <button
-                            className="absolute top-2 right-2 text-red-500 hover:text-red-400 text-2xl focus:outline-none no-print"
+                            className="modal-close-btn no-print focus-outline text-red-400 hover:text-red-300"
                             onClick={() => setPedidoSelecionado(null)}
                             aria-label="Fechar modal de pedido"
+                            title="Fechar"
                         >
                             &times;
                         </button>
-                        <h3 className="text-2xl font-bold mb-4 text-red-600 text-center">Do'Cheff</h3>
+                        <h3 id="order-modal-title" className="text-2xl font-bold mb-4 text-red-500 text-center">Do'Cheff</h3>
                         <div className="mb-4 text-sm text-gray-300 text-center space-y-1">
                             <div><span className="text-gray-400">Pedido:</span> <span className="text-white font-semibold">#{pedidoSelecionado._id?.slice(-6) || '-'}</span></div>
                             <div><span className="text-gray-400">Data:</span> <span className="text-white">{pedidoSelecionado.data ? formatDate(pedidoSelecionado.data) : '-'}</span></div>
@@ -500,6 +741,8 @@ export default function AdminOrders() {
                             <button
                                 className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-orange-900 font-bold py-2 rounded-lg transition-colors no-print"
                                 onClick={() => window.print()}
+                                aria-label="Imprimir pedido"
+                                title="Imprimir"
                             >
                                 Imprimir
                             </button>
@@ -510,6 +753,8 @@ export default function AdminOrders() {
                                         updateOrderStatus(pedidoSelecionado._id, getNextStatus(pedidoSelecionado.status)!);
                                         setPedidoSelecionado(null);
                                     }}
+                                    aria-label="Atualizar para próximo status"
+                                    title="Atualizar status"
                                 >
                                     Atualizar Status
                                 </button>
@@ -565,4 +810,4 @@ export default function AdminOrders() {
             )}
         </div>
     );
-} 
+}

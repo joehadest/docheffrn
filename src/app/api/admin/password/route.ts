@@ -89,7 +89,9 @@ export async function POST(request: Request) {
         const settings = await Settings.findOne() || await Settings.create({});
 
         if (settings.adminPassword === password) {
-            return NextResponse.json({ success: true, message: 'Senha correta' });
+            const res = NextResponse.json({ success: true, message: 'Senha correta' });
+            res.cookies.set('isAuthenticated', 'true', { httpOnly: true, path: '/admin', maxAge: 60 * 60 * 24 });
+            return res;
         } else {
             return NextResponse.json(
                 { success: false, message: 'Senha incorreta' },
@@ -151,4 +153,4 @@ export async function PUT(request: Request) {
             { status: 500 }
         );
     }
-} 
+}

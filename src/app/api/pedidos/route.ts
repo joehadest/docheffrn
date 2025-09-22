@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { broadcast } from '@/lib/sse';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Pedido } from '@/types';
 import { ObjectId } from 'mongodb';
@@ -151,6 +152,12 @@ export async function POST(request: Request) {
         }
 
         const result = await collection.insertOne(pedido);
+        // Broadcast evento de novo pedido
+        try {
+            broadcast({ type: 'novo-pedido', pedidoId: String(result.insertedId) });
+        } catch (e) {
+            console.error('Falha broadcast novo pedido', e);
+        }
         return NextResponse.json({ success: true, pedidoId: result.insertedId });
     } catch (error) {
         console.error('Erro ao criar pedido:', error);

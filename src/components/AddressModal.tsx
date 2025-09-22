@@ -61,20 +61,21 @@ export default function AddressModal({ isOpen, onClose, onSave, initialAddress }
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="bg-[#262525] rounded-xl shadow-xl p-6 max-w-md w-full relative border border-gray-800">
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="address-modal-title">
+            <div className="modal-panel slim" role="document">
                 <button
                     onClick={onClose}
-                    className="absolute top-2 right-2 text-gray-400 hover:text-white"
+                    className="modal-close-btn focus-outline"
+                    aria-label="Fechar modal"
                 >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
 
-                <h2 className="text-2xl font-bold mb-4 text-white">Endereço de Entrega</h2>
+                <h2 id="address-modal-title" className="text-xl font-bold mb-4 text-white">Endereço de Entrega</h2>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-4 text-sm">
                     <div>
                         <label htmlFor="street" className="block text-sm font-medium text-gray-200">Rua</label>
                         <input

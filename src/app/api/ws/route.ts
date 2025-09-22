@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-
-// Mapa para armazenar conexões ativas
-const clients = new Map<string, any>();
+import { registerClient, removeClient, broadcast, pingAll } from '@/lib/sse';
 
 // Handler para Server-Sent Events (SSE)
 export async function GET(req: Request) {
@@ -15,21 +13,18 @@ export async function GET(req: Request) {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
         start(controller) {
-            // Armazenar o controller para enviar mensagens posteriormente
-            clients.set(clientId, controller);
-
-            // Enviar uma mensagem de confirmação
+            registerClient(clientId, controller as any);
             controller.enqueue(encoder.encode('data: {"type":"connected"}\n\n'));
-
-            // Limpar quando a conexão for fechada
-            const cleanup = () => {
-                clients.delete(clientId);
-            };
-
-            // Adicionar listener para quando o cliente desconectar
+            const cleanup = () => removeClient(clientId);
             req.signal.addEventListener('abort', cleanup);
         }
     });
+
+    // Ping keep-alive a cada 25s (SSE alguns proxies fecham sem tráfego)
+    const pingInterval = setInterval(() => {
+        try { pingAll(); } catch {}
+    }, 25000);
+    req.signal.addEventListener('abort', () => clearInterval(pingInterval));
 
     return new NextResponse(stream, {
         headers: {
@@ -40,11 +35,5 @@ export async function GET(req: Request) {
     });
 }
 
-// Função utilitária para enviar notificação (não exportar aqui)
-function sendNotification(clientId: string, notification: any) {
-    const controller = clients.get(clientId);
-    if (controller) {
-        const encoder = new TextEncoder();
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(notification)}\n\n`));
-    }
-} 
+// Export extra broadcast (caso precise disparar manual em dev)
+export { broadcast };

@@ -1,9 +1,8 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
-import Header from '@/components/Header';
-import { StoreProvider } from '@/contexts/StoreContext';
-import { MenuProvider } from '@/contexts/MenuContext';
+import React from 'react';
+import AppShellClient from '@/components/AppShellClient';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -26,11 +25,7 @@ export const metadata: Metadata = {
     }
 };
 
-export default function RootLayout({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
         <html lang="pt-BR">
             <head>
@@ -40,15 +35,8 @@ export default function RootLayout({
                 <link rel="icon" href="/favicon/favicon.ico" type="image/x-icon" />
             </head>
             <body className="bg-[#262525] min-h-screen">
-                <MenuProvider>
-                    <StoreProvider>
-                        <Header />
-                        <main className="min-h-screen">
-                            {children}
-                        </main>
-                    </StoreProvider>
-                </MenuProvider>
+                <AppShellClient>{children}</AppShellClient>
             </body>
         </html>
     );
-} 
+}
