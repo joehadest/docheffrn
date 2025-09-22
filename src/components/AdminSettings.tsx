@@ -1,539 +1,169 @@
-'use client';
+"use client";
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
 import { getRestaurantStatus } from '../utils/timeUtils';
 import type { BusinessHoursConfig } from '../utils/timeUtils';
 
-interface DeliveryFee {
-    neighborhood: string;
-    fee: number;
-}
+interface DeliveryFee { neighborhood: string; fee: number; }
+interface BusinessHours { open: boolean; start: string; end: string; }
 
-interface BusinessHours {
-    open: boolean;
-    start: string;
-    end: string;
-}
+const SettingsCard = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <div className="bg-[#1F1F1F] border border-gray-800/50 rounded-xl shadow-lg">
+    <div className="p-4 border-b border-gray-800/50">
+      <h2 className="text-lg font-semibold text-white">{title}</h2>
+    </div>
+    <div className="p-4 space-y-4">{children}</div>
+  </div>
+);
 
 export default function AdminSettings() {
-    const [isOpen, setIsOpen] = useState(false);
-    const router = useRouter();
-    const [isSaving, setIsSaving] = useState(false);
-    const [saveMessage, setSaveMessage] = useState('');
-    const [deliveryFees, setDeliveryFees] = useState<DeliveryFee[]>([]);
-    const [businessHours, setBusinessHours] = useState<BusinessHoursConfig>({
-        monday: { open: false, start: '18:00', end: '22:00' },
-        tuesday: { open: false, start: '18:00', end: '22:00' },
-        wednesday: { open: false, start: '18:00', end: '22:00' },
-        thursday: { open: false, start: '18:00', end: '22:00' },
-        friday: { open: false, start: '18:00', end: '22:00' },
-        saturday: { open: false, start: '18:00', end: '22:00' },
-        sunday: { open: false, start: '18:00', end: '22:00' }
-    });
-    const [newNeighborhood, setNewNeighborhood] = useState('');
-    const [newFee, setNewFee] = useState('');
-    const [isEditing, setIsEditing] = useState(false);
-    const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const [isOpen, setIsOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
+  const [deliveryFees, setDeliveryFees] = useState<DeliveryFee[]>([]);
+  const [businessHours, setBusinessHours] = useState<BusinessHoursConfig>({
+    monday: { open: false, start: '18:00', end: '22:00' },
+    tuesday: { open: false, start: '18:00', end: '22:00' },
+    wednesday: { open: false, start: '18:00', end: '22:00' },
+    thursday: { open: false, start: '18:00', end: '22:00' },
+    friday: { open: false, start: '18:00', end: '22:00' },
+    saturday: { open: false, start: '18:00', end: '22:00' },
+    sunday: { open: false, start: '18:00', end: '22:00' }
+  });
+  const [newNeighborhood, setNewNeighborhood] = useState('');
+  const [newFee, setNewFee] = useState('');
+  const [loading, setLoading] = useState(true);
 
-    // Estados para alteração de senha
-    const [showPasswordChange, setShowPasswordChange] = useState(false);
-    const [currentPassword, setCurrentPassword] = useState('');
-    const [newPassword, setNewPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [isChangingPassword, setIsChangingPassword] = useState(false);
-    const [passwordMessage, setPasswordMessage] = useState('');
-    
-    // Estados para mostrar/ocultar senhas
-    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-    const [showNewPassword, setShowNewPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const checkOpenStatus = useCallback(() => getRestaurantStatus(businessHours).isOpen, [businessHours]);
 
-    // Função para verificar se o estabelecimento está aberto
-    const checkOpenStatus = useCallback(() => {
-        const status = getRestaurantStatus(businessHours);
-        
-        console.log('Status detalhado do estabelecimento:', status);
-        return status.isOpen;
-    }, [businessHours]);
-
-    // Função utilitária para garantir valores padrão
-    function mergeBusinessHours(recebido: Partial<BusinessHoursConfig>): BusinessHoursConfig {
-        const dias: (keyof BusinessHoursConfig)[] = [
-            'monday',
-            'tuesday',
-            'wednesday',
-            'thursday',
-            'friday',
-            'saturday',
-            'sunday',
-        ];
-        const padrao = { open: false, start: '18:00', end: '22:00' };
-        const resultado = {} as BusinessHoursConfig;
-        dias.forEach((dia) => {
-            const recebidoDia = (recebido?.[dia] || {}) as Partial<BusinessHours>;
-            resultado[dia] = {
-                open: typeof recebidoDia.open === 'boolean' ? recebidoDia.open : padrao.open,
-                start: recebidoDia.start || padrao.start,
-                end: recebidoDia.end || padrao.end,
-            };
-        });
-        return resultado;
+  useEffect(() => {
+    async function fetchSettings() {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/settings');
+        const data = await res.json();
+        if (data.success && data.data) {
+          setBusinessHours(data.data.businessHours || {});
+          setDeliveryFees(data.data.deliveryFees || []);
+        }
+      } catch {
+        setSaveMessage('Erro ao carregar configurações.');
+      } finally { setLoading(false); }
     }
+    fetchSettings();
+  }, []);
 
-    useEffect(() => {
-        // Buscar configurações apenas no mount
-        let mounted = true;
-        async function fetchSettings() {
-            try {
-                setLoading(true);
-                const res = await fetch('/api/settings');
-                const data = await res.json();
-                if (data.success && data.data) {
-                    setBusinessHours(data.data.businessHours || {});
-                    setDeliveryFees(data.data.deliveryFees || []);
-                    // Campo allowHalfAndHalf removido da UI; ignorado se existir no backend
-                }
-            } catch (err) {
-                if (mounted) {
-                    setSaveMessage('Erro ao carregar configurações do banco. Usando valores padrão.');
-                    setBusinessHours(mergeBusinessHours({}));
-                    setDeliveryFees([]);
-                    setIsOpen(false);
-                }
-            }
-        }
-        fetchSettings();
-        return () => { mounted = false; };
-    }, []); // Só no mount
+  useEffect(() => {
+    setIsOpen(checkOpenStatus());
+    const interval = setInterval(() => setIsOpen(checkOpenStatus()), 60000);
+    return () => clearInterval(interval);
+  }, [businessHours, checkOpenStatus]);
 
-    // Atualizar o estado isOpen a cada minuto (apenas se não estiver editando)
-    useEffect(() => {
-        if (isEditing) return;
-        const interval = setInterval(() => {
-            const newStatus = checkOpenStatus();
-            setIsOpen(newStatus);
-        }, 60000);
-        return () => clearInterval(interval);
-    }, [checkOpenStatus, isEditing]);
+  const handleAddFee = () => {
+    if (!newNeighborhood || !newFee) return;
+    const fee = parseFloat(newFee);
+    if (isNaN(fee) || fee < 0) return;
+    setDeliveryFees(prev => [...prev, { neighborhood: newNeighborhood, fee }]);
+    setNewNeighborhood('');
+    setNewFee('');
+  };
+  const handleRemoveFee = (index: number) => setDeliveryFees(prev => prev.filter((_, i) => i !== index));
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ businessHours, deliveryFees }) });
+      setSaveMessage(res.ok ? 'Salvo com sucesso!' : 'Erro ao salvar.');
+    } catch { setSaveMessage('Erro de conexão.'); } finally {
+      setIsSaving(false); setTimeout(() => setSaveMessage(''), 3000);
+    }
+  };
+  const handleLogout = () => router.push('/admin/logout');
+  const handleBusinessHoursChange = (day: keyof BusinessHoursConfig, field: 'open' | 'start' | 'end', value: string | boolean) => {
+    setBusinessHours(prev => ({ ...prev, [day]: { ...prev[day], [field]: value } }));
+  };
 
-    // Não atualizar isOpen automaticamente ao editar
-    useEffect(() => {
-        if (isEditing) return;
-        setIsOpen(checkOpenStatus());
-    }, [businessHours, checkOpenStatus, isEditing]);
+  const daysOfWeek = [
+    { key: 'sunday', label: 'Domingo' },
+    { key: 'monday', label: 'Segunda' },
+    { key: 'tuesday', label: 'Terça' },
+    { key: 'wednesday', label: 'Quarta' },
+    { key: 'thursday', label: 'Quinta' },
+    { key: 'friday', label: 'Sexta' },
+    { key: 'saturday', label: 'Sábado' },
+  ] as const;
 
-    // Pausar atualização automática de businessHours durante edição
-    useEffect(() => {
-        if (isEditing) return;
-        // Aqui não faz nada, apenas impede qualquer atualização automática de businessHours enquanto edita
-    }, [businessHours, isEditing]);
+  if (loading) return <p>Carregando configurações...</p>;
 
-    const handleAddFee = () => {
-        if (!newNeighborhood || !newFee) return;
-
-        const fee = parseFloat(newFee);
-        if (isNaN(fee) || fee < 0) {
-            setSaveMessage('Taxa inválida');
-            return;
-        }
-
-        setDeliveryFees(prev => [...prev, { neighborhood: newNeighborhood, fee }]);
-        setNewNeighborhood('');
-        setNewFee('');
-    };
-
-    const handleRemoveFee = (index: number) => {
-        setDeliveryFees(prev => prev.filter((_, i) => i !== index));
-    };
-
-    const handleSave = async () => {
-        setIsSaving(true);
-        setSaveMessage('');
-        try {
-            const res = await fetch('/api/settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    businessHours, 
-                    deliveryFees
-                })
-            });
-            const data = await res.json();
-            if (data.success) {
-                setSaveMessage('Alterações salvas com sucesso!');
-                setIsEditing(false);
-                setIsOpen(checkOpenStatus());
-            } else {
-                setSaveMessage('Erro ao salvar alterações.');
-            }
-        } catch (error) {
-            setSaveMessage('Erro ao salvar alterações.');
-        } finally {
-            setIsSaving(false);
-            setTimeout(() => setSaveMessage(''), 3000);
-        }
-    };
-
-    const handleLogout = () => {
-        router.push('/admin/logout');
-    };
-
-    const handleChangePassword = async () => {
-        if (!currentPassword || !newPassword || !confirmPassword) {
-            setPasswordMessage('Todos os campos são obrigatórios');
-            return;
-        }
-
-        if (newPassword.length < 6) {
-            setPasswordMessage('A nova senha deve ter pelo menos 6 caracteres');
-            return;
-        }
-
-        if (newPassword !== confirmPassword) {
-            setPasswordMessage('As senhas não coincidem');
-            return;
-        }
-
-        setIsChangingPassword(true);
-        setPasswordMessage('');
-
-        try {
-            const response = await fetch('/api/admin/password', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    currentPassword,
-                    newPassword,
-                }),
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                setPasswordMessage('Senha alterada com sucesso!');
-                setCurrentPassword('');
-                setNewPassword('');
-                setConfirmPassword('');
-                setShowPasswordChange(false);
-            } else {
-                setPasswordMessage(data.message || 'Erro ao alterar senha');
-            }
-        } catch (error) {
-            setPasswordMessage('Erro ao conectar com o servidor');
-        } finally {
-            setIsChangingPassword(false);
-            setTimeout(() => setPasswordMessage(''), 3000);
-        }
-    };
-
-    const handleBusinessHoursChange = (day: keyof BusinessHoursConfig, field: 'open' | 'start' | 'end', value: string | boolean) => {
-        setIsEditing(true);
-        setBusinessHours(prev => {
-            const novo = {
-                ...prev,
-                [day]: {
-                    ...prev[day],
-                    [field]: value
-                }
-            };
-            console.log('Alterando horário:', day, field, value, novo);
-            return novo;
-        });
-    };
-
-    const daysOfWeek = [
-        { key: 'monday', label: 'Segunda-feira' },
-        { key: 'tuesday', label: 'Terça-feira' },
-        { key: 'wednesday', label: 'Quarta-feira' },
-        { key: 'thursday', label: 'Quinta-feira' },
-        { key: 'friday', label: 'Sexta-feira' },
-        { key: 'saturday', label: 'Sábado' },
-        { key: 'sunday', label: 'Domingo' }
-    ] as const;
-
-    return (
-        <div className="max-w-4xl mx-auto p-4 w-full">
-            <h1 className="text-2xl font-bold mb-6">Configurações do Estabelecimento</h1>
-
-            {/* Indicador de status aberto/fechado */}
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4" role="status" aria-live="polite">
-                <span className={`px-4 py-2 rounded-full text-lg font-semibold ${checkOpenStatus() ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                    {checkOpenStatus() ? 'Aberto' : 'Fechado'}
-                </span>
-                <span className="text-gray-400 text-sm" id="open-status-desc">(de acordo com as caixas de seleção e horários atuais)</span>
-            </div>
-
-            {/* Horários de Funcionamento */}
-            <div
-                className="mb-8 bubble-card p-6 text-white"
-                onMouseMove={(e) => {
-                    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                    e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - r.left}px`);
-                    e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - r.top}px`);
-                }}
-            >
-                <span className="bubble-glow" />
-                <span className="bubble-press-overlay" />
-                <span className="bubble-border-gradient" />
-                <div className="bubble-content">
-                    <h2 className="text-xl font-semibold mb-4">Horários de Funcionamento</h2>
-                    <div className="space-y-4">
-                        {daysOfWeek.map(({ key, label }) => (
-                            <div key={key} className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
-                                <label className="flex items-center space-x-2 min-w-[150px]">
-                                    <input
-                                        type="checkbox"
-                                        checked={businessHours[key]?.open ?? false}
-                                        onChange={(e) => handleBusinessHoursChange(key, 'open', e.target.checked)}
-                                        className="form-checkbox h-5 w-5 text-blue-600"
-                                    />
-                                    <span>{label}</span>
-                                </label>
-                                <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 space-y-2 sm:space-y-0 w-full">
-                                    <input
-                                        type="time"
-                                        value={businessHours[key]?.start ?? '18:00'}
-                                        onChange={(e) => handleBusinessHoursChange(key, 'start', e.target.value)}
-                                        className="form-input w-full sm:w-32 bg-[#2a2a2a] text-white border border-gray-700"
-                                    />
-                                    <span className="hidden sm:inline">até</span>
-                                    <input
-                                        type="time"
-                                        value={businessHours[key]?.end ?? '22:00'}
-                                        onChange={(e) => handleBusinessHoursChange(key, 'end', e.target.value)}
-                                        className="form-input w-full sm:w-32 bg-[#2a2a2a] text-white border border-gray-700"
-                                    />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
-
-            {/* Alterar Senha */}
-            <div
-                className="mb-8 bubble-card p-6 text-white"
-                onMouseMove={(e) => {
-                    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                    e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - r.left}px`);
-                    e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - r.top}px`);
-                }}
-            >
-                <span className="bubble-glow" />
-                <span className="bubble-press-overlay" />
-                <span className="bubble-border-gradient" />
-                <div className="bubble-content">
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-xl font-semibold">Alterar Senha Administrativa</h2>
-                        <button
-                            onClick={() => setShowPasswordChange(!showPasswordChange)}
-                            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-                            aria-expanded={showPasswordChange}
-                            aria-controls="password-change-section"
-                            aria-label={showPasswordChange ? 'Cancelar alteração de senha' : 'Iniciar alteração de senha'}
-                        >
-                            {showPasswordChange ? 'Cancelar' : 'Alterar Senha'}
-                        </button>
-                    </div>
-                    {showPasswordChange && (
-                        <div className="space-y-4" id="password-change-section">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">
-                                    Senha Atual
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        type={showCurrentPassword ? 'text' : 'password'}
-                                        value={currentPassword}
-                                        onChange={(e) => setCurrentPassword(e.target.value)}
-                                        className="w-full rounded-md border border-gray-700 bg-[#262525] text-gray-100 shadow-sm focus:border-red-600 focus:ring-red-600 px-3 py-2 pr-10"
-                                        placeholder="Digite sua senha atual"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                                        aria-label={showCurrentPassword ? 'Ocultar senha atual' : 'Mostrar senha atual'}
-                                    >
-                                        {showCurrentPassword ? (
-                                            <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
-                                            </svg>
-                                        ) : (
-                                            <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                            </svg>
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">
-                                    Nova Senha
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        type={showNewPassword ? 'text' : 'password'}
-                                        value={newPassword}
-                                        onChange={(e) => setNewPassword(e.target.value)}
-                                        className="w-full rounded-md border border-gray-700 bg-[#262525] text-gray-100 shadow-sm focus:border-red-600 focus:ring-red-600 px-3 py-2 pr-10"
-                                        placeholder="Digite a nova senha (mín. 6 caracteres)"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowNewPassword(!showNewPassword)}
-                                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                                        aria-label={showNewPassword ? 'Ocultar nova senha' : 'Mostrar nova senha'}
-                                    >
-                                        {showNewPassword ? (
-                                            <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
-                                        </svg>
-                                        ) : (
-                                        <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">
-                                    Confirmar Nova Senha
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        type={showConfirmPassword ? 'text' : 'password'}
-                                        value={confirmPassword}
-                                        onChange={(e) => setConfirmPassword(e.target.value)}
-                                        className="w-full rounded-md border border-gray-700 bg-[#262525] text-gray-100 shadow-sm focus:border-red-600 focus:ring-red-600 px-3 py-2 pr-10"
-                                        placeholder="Confirme a nova senha"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                                        aria-label={showConfirmPassword ? 'Ocultar confirmar senha' : 'Mostrar confirmar senha'}
-                                    >
-                                        {showConfirmPassword ? (
-                                            <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
-                                        </svg>
-                                        ) : (
-                                        <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-                            <button
-                                onClick={handleChangePassword}
-                                disabled={isChangingPassword}
-                                className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50"
-                            >
-                                {isChangingPassword ? 'Alterando...' : 'Alterar Senha'}
-                            </button>
-                            
-                            {passwordMessage && (
-                                <div className={`p-3 rounded-md text-sm ${
-                                    passwordMessage.includes('sucesso') 
-                                        ? 'bg-green-900 text-green-200' 
-                                        : 'bg-red-900 text-red-200'
-                                }`} role="status" aria-live="polite">
-                                    {passwordMessage}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Taxas de Entrega */}
-            <div
-                className="mb-8 bubble-card p-6 text-white"
-                onMouseMove={(e) => {
-                    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                    e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - r.left}px`);
-                    e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - r.top}px`);
-                }}
-            >
-                <span className="bubble-glow" />
-                <span className="bubble-press-overlay" />
-                <span className="bubble-border-gradient" />
-                <div className="bubble-content">
-                    <h2 className="text-xl font-semibold mb-4">Taxas de Entrega por Bairro</h2>
-                    <div className="space-y-4">
-                        {deliveryFees.map((fee, index) => (
-                            <div key={index} className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 bg-[#1a1a1a] p-3 rounded-lg border border-gray-700/50">
-                                <div className="flex-1 w-full">
-                                    <div className="text-gray-300 font-medium">{fee.neighborhood}</div>
-                                    <div className="text-red-500">R$ {fee.fee.toFixed(2)}</div>
-                                </div>
-                                <button
-                                    onClick={() => handleRemoveFee(index)}
-                                    className="text-red-500 hover:text-red-400 transition-colors"
-                                >
-                                    Remover
-                                </button>
-                            </div>
-                        ))}
-                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-                            <input
-                                type="text"
-                                value={newNeighborhood}
-                                onChange={(e) => setNewNeighborhood(e.target.value)}
-                                placeholder="Nome do bairro"
-                                className="flex-1 rounded-md border border-gray-700 bg-[#2a2a2a] text-gray-100 shadow-sm focus:border-red-600 focus:ring-red-600 px-3 py-2"
-                            />
-                            <input
-                                type="number"
-                                value={newFee}
-                                onChange={(e) => setNewFee(e.target.value)}
-                                placeholder="Taxa (R$)"
-                                step="0.01"
-                                min="0"
-                                className="w-full sm:w-32 rounded-md border border-gray-700 bg-[#2a2a2a] text-gray-100 shadow-sm focus:border-red-600 focus:ring-red-600 px-3 py-2"
-                            />
-                            <button
-                                onClick={handleAddFee}
-                                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-                            >
-                                Adicionar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="mt-6 w-full flex flex-col sm:flex-row gap-2 sm:gap-4">
-                <button
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 w-full sm:w-auto"
-                >
-                    {isSaving ? 'Salvando...' : 'Salvar Alterações'}
-                </button>
-                <button
-                    onClick={handleLogout}
-                    className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors w-full sm:w-auto"
-                >
-                    Sair
-                </button>
-            </div>
-
-            {saveMessage && (
-                <div className="mt-4 p-4 rounded-md bg-green-900 text-green-200" role="status" aria-live="polite">
-                    {saveMessage}
-                </div>
-            )}
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+        <h1 className="text-2xl font-bold text-white">Configurações</h1>
+        <div className="flex items-center gap-3" role="status">
+          <span className={`px-4 py-2 rounded-full text-sm font-semibold ${isOpen ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+            {isOpen ? 'Estabelecimento Aberto' : 'Estabelecimento Fechado'}
+          </span>
         </div>
-    );
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <SettingsCard title="Horários de Funcionamento">
+          {daysOfWeek.map(({ key, label }) => (
+            <div key={key} className="grid grid-cols-1 sm:grid-cols-[1fr,auto,auto] items-center gap-3 p-2 rounded-lg hover:bg-gray-800/40">
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  className="form-checkbox"
+                  checked={businessHours[key]?.open ?? false}
+                  onChange={(e) => handleBusinessHoursChange(key, 'open', e.target.checked)}
+                />
+                <span className="font-medium">{label}</span>
+              </label>
+              <input
+                type="time"
+                className="form-input"
+                value={businessHours[key]?.start ?? '18:00'}
+                onChange={(e) => handleBusinessHoursChange(key, 'start', e.target.value)}
+                disabled={!businessHours[key]?.open}
+              />
+              <input
+                type="time"
+                className="form-input"
+                value={businessHours[key]?.end ?? '22:00'}
+                onChange={(e) => handleBusinessHoursChange(key, 'end', e.target.value)}
+                disabled={!businessHours[key]?.open}
+              />
+            </div>
+          ))}
+        </SettingsCard>
+
+        <SettingsCard title="Taxas de Entrega">
+          <div className="space-y-2">
+            {deliveryFees.map((fee, index) => (
+              <div key={index} className="flex items-center justify-between p-2 rounded-lg bg-gray-800/40">
+                <span>{fee.neighborhood}</span>
+                <div className="flex items-center gap-3">
+                  <span className="font-semibold text-red-400">R$ {fee.fee.toFixed(2)}</span>
+                  <button onClick={() => handleRemoveFee(index)} className="text-gray-400 hover:text-red-500">&times;</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
+            <input type="text" value={newNeighborhood} onChange={e => setNewNeighborhood(e.target.value)} placeholder="Bairro" className="form-input" />
+            <input type="number" value={newFee} onChange={e => setNewFee(e.target.value)} placeholder="Taxa" className="form-input sm:w-28" />
+            <button onClick={handleAddFee} className="form-button-secondary">Adicionar</button>
+          </div>
+        </SettingsCard>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-4 pt-6">
+        <button onClick={handleSave} disabled={isSaving} className="form-button-primary">
+          {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+        </button>
+        <button onClick={handleLogout} className="form-button-secondary">Sair</button>
+      </div>
+      {saveMessage && <p className="mt-4 text-sm text-green-400">{saveMessage}</p>}
+    </div>
+  );
 }

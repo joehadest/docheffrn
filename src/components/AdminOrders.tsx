@@ -278,53 +278,56 @@ export default function AdminOrders() {
 
     const handleCompartilharPedido = (pedido: Pedido) => {
         const endereco = pedido.endereco;
-        const enderecoFormatado = endereco ? 
-            `${endereco.address.street}, ${endereco.address.number}${endereco.address.complement ? ` - ${endereco.address.complement}` : ''}, ${endereco.address.neighborhood}` : 
-            'Retirada no local';
+        const enderecoFormatado = pedido.tipoEntrega === 'retirada' || !endereco?.address
+            ? 'Retirada no local'
+            : `${endereco.address.street}, ${endereco.address.number}${endereco.address.complement ? ` - ${endereco.address.complement}` : ''}\nBairro: ${endereco.address.neighborhood}\nPonto de Referência: ${endereco.address.referencePoint || 'Nenhum'}`;
 
         const formaPagamento = pedido.formaPagamento === 'pix' ? 'PIX' :
             pedido.formaPagamento === 'cartao' ? 'Cartão' : 'Dinheiro';
 
-        const troco = pedido.formaPagamento === 'dinheiro' && pedido.troco ? 
-            `\nTroco: R$ ${pedido.troco}` : '';
+        const troco = pedido.formaPagamento === 'dinheiro' && pedido.troco ?
+            `\nTroco para: R$ ${pedido.troco}` : '';
 
-        const taxaEntrega = pedido.endereco?.deliveryFee ? 
-            `\nTaxa de Entrega: R$ ${pedido.endereco.deliveryFee}` : '';
+        const taxaEntrega = pedido.tipoEntrega === 'entrega' && endereco?.deliveryFee ?
+            `\nTaxa de Entrega: R$ ${endereco.deliveryFee.toFixed(2)}` : '';
 
         const itensFormatados = pedido.itens.map(item => {
-            let itemStr = `${item.nome}`;
+            let itemStr = `*${item.quantidade}x ${item.nome}*`;
             if (item.size) itemStr += ` (${item.size})`;
-            itemStr += ` x${item.quantidade}`;
-            if (item.border) itemStr += `\nBorda: ${item.border}`;
-            if (item.extras && item.extras.length > 0) itemStr += `\nExtras: ${item.extras.join(', ')}`;
-            if (item.observacao) itemStr += `\nObs: ${item.observacao}`;
-            itemStr += ` - R$ ${(item.preco * item.quantidade).toFixed(2)}`;
+            if (item.border) itemStr += `\n  - Borda: ${item.border}`;
+            if (item.extras && item.extras.length > 0) itemStr += `\n  - Extras: ${item.extras.join(', ')}`;
+            if (item.observacao) itemStr += `\n  - _Obs: ${item.observacao}_`;
+            itemStr += `\n  - R$ ${(item.preco * item.quantidade).toFixed(2)}`;
             return itemStr;
         }).join('\n\n');
 
         const subtotal = pedido.itens.reduce((total, item) => total + (item.preco * item.quantidade), 0);
-        const total = subtotal + (pedido.endereco?.deliveryFee || 0);
+        const total = subtotal + (endereco?.deliveryFee || 0);
 
-        const mensagem = `*Do'Cheff - Pedido #${pedido._id}*\n\n` +
-                `*Data:* ${new Date(pedido.data).toLocaleString()}\n` +
-            `*Status:* ${pedido.status}\n\n` +
-                `*Cliente:*\n` +
+        const mensagem = `*Do'Cheff - Pedido #${pedido._id.slice(-6)}*\n\n` +
+            `*Data:* ${new Date(pedido.data).toLocaleString('pt-BR')}\n` +
+            `*Status:* ${getStatusText(pedido.status)}\n\n` +
+            `*Cliente:*\n` +
             `Nome: ${pedido.cliente.nome}\n` +
             `Telefone: ${pedido.cliente.telefone}\n\n` +
-            `*Endereço:*\n${enderecoFormatado}\n\n` +
+            `*Endereço de Entrega:*\n${enderecoFormatado}\n\n` +
             `*Itens do Pedido:*\n${itensFormatados}\n\n` +
-            `*Forma de Pagamento:* ${formaPagamento}${troco}\n` +
-            `*Subtotal:* R$ ${subtotal.toFixed(2)}${taxaEntrega}\n` +
-            `*Total:* R$ ${total.toFixed(2)}\n\n` +
-            `*Observações:*\n${pedido.observacoes || 'Nenhuma observação'}`;
+            `*Resumo Financeiro:*\n` +
+            `Subtotal: R$ ${subtotal.toFixed(2)}${taxaEntrega}\n` +
+            `*Total: R$ ${total.toFixed(2)}*\n\n` +
+            `*Forma de Pagamento:* ${formaPagamento}${troco}\n\n` +
+            `*Observações Gerais:*\n${pedido.observacoes || 'Nenhuma'}`;
 
         if (navigator.share) {
             navigator.share({
-                title: `Pedido #${pedido._id}`,
+                title: `Pedido Do'Cheff #${pedido._id.slice(-6)}`,
                 text: mensagem
-            });
+            }).catch(err => console.error('Erro ao compartilhar:', err));
         } else {
-            alert('Compartilhamento não suportado neste navegador.');
+            navigator.clipboard.writeText(mensagem).then(() => {
+                setMensagem('Pedido copiado para a área de transferência!');
+                setTimeout(() => setMensagem(null), 3000);
+            });
         }
     };
 
@@ -653,110 +656,90 @@ export default function AdminOrders() {
                 </div>
             )}
 
-            {/* Modal de detalhes */}
+            {/* Modal de detalhes reestruturado */}
             {pedidoSelecionado && (
                 <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="order-modal-title" onClick={() => setPedidoSelecionado(null)}>
-                    <div
-                        className="modal-panel slim print-pedido"
-                        onClick={e => e.stopPropagation()}
-                        role="document"
-                    >
-                        <button
-                            className="modal-close-btn no-print focus-outline text-red-400 hover:text-red-300"
-                            onClick={() => setPedidoSelecionado(null)}
-                            aria-label="Fechar modal de pedido"
-                            title="Fechar"
-                        >
-                            &times;
-                        </button>
-                        <h3 id="order-modal-title" className="text-2xl font-bold mb-4 text-red-500 text-center">Do'Cheff</h3>
-                        <div className="mb-4 text-sm text-gray-300 text-center space-y-1">
+                    <div className="modal-panel slim print-pedido" onClick={e => e.stopPropagation()} role="document">
+                        <button className="modal-close-btn no-print focus-outline" onClick={() => setPedidoSelecionado(null)} aria-label="Fechar modal de pedido">&times;</button>
+                        {/* Cabeçalho */}
+                        <div className="text-center mb-4 border-b border-gray-800 pb-4">
+                            <h3 id="order-modal-title" className="text-2xl font-bold text-red-500">Do'Cheff</h3>
+                            <p className="text-sm text-gray-400">Detalhes do Pedido</p>
+                        </div>
+                        {/* Informações Gerais */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-4">
                             <div><span className="text-gray-400">Pedido:</span> <span className="text-white font-semibold">#{pedidoSelecionado._id?.slice(-6) || '-'}</span></div>
                             <div><span className="text-gray-400">Data:</span> <span className="text-white">{pedidoSelecionado.data ? formatDate(pedidoSelecionado.data) : '-'}</span></div>
-                            <div><span className="text-gray-400">Status:</span> <span className="font-semibold text-green-400">{getStatusText(pedidoSelecionado.status)}</span></div>
+                            <div className="col-span-2"><span className="text-gray-400">Status:</span> <span className={`font-semibold px-2 py-1 rounded-md text-xs ${getStatusColor(pedidoSelecionado.status)}`}>{getStatusText(pedidoSelecionado.status)}</span></div>
                         </div>
-                        <div className="mb-4 text-sm text-gray-300 space-y-1">
-                            <h4 className="font-semibold text-gray-400 mb-1">Cliente</h4>
-                            <div><span className="text-gray-400">Nome:</span> <span className="text-white">{pedidoSelecionado.cliente?.nome || '-'}</span></div>
-                            <div><span className="text-gray-400">Telefone:</span> <span className="text-white">{pedidoSelecionado.cliente?.telefone || '-'}</span></div>
-                        </div>
-                        <div className="mb-4 text-sm text-gray-300 space-y-1">
-                            <h4 className="font-semibold text-gray-400 mb-1">Endereço de Entrega</h4>
-                            <div><span className="text-gray-400">Rua:</span> <span className="text-white">{pedidoSelecionado.endereco?.address?.street || '-'}</span></div>
-                            <div><span className="text-gray-400">Número:</span> <span className="text-white">{pedidoSelecionado.endereco?.address?.number || '-'}</span></div>
-                            {pedidoSelecionado.endereco?.address?.complement && <div><span className="text-gray-400">Compl:</span> <span className="text-white">{pedidoSelecionado.endereco.address.complement}</span></div>}
-                            <div><span className="text-gray-400">Bairro:</span> <span className="text-white">{pedidoSelecionado.endereco?.address?.neighborhood || '-'}</span></div>
-                            <div><span className="text-gray-400">Ponto de Referência:</span> <span className="text-white">{pedidoSelecionado.endereco?.address?.referencePoint || '-'}</span></div>
-                        </div>
-                        <div className="mb-4 text-sm text-gray-300">
-                            <span className="text-gray-400">Tempo estimado de entrega:</span> <span className="text-white">{pedidoSelecionado.endereco?.estimatedTime || '-'}</span>
-                        </div>
-                        <div className="mb-4">
-                            <h4 className="font-semibold text-gray-400 mb-1">Itens</h4>
-                            <ul className="divide-y divide-gray-800">
-                                {pedidoSelecionado.itens.map((item, idx) => (
-                                    <li key={idx} className="flex justify-between text-sm py-1 text-gray-200">
-                                        <span>
-                                            {item.quantidade}x {item.nome}
-                                            {item.size ? ` (${item.size})` : ''}
-                                            {item.border ? ` - Borda: ${item.border}` : ''}
-                                            {item.extras && item.extras.length > 0 && (
-                                                ` - Extras: ${item.extras.join(', ')}`
-                                            )}
-                                            {item.observacao ? (
-                                                <span className="block text-xs text-gray-400 mt-1">{item.observacao}</span>
-                                            ) : ''}
-                                        </span>
-                                        <span>R$ {(item.preco * item.quantidade).toFixed(2)}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                        {pedidoSelecionado.observacoes && (
-                            <div className="mb-4 text-sm text-gray-300">
-                                <h4 className="font-semibold text-gray-400 mb-1">Observações</h4>
-                                <div>{pedidoSelecionado.observacoes}</div>
+                        {/* Seções */}
+                        <div className="space-y-4 text-sm">
+                            {/* Cliente */}
+                            <div className="bg-[#1F1F1F] p-3 rounded-lg border border-gray-800/50">
+                                <h4 className="font-semibold text-gray-300 mb-2">Cliente</h4>
+                                <p><span className="text-gray-400">Nome:</span> <span className="text-white">{pedidoSelecionado.cliente?.nome || '-'}</span></p>
+                                <p><span className="text-gray-400">Telefone:</span> <span className="text-white">{pedidoSelecionado.cliente?.telefone || '-'}</span></p>
                             </div>
-                        )}
-                        <div className="flex justify-between text-sm text-gray-300 border-t border-gray-800 pt-2 mb-2">
-                            <span>Taxa de Entrega:</span>
-                            <span>R$ {pedidoSelecionado.endereco?.deliveryFee?.toFixed(2) || '0,00'}</span>
+                            {/* Entrega */}
+                            <div className="bg-[#1F1F1F] p-3 rounded-lg border border-gray-800/50">
+                                <h4 className="font-semibold text-gray-300 mb-2">Entrega</h4>
+                                {pedidoSelecionado.tipoEntrega === 'retirada' ? (
+                                    <p className="text-white">Retirada no Local</p>
+                                ) : (
+                                    <>
+                                        <p><span className="text-gray-400">Endereço:</span> <span className="text-white">{pedidoSelecionado.endereco?.address?.street || '-'}, {pedidoSelecionado.endereco?.address?.number || '-'}</span></p>
+                                        {pedidoSelecionado.endereco?.address?.complement && <p><span className="text-gray-400">Compl:</span> <span className="text-white">{pedidoSelecionado.endereco.address.complement}</span></p>}
+                                        <p><span className="text-gray-400">Bairro:</span> <span className="text-white">{pedidoSelecionado.endereco?.address?.neighborhood || '-'}</span></p>
+                                        <p><span className="text-gray-400">Referência:</span> <span className="text-white">{pedidoSelecionado.endereco?.address?.referencePoint || '-'}</span></p>
+                                    </>
+                                )}
+                            </div>
+                            {/* Itens */}
+                            <div className="bg-[#1F1F1F] p-3 rounded-lg border border-gray-800/50">
+                                <h4 className="font-semibold text-gray-300 mb-2">Itens</h4>
+                                <ul className="divide-y divide-gray-800">
+                                    {pedidoSelecionado.itens.map((item, idx) => (
+                                        <li key={idx} className="flex justify-between py-1 text-gray-200">
+                                            <span className="flex-1 pr-2">
+                                                {item.quantidade}x {item.nome}
+                                                {item.size ? ` (${item.size})` : ''}
+                                                {item.border ? <span className="block text-xs text-gray-400 pl-2">- Borda: {item.border}</span> : ''}
+                                                {item.extras && item.extras.length > 0 && <span className="block text-xs text-gray-400 pl-2">- Extras: {item.extras.join(', ')}</span>}
+                                                {item.observacao ? <span className="block text-xs text-gray-400 pl-2">- Obs: {item.observacao}</span> : ''}
+                                            </span>
+                                            <span className="font-medium">R$ {(item.preco * item.quantidade).toFixed(2)}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                            {/* Pagamento e Totais */}
+                            <div className="bg-[#1F1F1F] p-3 rounded-lg border border-gray-800/50">
+                                <h4 className="font-semibold text-gray-300 mb-2">Pagamento e Totais</h4>
+                                <div className="space-y-1">
+                                    <div className="flex justify-between"><span className="text-gray-400">Forma:</span> <span className="text-white font-medium">{pedidoSelecionado.formaPagamento}</span></div>
+                                    {pedidoSelecionado.formaPagamento === 'dinheiro' && <div className="flex justify-between"><span className="text-gray-400">Troco para:</span> <span className="text-white">R$ {pedidoSelecionado.troco || '-'}</span></div>}
+                                    <div className="flex justify-between"><span className="text-gray-400">Taxa de Entrega:</span> <span>R$ {pedidoSelecionado.endereco?.deliveryFee?.toFixed(2) || '0.00'}</span></div>
+                                    <div className="flex justify-between font-bold text-red-500 text-lg pt-2 border-t border-gray-700 mt-2"><span>Total:</span><span>R$ {calcularTotal(pedidoSelecionado).toFixed(2)}</span></div>
+                                </div>
+                            </div>
                         </div>
-                        <div className="mb-4 text-sm text-gray-300 space-y-1">
-                            <h4 className="font-semibold text-gray-400 mb-1">Pagamento</h4>
-                            <div><span className="text-gray-400">Forma:</span> <span className="text-white">{
-                                pedidoSelecionado.formaPagamento?.toLowerCase() === 'pix' ? 'PIX' : 
-                                pedidoSelecionado.formaPagamento?.toLowerCase() === 'cartao' ? 'Cartão' : 
-                                'Dinheiro'
-                            }</span></div>
-                            {pedidoSelecionado.formaPagamento?.toLowerCase() === 'dinheiro' && (
-                                <div><span className="text-gray-400">Troco para:</span> <span className="text-white">R$ {pedidoSelecionado.troco || '-'}</span></div>
-                            )}
-                        </div>
-                        <div className="font-bold text-red-600 mt-2 text-2xl flex justify-between items-center border-t border-gray-800 pt-4">
-                            <span>Total:</span>
-                            <span>R$ {calcularTotal(pedidoSelecionado).toFixed(2)}</span>
-                        </div>
-                        <div className="mt-4 flex gap-2">
+                        {/* Botões de Ação */}
+                        <div className="mt-6 flex flex-col sm:flex-row gap-2 no-print">
                             <button
-                                className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-orange-900 font-bold py-2 rounded-lg transition-colors no-print"
-                                onClick={() => window.print()}
-                                aria-label="Imprimir pedido"
-                                title="Imprimir"
+                                className="flex-1 form-button-secondary"
+                                onClick={() => window.open(`/admin/print/${pedidoSelecionado._id}`, '_blank')}
                             >
                                 Imprimir
                             </button>
                             {getNextStatus(pedidoSelecionado.status) && (
                                 <button
-                                    className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded-lg transition-colors no-print"
+                                    className="flex-1 form-button-primary"
                                     onClick={() => {
                                         updateOrderStatus(pedidoSelecionado._id, getNextStatus(pedidoSelecionado.status)!);
                                         setPedidoSelecionado(null);
                                     }}
-                                    aria-label="Atualizar para próximo status"
-                                    title="Atualizar status"
                                 >
-                                    Atualizar Status
+                                    Próximo Status
                                 </button>
                             )}
                         </div>
