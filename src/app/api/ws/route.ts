@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { registerClient, removeClient, broadcast, pingAll } from '@/lib/sse';
+import { registerClient, removeClient, pingAll } from '@/lib/sse';
 
 // Handler para Server-Sent Events (SSE)
 export async function GET(req: Request) {
@@ -35,5 +35,3 @@ export async function GET(req: Request) {
     });
 }
 
-// Export extra broadcast (caso precise disparar manual em dev)
-export { broadcast };
