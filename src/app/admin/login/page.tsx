@@ -1,5 +1,6 @@
-'use client';
+"use client";
 import React, { useState } from 'react';
+export const dynamic = 'force-dynamic';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Image from 'next/image';

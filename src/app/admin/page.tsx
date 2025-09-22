@@ -1,18 +1,13 @@
-'use client';
 import React from 'react';
-import { useSearchParams } from 'next/navigation';
+export const dynamic = 'force-dynamic';
 import AdminOrders from '@/components/AdminOrders';
 import AdminSettings from '@/components/AdminSettings';
 import AdminMenu from '@/components/AdminMenu';
 
-export default function AdminPanel() {
-    // Detecta tab ativa pela query string de forma reativa
-    const searchParams = useSearchParams();
-    const tab = searchParams ? searchParams.get('tab') : null;
-    const activeTab: 'config' | 'menu' | 'pedidos' =
-        tab === 'menu' ? 'menu'
-        : tab === 'pedidos' ? 'pedidos'
-        : 'config';
+export default function AdminPanel({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined } }) {
+    const tabRaw = searchParams?.tab;
+    const tab = Array.isArray(tabRaw) ? tabRaw[0] : tabRaw;
+    const activeTab: 'config' | 'menu' | 'pedidos' = tab === 'menu' ? 'menu' : tab === 'pedidos' ? 'pedidos' : 'config';
 
     return (
         <main className="min-h-screen bg-[#262525]">
