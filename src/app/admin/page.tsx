@@ -2,9 +2,6 @@ import React from 'react';
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 export const revalidate = 0;
-import AdminOrders from '@/components/AdminOrders';
-import AdminSettings from '@/components/AdminSettings';
-import AdminMenu from '@/components/AdminMenu';
 
 export default function AdminPanel({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined } }) {
     const tabRaw = searchParams?.tab;
@@ -13,9 +10,6 @@ export default function AdminPanel({ searchParams }: { searchParams: { [key: str
 
     return (
         <div>
-            {activeTab === 'config' && <AdminSettings />}
-            {activeTab === 'menu' && <AdminMenu />}
-            {activeTab === 'pedidos' && <AdminOrders />}
         </div>
     );
 }
