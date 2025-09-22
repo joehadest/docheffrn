@@ -1,5 +1,7 @@
 import React from 'react';
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
 import AdminOrders from '@/components/AdminOrders';
 import AdminSettings from '@/components/AdminSettings';
 import AdminMenu from '@/components/AdminMenu';
