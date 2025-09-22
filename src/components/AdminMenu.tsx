@@ -4,9 +4,9 @@ import React, { useState, useEffect, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MenuItem } from '@/types/menu';
 import Image from 'next/image';
-import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaListAlt, FaThList } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaListAlt, FaThList, FaInfoCircle, FaPizzaSlice, FaPepperHot } from 'react-icons/fa';
 
-// --- COMPONENT: ITEM MODAL (COMPLETE) ---
+// --- COMPONENT: ITEM MODAL (TABBED) ---
 const ItemModal = ({
   item,
   onClose,
@@ -19,53 +19,51 @@ const ItemModal = ({
   categories: { value: string; label: string }[];
 }) => {
   const [formData, setFormData] = useState<Partial<MenuItem>>(item);
+  const [tab, setTab] = useState<'basic' | 'options' | 'ingredients'>('basic');
 
+  // Inicialização / sincronização
   useEffect(() => {
-    setFormData({
-      name: '', description: '', price: 0, category: categories[0]?.value || '',
-      image: '', destaque: false, ingredients: [], sizes: {}, borderOptions: {}, extraOptions: {},
+    setFormData(prev => ({
+      name: '', description: '', price: 0, category: categories[0]?.value || '', image: '', destaque: false,
+      ingredients: [], sizes: {}, borderOptions: {}, extraOptions: {},
       ...item,
-    });
+    }));
   }, [item, categories]);
-
-  if (!formData) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const isCheckbox = type === 'checkbox';
-    const isChecked = (e.target as HTMLInputElement).checked;
-    setFormData(prev => ({ ...prev, [name]: isCheckbox ? isChecked : value }));
+    const checked = (e.target as HTMLInputElement).checked;
+    setFormData(prev => ({ ...prev, [name]: isCheckbox ? checked : value }));
   };
 
   const handleDynamicChange = (section: 'sizes' | 'borderOptions' | 'extraOptions', key: string, field: 'name' | 'price', value: string) => {
-    const currentSection = formData[section] || {};
+    const current = formData[section] || {};
     if (field === 'name') {
-      const entries = Object.entries(currentSection);
-      const newEntries = entries.map(([k, v]) => (k === key ? [value, v] : [k, v]));
+      const newEntries = Object.entries(current).map(([k, v]) => (k === key ? [value, v] : [k, v]));
       setFormData(prev => ({ ...prev, [section]: Object.fromEntries(newEntries) }));
     } else {
-      setFormData(prev => ({ ...prev, [section]: { ...currentSection, [key]: parseFloat(value) || 0 } }));
+      setFormData(prev => ({ ...prev, [section]: { ...current, [key]: parseFloat(value) || 0 } }));
     }
   };
 
   const addDynamicField = (section: 'sizes' | 'borderOptions' | 'extraOptions') => {
-    const currentSection = formData[section] || {};
-    const newKey = `Novo ${Object.keys(currentSection).length + 1}`;
-    setFormData(prev => ({ ...prev, [section]: { ...currentSection, [newKey]: 0 } }));
+    const current = formData[section] || {};
+    const newKey = `Novo ${Object.keys(current).length + 1}`;
+    setFormData(prev => ({ ...prev, [section]: { ...current, [newKey]: 0 } }));
   };
 
   const removeDynamicField = (section: 'sizes' | 'borderOptions' | 'extraOptions', key: string) => {
-    const currentSection = { ...(formData[section] || {}) };
-    delete (currentSection as any)[key];
-    setFormData(prev => ({ ...prev, [section]: currentSection }));
-  };
-  
-  const handleIngredientChange = (index: number, value: string) => {
-    const newIngredients = [...(formData.ingredients || [])];
-    newIngredients[index] = value;
-    setFormData(prev => ({ ...prev, ingredients: newIngredients }));
+    const current = { ...(formData[section] || {}) } as Record<string, number>;
+    delete current[key];
+    setFormData(prev => ({ ...prev, [section]: current }));
   };
 
+  const handleIngredientChange = (index: number, value: string) => {
+    const arr = [...(formData.ingredients || [])];
+    arr[index] = value;
+    setFormData(prev => ({ ...prev, ingredients: arr }));
+  };
   const addIngredient = () => setFormData(prev => ({ ...prev, ingredients: [...(prev.ingredients || []), ''] }));
   const removeIngredient = (index: number) => setFormData(prev => ({ ...prev, ingredients: (prev.ingredients || []).filter((_, i) => i !== index) }));
 
@@ -74,43 +72,154 @@ const ItemModal = ({
     onSave(formData);
   };
 
+  const TabButton = ({ id, icon, label }: { id: 'basic' | 'options' | 'ingredients'; icon: React.ReactNode; label: string }) => (
+    <button
+      type="button"
+      onClick={() => setTab(id)}
+      className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${tab === id ? 'bg-red-600 text-white border-red-500' : 'bg-[#2a2a2a] border-gray-700 text-gray-300 hover:bg-gray-700'}`}
+      aria-current={tab === id ? 'page' : undefined}
+    >
+      {icon} {label}
+    </button>
+  );
+
+  const Section: React.FC<{ title?: string; children: React.ReactNode; className?: string }> = ({ title, children, className }) => (
+    <section className={`space-y-3 ${className || ''}`}>
+      {title && <h3 className="text-sm font-semibold text-gray-300 tracking-wide">{title}</h3>}
+      {children}
+    </section>
+  );
+
+  const DynamicList = ({
+    section,
+    label,
+    currencyPrefix,
+  }: { section: 'sizes' | 'borderOptions' | 'extraOptions'; label: string; currencyPrefix?: string }) => (
+    <div className="space-y-2">
+      <label className="form-label">{label}</label>
+      {Object.entries(formData[section] || {}).map(([key, value]) => (
+        <div key={key} className="flex items-center gap-2">
+          <input
+            type="text"
+            value={key}
+            onChange={e => handleDynamicChange(section, key, 'name', e.target.value)}
+            className="form-input w-1/3"
+          />
+            <span className="text-gray-400">{currencyPrefix || 'R$'}</span>
+          <input
+            type="number"
+            value={value}
+            onChange={e => handleDynamicChange(section, key, 'price', e.target.value)}
+            className="form-input flex-grow"
+            step="0.01"
+          />
+          <button type="button" onClick={() => removeDynamicField(section, key)} className="form-button-danger p-2"><FaTrash /></button>
+        </div>
+      ))}
+      <button type="button" onClick={() => addDynamicField(section)} className="form-button-secondary text-sm">+ Adicionar</button>
+    </div>
+  );
+
   return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="modal-overlay"
+      onClick={onClose}
+      role="dialog" aria-modal="true" aria-labelledby="edit-item-modal-title"
+    >
       <motion.div
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="modal-overlay"
-        onClick={onClose}
-        role="dialog" aria-modal="true" aria-labelledby="edit-item-modal-title"
+        initial={{ scale: 0.94, y: 18 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.94, y: 18 }}
+        className="modal-panel wide text-white flex flex-col max-h-[90vh]"
+        onClick={(e) => e.stopPropagation()}
+        role="document"
       >
-        <motion.div
-          initial={{ scale: 0.94, y: 18 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.94, y: 18 }}
-          className="modal-panel wide text-white"
-          onClick={(e) => e.stopPropagation()}
-          role="document"
-        >
-          <button onClick={onClose} className="modal-close-btn focus-outline" aria-label="Fechar modal">
-            <FaTimes />
-          </button>
-          <h2 id="edit-item-modal-title" className="text-2xl font-bold mb-6 text-red-500">{formData._id ? 'Editar Item' : 'Adicionar Novo Item'}</h2>
-          <form onSubmit={handleSubmit} className="space-y-6 text-sm">
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-              <div><label className="form-label">Nome *</label><input type="text" name="name" value={formData.name} onChange={handleChange} className="form-input" required /></div>
-              <div><label className="form-label">Categoria *</label><select name="category" value={formData.category} onChange={handleChange} className="form-input" required>{categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
+        <button onClick={onClose} className="modal-close-btn focus-outline" aria-label="Fechar modal"><FaTimes /></button>
+        <h2 id="edit-item-modal-title" className="text-2xl font-bold mb-4 text-red-500">{formData._id ? 'Editar Item' : 'Adicionar Novo Item'}</h2>
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6">
+          <TabButton id="basic" icon={<FaInfoCircle />} label="Básico" />
+          <TabButton id="options" icon={<FaPizzaSlice />} label="Opções" />
+          <TabButton id="ingredients" icon={<FaPepperHot />} label="Ingredientes" />
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-6 text-sm overflow-y-auto pr-1 custom-scrollbar flex-1">
+          {tab === 'basic' && (
+            <div className="space-y-6">
+              <Section>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label">Nome *</label>
+                    <input type="text" name="name" value={formData.name} onChange={handleChange} className="form-input" required />
+                  </div>
+                  <div>
+                    <label className="form-label">Categoria *</label>
+                    <select name="category" value={formData.category} onChange={handleChange} className="form-input" required>
+                      {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="form-label">Descrição *</label>
+                  <textarea name="description" value={formData.description} onChange={handleChange} rows={3} className="form-input"></textarea>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label">Preço (R$) *</label>
+                    <input type="number" name="price" value={formData.price} onChange={handleChange} step="0.01" className="form-input" required />
+                  </div>
+                  <div>
+                    <label className="form-label">URL da Imagem</label>
+                    <input type="text" name="image" value={formData.image} onChange={handleChange} className="form-input" />
+                  </div>
+                </div>
+                <div className="flex items-center pt-2">
+                  <input type="checkbox" id="destaque" name="destaque" checked={formData.destaque} onChange={handleChange} className="form-checkbox" />
+                  <label htmlFor="destaque" className="ml-2 text-sm text-gray-300 select-none">Item em destaque</label>
+                </div>
+              </Section>
             </div>
-            <div><label className="form-label">Descrição *</label><textarea name="description" value={formData.description} onChange={handleChange} className="form-input" rows={3}></textarea></div>
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-              <div><label className="form-label">Preço (R$) *</label><input type="number" name="price" value={formData.price} onChange={handleChange} className="form-input" required step="0.01" /></div>
-              <div><label className="form-label">URL da Imagem</label><input type="text" name="image" value={formData.image} onChange={handleChange} className="form-input" /></div>
+          )}
+
+          {tab === 'options' && (
+            <div className="space-y-8">
+              <Section title="Tamanhos e Preços">
+                <DynamicList section="sizes" label="Tamanhos" />
+              </Section>
+              <Section title="Opções de Borda">
+                <DynamicList section="borderOptions" label="Bordas" currencyPrefix="+ R$" />
+              </Section>
+              <Section title="Opções de Extras">
+                <DynamicList section="extraOptions" label="Extras" currencyPrefix="+ R$" />
+              </Section>
             </div>
-            <div className="flex items-center"><input type="checkbox" id="destaque" name="destaque" checked={formData.destaque} onChange={handleChange} className="form-checkbox" /><label htmlFor="destaque" className="ml-2 block text-sm text-gray-300">Item em destaque</label></div>
-            <hr className="border-gray-700" />
-            <div className="space-y-2"><label className="form-label">Ingredientes</label>{formData.ingredients?.map((ing, index) => (<div key={index} className="flex items-center gap-2"><input type="text" value={ing} onChange={e => handleIngredientChange(index, e.target.value)} className="form-input flex-grow" /><button type="button" onClick={() => removeIngredient(index)} className="form-button-danger p-2"><FaTrash /></button></div>))}<button type="button" onClick={addIngredient} className="form-button-secondary text-sm">+ Adicionar</button></div>
-            <div className="space-y-2"><label className="form-label">Tamanhos e Preços</label>{Object.entries(formData.sizes || {}).map(([key, value]) => (<div key={key} className="flex items-center gap-2"><input type="text" value={key} onChange={e => handleDynamicChange('sizes', key, 'name', e.target.value)} className="form-input w-1/3" /><span className="text-gray-400">R$</span><input type="number" value={value} onChange={e => handleDynamicChange('sizes', key, 'price', e.target.value)} className="form-input flex-grow" step="0.01" /><button type="button" onClick={() => removeDynamicField('sizes', key)} className="form-button-danger p-2"><FaTrash /></button></div>))}<button type="button" onClick={() => addDynamicField('sizes')} className="form-button-secondary text-sm">+ Adicionar</button></div>
-            <div className="space-y-2"><label className="form-label">Opções de Borda</label>{Object.entries(formData.borderOptions || {}).map(([key, value]) => (<div key={key} className="flex items-center gap-2"><input type="text" value={key} onChange={e => handleDynamicChange('borderOptions', key, 'name', e.target.value)} className="form-input w-1/3" /><span className="text-gray-400">+ R$</span><input type="number" value={value} onChange={e => handleDynamicChange('borderOptions', key, 'price', e.target.value)} className="form-input flex-grow" step="0.01" /><button type="button" onClick={() => removeDynamicField('borderOptions', key)} className="form-button-danger p-2"><FaTrash /></button></div>))}<button type="button" onClick={() => addDynamicField('borderOptions')} className="form-button-secondary text-sm">+ Adicionar</button></div>
-            <div className="space-y-2"><label className="form-label">Opções de Extras</label>{Object.entries(formData.extraOptions || {}).map(([key, value]) => (<div key={key} className="flex items-center gap-2"><input type="text" value={key} onChange={e => handleDynamicChange('extraOptions', key, 'name', e.target.value)} className="form-input w-1/3" /><span className="text-gray-400">+ R$</span><input type="number" value={value} onChange={e => handleDynamicChange('extraOptions', key, 'price', e.target.value)} className="form-input flex-grow" step="0.01" /><button type="button" onClick={() => removeDynamicField('extraOptions', key)} className="form-button-danger p-2"><FaTrash /></button></div>))}<button type="button" onClick={() => addDynamicField('extraOptions')} className="form-button-secondary text-sm">+ Adicionar</button></div>
-            <div className="flex justify-end gap-4 pt-4"><button type="button" onClick={onClose} className="form-button-secondary">Cancelar</button><button type="submit" className="form-button-primary inline-flex items-center gap-2"><FaSave /> {formData._id ? 'Atualizar' : 'Salvar'}</button></div>
-          </form>
-        </motion.div>
+          )}
+
+          {tab === 'ingredients' && (
+            <div className="space-y-6">
+              <Section title="Ingredientes">
+                <div className="space-y-2">
+                  {(formData.ingredients || []).map((ing, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={ing}
+                        onChange={e => handleIngredientChange(index, e.target.value)}
+                        className="form-input flex-grow"
+                      />
+                      <button type="button" onClick={() => removeIngredient(index)} className="form-button-danger p-2" aria-label="Remover ingrediente"><FaTrash /></button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={addIngredient} className="form-button-secondary text-sm">+ Adicionar</button>
+                </div>
+              </Section>
+            </div>
+          )}
+        </form>
+        <div className="flex justify-end gap-4 pt-4 mt-4 border-t border-gray-800">
+          <button type="button" onClick={onClose} className="form-button-secondary">Cancelar</button>
+          <button onClick={(e) => { e.preventDefault(); onSave(formData); }} className="form-button-primary inline-flex items-center gap-2"><FaSave /> {formData._id ? 'Atualizar' : 'Salvar'}</button>
+        </div>
       </motion.div>
+    </motion.div>
   );
 };
 
