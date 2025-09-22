@@ -1,6 +1,5 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -23,12 +22,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   ];
 
   // Extrair tab ativa da query string de forma reativa
-  const searchParams = useSearchParams();
-  const tab = searchParams ? searchParams.get('tab') : null;
-  const activeTab: 'config' | 'menu' | 'pedidos' =
-    tab === 'menu' ? 'menu'
-    : tab === 'pedidos' ? 'pedidos'
-    : 'config';
+  // Leitura simples da tab via hash manual da URL (evita useSearchParams para não exigir Suspense no build export)
+  const [activeTab, setActiveTab] = useState<'config' | 'menu' | 'pedidos'>('config');
+  useEffect(() => {
+    try {
+      const qs = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      const tab = qs?.get('tab');
+      setActiveTab(tab === 'menu' ? 'menu' : tab === 'pedidos' ? 'pedidos' : 'config');
+    } catch {}
+  }, [pathname]);
 
   return (
     <div className="min-h-screen flex bg-[#121212] text-gray-200">
