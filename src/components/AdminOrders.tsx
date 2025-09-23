@@ -53,6 +53,16 @@ export default function AdminOrders() {
     const soundLoopRef = useRef<number | null>(null);
     const soundLoopCountRef = useRef<number>(0);
 
+    // Bloqueia scroll quando modal de pedido aberto
+    useEffect(() => {
+        if (pedidoSelecionado) {
+            document.body.classList.add('modal-open');
+        } else {
+            document.body.classList.remove('modal-open');
+        }
+        return () => { document.body.classList.remove('modal-open'); };
+    }, [pedidoSelecionado]);
+
     // Função robusta de reprodução de som
     const playNotificationSound = async () => {
         if (!soundEnabled) return;
@@ -92,7 +102,7 @@ export default function AdminOrders() {
                     audioRef.current?.pause();
                     audioRef.current!.currentTime = 0;
                     setAudioReady(true);
-                }).catch(() => {/* ignore */});
+                }).catch(() => {/* ignore */ });
             }
             window.removeEventListener('click', enableAudio);
             window.removeEventListener('keydown', enableAudio);
@@ -117,9 +127,9 @@ export default function AdminOrders() {
                     // Evita tocar na carga inicial
                     if (!firstLoadRef.current && userInteractedRef.current) {
                         // Filtra apenas ids realmente novos que ainda não notificamos som (evita duplicar se API envia repetido)
-                                                const novosIds = novosPedidos
-                                                    .map((p: Pedido) => p._id)
-                                                    .filter((id: string) => !lastHeardOrderIdsRef.current.has(id));
+                        const novosIds = novosPedidos
+                            .map((p: Pedido) => p._id)
+                            .filter((id: string) => !lastHeardOrderIdsRef.current.has(id));
                         if (novosIds.length > 0) {
                             await playNotificationSound();
                             novosIds.forEach((id: string) => lastHeardOrderIdsRef.current.add(id));
@@ -356,11 +366,11 @@ export default function AdminOrders() {
                 ));
                 setMensagem('Status atualizado com sucesso!');
                 setNotification(`Status do pedido #${orderId.slice(-6)} atualizado para ${getStatusText(newStatus)}`);
-                
+
                 // Enviar notificação em tempo real
                 const timestamp = new Date().toLocaleString('pt-BR');
                 const message = `Status do pedido #${orderId.slice(-6)} atualizado para ${getStatusText(newStatus)}`;
-                
+
                 // Enviar para o servidor de notificações
                 await fetch('/api/notifications', {
                     method: 'POST',
@@ -375,7 +385,7 @@ export default function AdminOrders() {
                         timestamp
                     }),
                 });
-                
+
                 // Atualizar localStorage para compatibilidade com o sistema atual
                 const notifyOrders = JSON.parse(localStorage.getItem('notifyOrders') || '[]');
                 if (!notifyOrders.includes(orderId)) {
@@ -384,7 +394,7 @@ export default function AdminOrders() {
                 }
                 localStorage.setItem(`notifyStatus_${orderId}`, newStatus);
                 localStorage.setItem(`notifyTimestamp_${orderId}`, timestamp);
-                
+
                 setTimeout(() => setMensagem(null), 3000);
             } else {
                 throw new Error(data.message || 'Erro ao atualizar status do pedido');
@@ -472,7 +482,7 @@ export default function AdminOrders() {
     if (!pedidos.length) return <div className="text-center text-gray-500">Nenhum pedido recente.</div>;
 
     return (
-    <div className="p-4 sm:p-6">
+        <div className="p-2 sm:p-4 md:p-6">
             <h2 className="text-2xl font-bold mb-4 text-red-600">Painel de Pedidos</h2>
             {mensagemCompartilhamento && (
                 <div className="mb-4 p-3 bg-green-100 border border-green-300 text-green-800 rounded text-center font-semibold">
@@ -493,42 +503,42 @@ export default function AdminOrders() {
                     </button>
                 </div>
             )}
-                        {/* Controles de som */}
-                        <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
+            {/* Controles de som */}
+            <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
                 <button
-                  type="button"
-                  onClick={() => {
-                    const next = !soundEnabled; setSoundEnabled(next); localStorage.setItem('ordersSoundEnabled', String(next));
-                  }}
-                  className={`px-3 py-1.5 rounded-md border text-xs font-semibold transition-colors ${soundEnabled ? 'bg-green-700/40 border-green-600 text-green-300 hover:bg-green-700/60' : 'bg-gray-700/40 border-gray-600 text-gray-300 hover:bg-gray-700/60'}`}
-                  aria-pressed={soundEnabled}
-                  aria-label={soundEnabled ? 'Desativar som de novos pedidos' : 'Ativar som de novos pedidos'}
+                    type="button"
+                    onClick={() => {
+                        const next = !soundEnabled; setSoundEnabled(next); localStorage.setItem('ordersSoundEnabled', String(next));
+                    }}
+                    className={`px-3 py-1.5 rounded-md border text-xs font-semibold transition-colors ${soundEnabled ? 'bg-green-700/40 border-green-600 text-green-300 hover:bg-green-700/60' : 'bg-gray-700/40 border-gray-600 text-gray-300 hover:bg-gray-700/60'}`}
+                    aria-pressed={soundEnabled}
+                    aria-label={soundEnabled ? 'Desativar som de novos pedidos' : 'Ativar som de novos pedidos'}
                 >
-                  Som: {soundEnabled ? 'Ativado' : 'Mutado'}
+                    Som: {soundEnabled ? 'Ativado' : 'Mutado'}
                 </button>
-                                <button
-                                    type="button"
-                                    onClick={async () => {
-                                        if (audioRef.current) {
-                                                try {
-                                                    audioRef.current.currentTime = 0;
-                                                    await audioRef.current.play();
-                                                    userInteractedRef.current = true;
-                                                    setAudioReady(true);
-                                                } catch (e) {
-                                                    console.warn('Falha ao tocar áudio manualmente', e);
-                                                }
-                                        }
-                                    }}
-                                    className="px-3 py-1.5 rounded-md border text-xs font-semibold transition-colors bg-blue-700/40 border-blue-600 text-blue-200 hover:bg-blue-700/60"
-                                >
-                                    Testar Som
-                                </button>
-                                {!audioReady && <span className="text-[11px] text-gray-400">Clique em qualquer lugar ou no botão para liberar o áudio.</span>}
+                <button
+                    type="button"
+                    onClick={async () => {
+                        if (audioRef.current) {
+                            try {
+                                audioRef.current.currentTime = 0;
+                                await audioRef.current.play();
+                                userInteractedRef.current = true;
+                                setAudioReady(true);
+                            } catch (e) {
+                                console.warn('Falha ao tocar áudio manualmente', e);
+                            }
+                        }
+                    }}
+                    className="px-3 py-1.5 rounded-md border text-xs font-semibold transition-colors bg-blue-700/40 border-blue-600 text-blue-200 hover:bg-blue-700/60"
+                >
+                    Testar Som
+                </button>
+                {!audioReady && <span className="text-[11px] text-gray-400">Clique em qualquer lugar ou no botão para liberar o áudio.</span>}
                 <span className="text-xs text-gray-400">(toca apenas quando chega um novo pedido após a página carregada)</span>
             </div>
-                        {/* Elemento de áudio real no DOM */}
-                        <audio ref={audioRef} src="/sound/bell-notification-337658.mp3" preload="auto" className="hidden" aria-hidden="true" />
+            {/* Elemento de áudio real no DOM */}
+            <audio ref={audioRef} src="/sound/bell-notification-337658.mp3" preload="auto" className="hidden" aria-hidden="true" />
             {/* Filtros responsivos */}
             <fieldset className="mb-6 grid gap-4 sm:grid-cols-2" aria-label="Filtros de pedidos">
                 <div className="flex flex-col">

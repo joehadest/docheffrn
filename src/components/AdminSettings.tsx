@@ -9,10 +9,10 @@ interface BusinessHours { open: boolean; start: string; end: string; }
 
 const SettingsCard = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <div className="bg-[#1F1F1F] border border-gray-800/50 rounded-xl shadow-lg">
-    <div className="p-4 border-b border-gray-800/50">
+    <div className="p-3 sm:p-4 border-b border-gray-800/50">
       <h2 className="text-lg font-semibold text-white">{title}</h2>
     </div>
-    <div className="p-4 space-y-4">{children}</div>
+    <div className="p-3 sm:p-4 space-y-4">{children}</div>
   </div>
 );
 
@@ -117,18 +117,18 @@ export default function AdminSettings() {
                   checked={businessHours[key]?.open ?? false}
                   onChange={(e) => handleBusinessHoursChange(key, 'open', e.target.checked)}
                 />
-                <span className="font-medium">{label}</span>
+                <span className="font-medium text-sm sm:text-base">{label}</span>
               </label>
               <input
                 type="time"
-                className="form-input"
+                className="form-input text-sm"
                 value={businessHours[key]?.start ?? '18:00'}
                 onChange={(e) => handleBusinessHoursChange(key, 'start', e.target.value)}
                 disabled={!businessHours[key]?.open}
               />
               <input
                 type="time"
-                className="form-input"
+                className="form-input text-sm"
                 value={businessHours[key]?.end ?? '22:00'}
                 onChange={(e) => handleBusinessHoursChange(key, 'end', e.target.value)}
                 disabled={!businessHours[key]?.open}
@@ -141,9 +141,9 @@ export default function AdminSettings() {
           <div className="space-y-2">
             {deliveryFees.map((fee, index) => (
               <div key={index} className="flex items-center justify-between p-2 rounded-lg bg-gray-800/40">
-                <span>{fee.neighborhood}</span>
+                <span className="text-sm sm:text-base">{fee.neighborhood}</span>
                 <div className="flex items-center gap-3">
-                  <span className="font-semibold text-red-400">R$ {fee.fee.toFixed(2)}</span>
+                  <span className="font-semibold text-red-400 text-sm sm:text-base">R$ {fee.fee.toFixed(2)}</span>
                   <button onClick={() => handleRemoveFee(index)} className="text-gray-400 hover:text-red-500">&times;</button>
                 </div>
               </div>

@@ -188,6 +188,17 @@ export default function MenuDisplay() {
     const [showCategoriesModal, setShowCategoriesModal] = useState(false);
     const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
 
+    // Bloqueia scroll quando qualquer modal está aberto
+    useEffect(() => {
+        const anyOpen = !!selectedItem || isCartOpen || !!selectedPasta || showCategoriesModal;
+        if (anyOpen) {
+            document.body.classList.add('modal-open');
+        } else {
+            document.body.classList.remove('modal-open');
+        }
+        return () => { document.body.classList.remove('modal-open'); };
+    }, [selectedItem, isCartOpen, selectedPasta, showCategoriesModal]);
+
     // Categorias agora vêm da API, não só dos itens
     const allPizzas = menuItems.filter(item => item.category === 'pizzas');
     // categoriesContainerRef já existe
@@ -548,20 +559,20 @@ export default function MenuDisplay() {
 
         // Formatação melhorada da mensagem
         const header = `🍕 *DO'CHEFF - NOVO PEDIDO* 🍕`;
-        
+
         const customerInfo = `\n\n👤 *DADOS DO CLIENTE*\n` +
             `📝 Nome: ${customerName}\n` +
             `📱 Telefone: ${customerPhone}`;
-        
+
         const addressInfo = tipoEntrega === 'entrega'
             ? `\n\n📍 *ENDEREÇO DE ENTREGA*\n` +
-              `🏠 ${customerStreet}, ${customerNumber}\n` +
-              `${customerComplement ? `📋 Complemento: ${customerComplement}\n` : ''}` +
-              `🏘️ Bairro: ${customerNeighborhood}\n` +
-              `📌 Ponto de Referência: ${customerReferencePoint}\n` +
-              `🚚 Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}`
+            `🏠 ${customerStreet}, ${customerNumber}\n` +
+            `${customerComplement ? `📋 Complemento: ${customerComplement}\n` : ''}` +
+            `🏘️ Bairro: ${customerNeighborhood}\n` +
+            `📌 Ponto de Referência: ${customerReferencePoint}\n` +
+            `🚚 Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}`
             : `\n\n📍 *TIPO DE ENTREGA*\n🏪 Retirada no Local`;
-        
+
         const paymentInfo = formaPagamento === 'pix' ? '\n\n💳 *FORMA DE PAGAMENTO*\n🏦 PIX' :
             formaPagamento === 'dinheiro' ? `\n\n💳 *FORMA DE PAGAMENTO*\n💵 Dinheiro${troco ? `\n💰 Troco para: R$ ${troco}` : ''}` :
                 formaPagamento === 'cartao' ? '\n\n💳 *FORMA DE PAGAMENTO*\n💳 Cartão' : '';
@@ -581,7 +592,7 @@ export default function MenuDisplay() {
             (deliveryFee > 0 ? `🚚 Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n` : '') +
             `💵 *TOTAL: R$ ${valorFinal.toFixed(2)}*`;
 
-        const footer = formaPagamento === 'pix' ? 
+        const footer = formaPagamento === 'pix' ?
             `\n\n🏦 *CHAVE PIX PARA PAGAMENTO*\n📱 84 99872-9126\n\n✅ Envie o comprovante após o pagamento!` :
             `\n\n⏰ Tempo estimado: 30-45 minutos\n📞 Em caso de dúvidas, entre em contato!`;
 
@@ -878,11 +889,10 @@ export default function MenuDisplay() {
                                                 <h3 className="font-bold text-white text-base mb-3 line-clamp-2 min-h-[3rem]">
                                                     {item.name}
                                                 </h3>
-                                                <button className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition-colors duration-300 ${
-                                                    isRestaurantOpen 
-                                                        ? 'bg-red-500 hover:bg-red-600 text-white' 
+                                                <button className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition-colors duration-300 ${isRestaurantOpen
+                                                        ? 'bg-red-500 hover:bg-red-600 text-white'
                                                         : 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                                                }`}>
+                                                    }`}>
                                                     {isRestaurantOpen ? 'Adicionar' : 'Indisponível'}
                                                 </button>
                                             </div>
@@ -1049,20 +1059,20 @@ export default function MenuDisplay() {
 
                                             // Formatação melhorada da mensagem de preview
                                             const header = `🍕 DO'CHEFF - NOVO PEDIDO 🍕`;
-                                            
+
                                             const customerInfo = `\n\n👤 DADOS DO CLIENTE\n` +
                                                 `📝 Nome: ${customerName}\n` +
                                                 `📱 Telefone: ${customerPhone}`;
-                                            
+
                                             const addressInfo = tipoEntrega === 'entrega'
                                                 ? `\n\n📍 ENDEREÇO DE ENTREGA\n` +
-                                                  `🏠 ${customerStreet}, ${customerNumber}\n` +
-                                                  `${customerComplement ? `📋 Complemento: ${customerComplement}\n` : ''}` +
-                                                  `🏘️ Bairro: ${customerNeighborhood}\n` +
-                                                  `📌 Ponto de Referência: ${customerReferencePoint}\n` +
-                                                  `🚚 Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}`
+                                                `🏠 ${customerStreet}, ${customerNumber}\n` +
+                                                `${customerComplement ? `📋 Complemento: ${customerComplement}\n` : ''}` +
+                                                `🏘️ Bairro: ${customerNeighborhood}\n` +
+                                                `📌 Ponto de Referência: ${customerReferencePoint}\n` +
+                                                `🚚 Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}`
                                                 : `\n\n📍 TIPO DE ENTREGA\n🏪 Retirada no Local`;
-                                            
+
                                             const paymentInfo = formaPagamento === 'pix' ? '\n\n💳 FORMA DE PAGAMENTO\n🏦 PIX' :
                                                 formaPagamento === 'dinheiro' ? `\n\n💳 FORMA DE PAGAMENTO\n💵 Dinheiro${troco ? `\n💰 Troco para: R$ ${troco}` : ''}` :
                                                     formaPagamento === 'cartao' ? '\n\n💳 FORMA DE PAGAMENTO\n💳 Cartão' : '';
@@ -1082,7 +1092,7 @@ export default function MenuDisplay() {
                                                 (deliveryFee > 0 ? `🚚 Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n` : '') +
                                                 `💵 TOTAL: R$ ${valorFinal.toFixed(2)}`;
 
-                                            const footer = formaPagamento === 'pix' ? 
+                                            const footer = formaPagamento === 'pix' ?
                                                 `\n\n🏦 CHAVE PIX PARA PAGAMENTO\n📱 84 99872-9126\n\n✅ Envie o comprovante após o pagamento!` :
                                                 `\n\n⏰ Tempo estimado: 30-45 minutos\n📞 Em caso de dúvidas, entre em contato!`;
 

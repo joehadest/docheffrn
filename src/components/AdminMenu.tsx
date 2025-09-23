@@ -105,7 +105,7 @@ const ItemModal = ({
             onChange={e => handleDynamicChange(section, key, 'name', e.target.value)}
             className="form-input w-1/3"
           />
-            <span className="text-gray-400">{currencyPrefix || 'R$'}</span>
+          <span className="text-gray-400">{currencyPrefix || 'R$'}</span>
           <input
             type="number"
             value={value}
@@ -274,7 +274,7 @@ const CategoryModal = ({
           role="document"
           onClick={e => e.stopPropagation()}
         >
-          <button className="modal-close-btn focus-outline" onClick={onClose} aria-label="Fechar modal de categoria"><FaTimes/></button>
+          <button className="modal-close-btn focus-outline" onClick={onClose} aria-label="Fechar modal de categoria"><FaTimes /></button>
           <h2 id="category-modal-title" className="text-xl font-bold mb-4 text-red-500">{isEdit ? 'Editar Categoria' : 'Nova Categoria'}</h2>
           <form onSubmit={handleSubmit} className="space-y-4 text-sm">
             <div>
@@ -283,7 +283,7 @@ const CategoryModal = ({
                 type="text"
                 className="form-input"
                 value={form.value}
-                onChange={e => setForm({ ...form, value: e.target.value.toLowerCase().replace(/\s+/g,'-') })}
+                onChange={e => setForm({ ...form, value: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
                 required
               />
             </div>
@@ -374,7 +374,7 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
           onClick={() => setModalCategory({ value: '', label: '', order: 0, allowHalfAndHalf: false })}
           className="form-button-primary flex items-center gap-2"
         >
-          <FaPlus/> Nova Categoria
+          <FaPlus /> Nova Categoria
         </button>
       </div>
       {catError && <p className="text-red-500 text-sm mb-4">{catError}</p>}
@@ -391,7 +391,7 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
             </tr>
           </thead>
           <tbody className="text-sm">
-            {categories.sort((a,b) => (a.order || 0) - (b.order || 0)).map(cat => (
+            {categories.sort((a, b) => (a.order || 0) - (b.order || 0)).map(cat => (
               <tr key={cat._id} className="border-b border-gray-800/60 last:border-0">
                 <td className="p-2 w-20">{cat.order}</td>
                 <td className="p-2">{cat.label}</td>
@@ -406,7 +406,7 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
                     aria-label={`Editar categoria ${cat.label}`}
                     title={`Editar ${cat.label}`}
                   >
-                    <FaEdit/>
+                    <FaEdit />
                   </button>
                   <button
                     onClick={() => handleDeleteCategory(cat._id)}
@@ -414,7 +414,7 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
                     aria-label={`Excluir categoria ${cat.label}`}
                     title={`Excluir ${cat.label}`}
                   >
-                    <FaTrash/>
+                    <FaTrash />
                   </button>
                 </td>
               </tr>
@@ -449,33 +449,45 @@ export default function AdminMenu() {
   const [categories, setCategories] = useState<{ _id?: string; value: string; label: string; order?: number }[]>([]);
   const [deletingItems, setDeletingItems] = useState<Set<string>>(new Set());
 
+  // Bloqueio de scroll para modais de item ou categoria
+  useEffect(() => {
+    const shouldLock = isModalOpen;
+    if (shouldLock) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+    return () => { document.body.classList.remove('modal-open'); };
+  }, [isModalOpen]);
+
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [menuRes, catRes] = await Promise.all([ fetch('/api/menu/all'), fetch('/api/categories') ]);
+      const [menuRes, catRes] = await Promise.all([fetch('/api/menu/all'), fetch('/api/categories')]);
       const menuData = await menuRes.json();
       if (menuData.success) {
-          const sorted = menuData.data
-            .slice()
-            .sort((a: MenuItem, b: MenuItem) => {
-              if ((a.isAvailable === false) !== (b.isAvailable === false)) {
-                return a.isAvailable === false ? 1 : -1;
-              }
-              const aIsCalabresa = a.category === 'pizzas' && a.name.toLowerCase().includes('calabresa');
-              const bIsCalabresa = b.category === 'pizzas' && b.name.toLowerCase().includes('calabresa');
-              if (aIsCalabresa && !bIsCalabresa) return -1;
-              if (!aIsCalabresa && bIsCalabresa) return 1;
-              return a.price - b.price;
-            });
-          setMenuItems(sorted);
+        const sorted = menuData.data
+          .slice()
+          .sort((a: MenuItem, b: MenuItem) => {
+            if ((a.isAvailable === false) !== (b.isAvailable === false)) {
+              return a.isAvailable === false ? 1 : -1;
+            }
+            const aIsCalabresa = a.category === 'pizzas' && a.name.toLowerCase().includes('calabresa');
+            const bIsCalabresa = b.category === 'pizzas' && b.name.toLowerCase().includes('calabresa');
+            if (aIsCalabresa && !bIsCalabresa) return -1;
+            if (!aIsCalabresa && bIsCalabresa) return 1;
+            return a.price - b.price;
+          });
+        setMenuItems(sorted);
       } else { setError('Falha ao carregar o cardápio.'); }
       const catData = await catRes.json();
-      if (catData.success) { 
+      if (catData.success) {
         const orderedCats = (catData.data || []).slice().sort((a: { order?: number }, b: { order?: number }) => (a.order ?? 0) - (b.order ?? 0));
-        setCategories(orderedCats); 
-      } 
+        setCategories(orderedCats);
+      }
       else { setError((prev) => prev + ' Falha ao carregar categorias.'); }
-    } catch (err) { setError('Erro de conexão.');
+    } catch (err) {
+      setError('Erro de conexão.');
     } finally { setLoading(false); }
   };
 
@@ -491,7 +503,7 @@ export default function AdminMenu() {
       alert('Não foi possível atualizar o status.');
     }
   };
-  
+
   const handleOpenModal = (item: Partial<MenuItem> | null = null) => { setEditingItem(item || {}); setIsModalOpen(true); };
   const handleCloseModal = () => { setIsModalOpen(false); setEditingItem(null); };
 
@@ -499,9 +511,9 @@ export default function AdminMenu() {
     const method = itemData._id ? 'PUT' : 'POST';
     const url = itemData._id ? `/api/menu/${itemData._id}` : '/api/menu';
     try {
-        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(itemData) });
-        if (res.ok) { handleCloseModal(); fetchData(); } 
-        else { alert("Erro ao salvar o item.") }
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(itemData) });
+      if (res.ok) { handleCloseModal(); fetchData(); }
+      else { alert("Erro ao salvar o item.") }
     } catch (error) { alert("Erro de conexão.") }
   };
 
@@ -509,19 +521,20 @@ export default function AdminMenu() {
     if (!id || !name || !confirm(`Excluir "${name}"?`)) return;
     setDeletingItems(prev => new Set(prev).add(id));
     try {
-        const res = await fetch(`/api/menu/${id}`, { method: 'DELETE' });
-        if (res.ok) { setMenuItems(prev => prev.filter(item => item._id !== id)); } 
-        else { alert('Erro ao excluir.'); }
-    } catch (err) { alert('Erro de conexão.');
+      const res = await fetch(`/api/menu/${id}`, { method: 'DELETE' });
+      if (res.ok) { setMenuItems(prev => prev.filter(item => item._id !== id)); }
+      else { alert('Erro ao excluir.'); }
+    } catch (err) {
+      alert('Erro de conexão.');
     } finally {
-        setDeletingItems(prev => { const newSet = new Set(prev); newSet.delete(id); return newSet; });
+      setDeletingItems(prev => { const newSet = new Set(prev); newSet.delete(id); return newSet; });
     }
   };
-  
+
   const filteredItems = menuItems.filter((item) => selectedCategory === 'todas' || item.category === selectedCategory);
 
   return (
-  <div className="p-6 text-gray-200">
+    <div className="p-2 sm:p-6 text-gray-200">
       <style jsx global>{`
         .form-input { @apply w-full mt-1 p-2 bg-[#2a2a2a] border border-gray-600 rounded-md text-white focus:ring-red-500 focus:border-red-500 transition-colors; }
         .form-label { @apply block text-sm font-medium text-gray-300; }
@@ -534,8 +547,8 @@ export default function AdminMenu() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
           <div><h1 className="text-3xl font-bold text-white">Admin do Cardápio</h1><p className="text-gray-400 mt-1">Gerencie os itens e categorias.</p></div>
           <div className="flex gap-2 mt-4 sm:mt-0">
-             <button className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors ${activeTab === 'menu' ? 'bg-red-600 text-white' : 'bg-[#2a2a2a] text-gray-300 hover:bg-gray-700'}`} onClick={() => setActiveTab('menu')}> <FaThList /> Itens</button>
-             <button className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors ${activeTab === 'categories' ? 'bg-red-600 text-white' : 'bg-[#2a2a2a] text-gray-300 hover:bg-gray-700'}`} onClick={() => setActiveTab('categories')}> <FaListAlt /> Categorias</button>
+            <button className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors ${activeTab === 'menu' ? 'bg-red-600 text-white' : 'bg-[#2a2a2a] text-gray-300 hover:bg-gray-700'}`} onClick={() => setActiveTab('menu')}> <FaThList /> Itens</button>
+            <button className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors ${activeTab === 'categories' ? 'bg-red-600 text-white' : 'bg-[#2a2a2a] text-gray-300 hover:bg-gray-700'}`} onClick={() => setActiveTab('categories')}> <FaListAlt /> Categorias</button>
           </div>
         </div>
 
@@ -565,15 +578,15 @@ export default function AdminMenu() {
                     <span className="bubble-press-overlay" />
                     <span className="bubble-border-gradient" />
                     <div className="bubble-content">
-                      <div className="relative h-40 w-full">
+                      <div className="relative h-32 sm:h-40 w-full">
                         <Image src={item.image || '/placeholder.jpg'} alt={item.image ? `Imagem do item ${item.name}` : `Sem imagem cadastrada para ${item.name}`} layout="fill" className="object-cover" />
                       </div>
-                      <div className="p-4">
-                        <h3 className="text-lg font-bold text-white truncate">{item.name}</h3>
+                      <div className="p-2 sm:p-4">
+                        <h3 className="text-base sm:text-lg font-bold text-white truncate">{item.name}</h3>
                         <p className="text-gray-400 text-sm mt-1">R$ {item.price.toFixed(2)}</p>
                       </div>
                     </div>
-                    <div className="p-4 border-t border-gray-800/70 bg-[#1e1e1e]/60 flex justify-between items-center gap-2 relative z-10">
+                    <div className="p-2 sm:p-4 border-t border-gray-800/70 bg-[#1e1e1e]/60 flex justify-between items-center gap-2 relative z-10">
                       <div className="flex flex-col items-center">
                         <label className="relative inline-flex items-center cursor-pointer">
                           <input

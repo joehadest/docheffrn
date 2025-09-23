@@ -23,9 +23,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 		{ key: 'menu', label: 'Cardápio', icon: <FaUtensils />, href: '/admin?tab=menu' },
 		{ key: 'pedidos', label: 'Pedidos', icon: <FaClipboardList />, href: '/admin?tab=pedidos' },
 	];
-  
+
 	const [activeTab, setActiveTab] = React.useState<'config' | 'menu' | 'pedidos'>('config');
-  
+
 	React.useEffect(() => {
 		const tab = searchParams?.get('tab');
 		setActiveTab(tab === 'menu' ? 'menu' : tab === 'pedidos' ? 'pedidos' : 'config');
@@ -54,9 +54,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 								<Link
 									href={item.href}
 									onClick={() => setSidebarOpen(false)}
-									className={`group flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors relative z-10 ${
-										isActive ? 'text-white' : 'hover:bg-gray-800 text-gray-300'
-									}`}
+									className={`group flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors relative z-10 ${isActive ? 'text-white' : 'hover:bg-gray-800 text-gray-300'
+										}`}
 								>
 									<span className={`text-lg transition-colors ${isActive ? 'text-white' : 'text-red-500'}`}>{item.icon}</span>
 									<span>{item.label}</span>
@@ -136,7 +135,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 					<h1 className="text-lg font-bold text-white">Do'Cheff</h1>
 					<div className="w-8" />
 				</header>
-				<main className="p-4 lg:p-8">
+				<main className="p-2 sm:p-4 lg:p-8">
 					{children}
 				</main>
 			</div>
