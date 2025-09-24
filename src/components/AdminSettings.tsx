@@ -109,8 +109,8 @@ export default function AdminSettings() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <SettingsCard title="Horários de Funcionamento">
           {daysOfWeek.map(({ key, label }) => (
-            <div key={key} className="grid grid-cols-1 sm:grid-cols-[1fr,auto,auto] items-center gap-3 p-2 rounded-lg hover:bg-gray-800/40">
-              <label className="flex items-center gap-3">
+            <div key={key} className="grid grid-cols-[auto_1fr_1fr] sm:grid-cols-[1fr_auto_auto] items-center gap-x-3 gap-y-2 p-2 rounded-lg hover:bg-gray-800/40">
+              <label className="flex items-center gap-3 col-span-3 sm:col-span-1">
                 <input
                   type="checkbox"
                   className="form-checkbox"

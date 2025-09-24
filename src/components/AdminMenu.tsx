@@ -76,10 +76,11 @@ const ItemModal = ({
     <button
       type="button"
       onClick={() => setTab(id)}
-      className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${tab === id ? 'bg-red-600 text-white border-red-500' : 'bg-[#2a2a2a] border-gray-700 text-gray-300 hover:bg-gray-700'}`}
+      className={`flex-1 flex items-center justify-center gap-2 px-2 py-2 text-xs sm:text-sm font-medium rounded-lg border transition-colors whitespace-nowrap ${tab === id ? 'bg-red-600 text-white border-red-500' : 'bg-[#2a2a2a] border-gray-700 text-gray-300 hover:bg-gray-700'}`}
       aria-current={tab === id ? 'page' : undefined}
     >
-      {icon} {label}
+      {icon} <span className="hidden sm:inline">{label}</span>
+      <span className="sm:hidden">{label.substring(0, 4)}</span>
     </button>
   );
 
@@ -136,7 +137,7 @@ const ItemModal = ({
         <button onClick={onClose} className="modal-close-btn focus-outline" aria-label="Fechar modal"><FaTimes /></button>
         <h2 id="edit-item-modal-title" className="text-2xl font-bold mb-4 text-red-500">{formData._id ? 'Editar Item' : 'Adicionar Novo Item'}</h2>
         {/* Tabs */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex flex-wrap gap-2 mb-6">
           <TabButton id="basic" icon={<FaInfoCircle />} label="Básico" />
           <TabButton id="options" icon={<FaPizzaSlice />} label="Opções" />
           <TabButton id="ingredients" icon={<FaPepperHot />} label="Ingredientes" />
@@ -378,7 +379,7 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
         </button>
       </div>
       {catError && <p className="text-red-500 text-sm mb-4">{catError}</p>}
-      <div className="overflow-x-auto rounded-xl border border-gray-800 bg-[#262525]">
+      <div className="overflow-x-auto rounded-xl border border-gray-800 bg-[#262525] hidden sm:block">
         <table className="w-full text-left" aria-describedby="categories-table-caption">
           <caption id="categories-table-caption" className="sr-only">Tabela de categorias do cardápio</caption>
           <thead>
@@ -424,6 +425,39 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
             )}
           </tbody>
         </table>
+      </div>
+      <div className="sm:hidden space-y-3">
+        {categories.sort((a, b) => (a.order || 0) - (b.order || 0)).map(cat => (
+          <div key={cat._id} className="bg-[#2a2a2a] rounded-lg p-4 border border-gray-700">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-bold text-white">{cat.label}</h3>
+                <p className="text-xs text-gray-400">Ordem: {cat.order} | Valor: {cat.value}</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setModalCategory(cat)}
+                  className="form-button-secondary p-2"
+                  aria-label={`Editar categoria ${cat.label}`}
+                  title={`Editar ${cat.label}`}
+                >
+                  <FaEdit />
+                </button>
+                <button
+                  onClick={() => handleDeleteCategory(cat._id)}
+                  className="form-button-danger p-2"
+                  aria-label={`Excluir categoria ${cat.label}`}
+                  title={`Excluir ${cat.label}`}
+                >
+                  <FaTrash />
+                </button>
+              </div>
+            </div>
+            <div className="mt-2 pt-2 border-t border-gray-700/50 text-xs">
+              <span className={`inline-flex items-center px-2 py-1 rounded-full font-medium ${cat.allowHalfAndHalf ? 'bg-green-900/30 text-green-400 border border-green-600/50' : 'bg-gray-700/40 text-gray-400 border border-gray-600/40'}`}>Meio a Meio: {cat.allowHalfAndHalf ? '✅ Sim' : '—'}</span>
+            </div>
+          </div>
+        ))}
       </div>
       {catLoading && <p className="text-xs text-gray-400 mt-2">Carregando...</p>}
       {modalCategory && (
