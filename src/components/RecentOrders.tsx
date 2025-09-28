@@ -348,20 +348,20 @@ export default function RecentOrders() {
       <div className="space-y-4">
         <div className="bg-[#262525] p-4 rounded-lg">
           <h3 className="text-lg font-semibold text-white mb-2">Informações do Cliente</h3>
-          <p className="text-gray-300">Nome: {pedido.cliente?.nome || '-'}</p>
-          <p className="text-gray-300">Telefone: {pedido.cliente?.telefone || '-'}</p>
+          <p className="text-gray-300 break-words">Nome: {pedido.cliente?.nome || '-'}</p>
+          <p className="text-gray-300 break-words">Telefone: {pedido.cliente?.telefone || '-'}</p>
         </div>
 
         <div className="bg-[#262525] p-4 rounded-lg">
           <h3 className="text-lg font-semibold text-white mb-2">Informações de Entrega</h3>
           {pedido.tipoEntrega === 'entrega' && pedido.endereco ? (
             <>
-              <p className="text-gray-300">Endereço: {pedido.endereco.address?.street || '-'}, {pedido.endereco.address?.number || '-'}</p>
+              <p className="text-gray-300 break-words">Endereço: {pedido.endereco.address?.street || '-'}, {pedido.endereco.address?.number || '-'}</p>
               {pedido.endereco.address?.complement && (
-                <p className="text-gray-300">Complemento: {pedido.endereco.address.complement}</p>
+                <p className="text-gray-300 break-words">Complemento: {pedido.endereco.address.complement}</p>
               )}
-              <p className="text-gray-300">Bairro: {pedido.endereco.address?.neighborhood || '-'}</p>
-              <p className="text-gray-300">Ponto de Referência: {pedido.endereco.address?.referencePoint || '-'}</p>
+              <p className="text-gray-300 break-words">Bairro: {pedido.endereco.address?.neighborhood || '-'}</p>
+              <p className="text-gray-300 break-words">Ponto de Referência: {pedido.endereco.address?.referencePoint || '-'}</p>
               <p className="text-gray-300">Taxa de Entrega: R$ {pedido.endereco.deliveryFee?.toFixed(2) || '0.00'}</p>
               <p className="text-gray-300">Tempo Estimado: {pedido.endereco.estimatedTime || '30-45 minutos'}</p>
             </>
@@ -375,14 +375,14 @@ export default function RecentOrders() {
           <div className="space-y-2">
             {pedido.itens.map((item, index) => (
               <div key={index} className="border-b border-gray-700 pb-2">
-                <p className="text-gray-300">
+                <p className="text-gray-300 break-words">
                   {item.quantidade}x {item.nome}
                   {item.size ? ` (${item.size})` : ''}
                   {item.border ? ` - Borda: ${item.border}` : ''}
                   {item.extras && item.extras.length > 0 ? ` - Extras: ${item.extras.join(', ')}` : ''}
                 </p>
                 {item.observacao && (
-                  <p className="text-gray-400 text-sm">Obs: {item.observacao}</p>
+                  <p className="text-gray-400 text-sm break-words">Obs: {item.observacao}</p>
                 )}
               </div>
             ))}
@@ -393,9 +393,9 @@ export default function RecentOrders() {
           <h3 className="text-lg font-semibold text-white mb-2">Informações de Pagamento</h3>
           <p className="text-gray-300">Total: R$ {pedido.total.toFixed(2)}</p>
           <p className="text-gray-300">Forma de Pagamento: {
-            pedido.formaPagamento?.toLowerCase() === 'pix' ? 'PIX' : 
-            pedido.formaPagamento?.toLowerCase() === 'cartao' ? 'Cartão' : 
-            'Dinheiro'
+            pedido.formaPagamento?.toLowerCase() === 'pix' ? 'PIX' :
+              pedido.formaPagamento?.toLowerCase() === 'cartao' ? 'Cartão' :
+                'Dinheiro'
           }</p>
           {pedido.formaPagamento?.toLowerCase() === 'pix' && (
             <p className="text-gray-300">Chave PIX: 8498729126</p>
@@ -405,7 +405,7 @@ export default function RecentOrders() {
         {pedido.observacoes && (
           <div className="bg-[#262525] p-4 rounded-lg">
             <h3 className="text-lg font-semibold text-white mb-2">Observações</h3>
-            <p className="text-gray-300">{pedido.observacoes}</p>
+            <p className="text-gray-300 break-words">{pedido.observacoes}</p>
           </div>
         )}
       </div>
@@ -455,7 +455,7 @@ export default function RecentOrders() {
                   <p className="text-sm text-gray-500">{formatDate(pedido.data)}</p>
                 </div>
                 <div className="flex items-center gap-4">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold 
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold
                     ${pedido.status === 'entregue' ? 'bg-green-700 text-green-200' : ''}
                     ${pedido.status === 'pendente' ? 'bg-yellow-700 text-yellow-200' : ''}
                     ${pedido.status === 'preparando' ? 'bg-blue-700 text-blue-200' : ''}
@@ -484,33 +484,33 @@ export default function RecentOrders() {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm text-gray-500">
                   <span>Nome:</span>
-                  <span>{pedido.cliente?.nome || 'Não informado'}</span>
+                  <span className="text-right break-words">{pedido.cliente?.nome || 'Não informado'}</span>
                 </div>
                 <div className="flex justify-between text-sm text-gray-500">
                   <span>Telefone:</span>
-                  <span>{pedido.cliente?.telefone || 'Não informado'}</span>
+                  <span className="text-right break-words">{pedido.cliente?.telefone || 'Não informado'}</span>
                 </div>
                 {pedido.tipoEntrega === 'entrega' && pedido.endereco ? (
                   <>
                     <div className="flex justify-between text-sm text-gray-500">
                       <span>Endereço:</span>
-                      <span>{pedido.endereco.address?.street || 'Não informado'}</span>
+                      <span className="text-right break-words">{pedido.endereco.address?.street || 'Não informado'}</span>
                     </div>
                     <div className="flex justify-between text-sm text-gray-500">
                       <span>Número:</span>
-                      <span>{pedido.endereco.address?.number || 'Não informado'}</span>
+                      <span className="text-right break-words">{pedido.endereco.address?.number || 'Não informado'}</span>
                     </div>
                     <div className="flex justify-between text-sm text-gray-500">
                       <span>Complemento:</span>
-                      <span>{pedido.endereco.address?.complement || 'Não informado'}</span>
+                      <span className="text-right break-words">{pedido.endereco.address?.complement || 'Não informado'}</span>
                     </div>
                     <div className="flex justify-between text-sm text-gray-500">
                       <span>Bairro:</span>
-                      <span>{pedido.endereco.address?.neighborhood || 'Não informado'}</span>
+                      <span className="text-right break-words">{pedido.endereco.address?.neighborhood || 'Não informado'}</span>
                     </div>
                     <div className="flex justify-between text-sm text-gray-500">
                       <span>Ponto de Referência:</span>
-                      <span>{pedido.endereco.address?.referencePoint || 'Não informado'}</span>
+                      <span className="text-right break-words">{pedido.endereco.address?.referencePoint || 'Não informado'}</span>
                     </div>
                     <div className="flex justify-between text-sm text-gray-500">
                       <span>Taxa de Entrega:</span>
@@ -532,7 +532,7 @@ export default function RecentOrders() {
                   <h4 className="font-medium text-sm text-gray-500 mb-2">Itens do Pedido:</h4>
                   {pedido.itens.map((item, index) => (
                     <div key={index} className="flex justify-between text-sm text-gray-500">
-                      <span>
+                      <span className="break-words">
                         {item.quantidade}x {item.nome}
                         {item.size && ` (${item.size})`}
                         {item.border ? ` - Borda: ${item.border}` : ''}
@@ -540,7 +540,7 @@ export default function RecentOrders() {
                           ` - Extras: ${item.extras.join(', ')}`
                         )}
                         {item.observacao && (
-                          <span className="block text-xs text-gray-400 mt-1">{item.observacao}</span>
+                          <span className="block text-xs text-gray-400 mt-1 break-words">{item.observacao}</span>
                         )}
                       </span>
                       <span>R$ {(item.preco * item.quantidade).toFixed(2)}</span>
@@ -551,7 +551,7 @@ export default function RecentOrders() {
                       <h4 className="font-medium text-sm text-gray-500">Observações:</h4>
                       {pedido.itens.map((item, index) => (
                         item.observacao && (
-                          <p key={index} className="text-sm text-gray-500">
+                          <p key={index} className="text-sm text-gray-500 break-words">
                             {item.nome}: {item.observacao}
                           </p>
                         )
@@ -600,17 +600,17 @@ export default function RecentOrders() {
             </div>
             <div className="mb-2 text-xs">
               <h4 className="font-semibold mb-1">Cliente:</h4>
-              <div>Nome: {pedidoSelecionado.cliente?.nome || '-'}</div>
-              <div>Telefone: {pedidoSelecionado.cliente?.telefone || '-'}</div>
+              <div className="break-words">Nome: {pedidoSelecionado.cliente?.nome || '-'}</div>
+              <div className="break-words">Telefone: {pedidoSelecionado.cliente?.telefone || '-'}</div>
             </div>
             {pedidoSelecionado.tipoEntrega === 'entrega' ? (
               <>
                 <div className="mb-2 text-xs">
                   <h4 className="font-semibold mb-1">Endereço de Entrega:</h4>
-                  <div>{pedidoSelecionado.endereco?.address?.street || '-'}, {pedidoSelecionado.endereco?.address?.number || '-'}</div>
-                  {pedidoSelecionado.endereco?.address?.complement && <div>Compl: {pedidoSelecionado.endereco.address.complement}</div>}
-                  <div>{pedidoSelecionado.endereco?.address?.neighborhood || '-'}</div>
-                  <div>Ponto de Referência: {pedidoSelecionado.endereco?.address?.referencePoint || '-'}</div>
+                  <div className="break-words">{pedidoSelecionado.endereco?.address?.street || '-'}, {pedidoSelecionado.endereco?.address?.number || '-'}</div>
+                  {pedidoSelecionado.endereco?.address?.complement && <div className="break-words">Compl: {pedidoSelecionado.endereco.address.complement}</div>}
+                  <div className="break-words">{pedidoSelecionado.endereco?.address?.neighborhood || '-'}</div>
+                  <div className="break-words">Ponto de Referência: {pedidoSelecionado.endereco?.address?.referencePoint || '-'}</div>
                 </div>
                 <div className="mb-2 text-xs">
                   <div><b>Tempo estimado de entrega:</b> {pedidoSelecionado.endereco?.estimatedTime || '-'}</div>
@@ -627,7 +627,7 @@ export default function RecentOrders() {
               <ul>
                 {pedidoSelecionado.itens.map((item, idx) => (
                   <li key={idx} className="flex justify-between text-xs">
-                    <span>
+                    <span className="break-words">
                       {item.quantidade}x {item.nome}
                       {item.size && ` (${item.size})`}
                       {item.border && ` - Borda: ${item.border}`}
@@ -635,7 +635,7 @@ export default function RecentOrders() {
                         ` - Extras: ${item.extras.join(', ')}`
                       )}
                       {item.observacao && (
-                        <span className="block text-xs text-gray-400 mt-1">{item.observacao}</span>
+                        <span className="block text-xs text-gray-400 mt-1 break-words">{item.observacao}</span>
                       )}
                     </span>
                     <span>R$ {item.preco.toFixed(2)}</span>
@@ -646,7 +646,7 @@ export default function RecentOrders() {
             {pedidoSelecionado.observacoes && (
               <div className="mb-2 text-xs">
                 <h4 className="font-semibold mb-1">Observações:</h4>
-                <div>{pedidoSelecionado.observacoes}</div>
+                <div className="break-words">{pedidoSelecionado.observacoes}</div>
               </div>
             )}
             <div className="flex justify-between text-xs">
@@ -716,4 +716,4 @@ export default function RecentOrders() {
       )}
     </div>
   );
-} 
+}

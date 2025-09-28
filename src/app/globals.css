@@ -521,3 +521,87 @@ body.modal-open {
   outline: 2px solid #ef4444;
   outline-offset: 2px;
 }
+/* ==== Notification Card ==== */
+.notification-card {
+    position: relative;
+    border-radius: 1rem;
+    background: linear-gradient(145deg, #2e1a1a, #241414);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(239, 68, 68, 0.1);
+    padding: 1rem;
+    color: #fff;
+    overflow: hidden;
+}
+
+.notification-glow {
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at center, rgba(239, 68, 68, 0.3) 0%, transparent 40%);
+    animation: notification-glow-spin 8s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes notification-glow-spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.notification-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    position: relative;
+    z-index: 2;
+}
+
+.notification-icon {
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 9999px;
+    background-color: rgba(239, 68, 68, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
+}
+
+.notification-title {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #f87171; /* red-400 */
+}
+
+.notification-message {
+    font-size: 0.875rem;
+    color: #d1d5db; /* gray-300 */
+    margin-top: 0.25rem;
+}
+
+.notification-close-btn {
+    flex-shrink: 0;
+    margin-left: auto;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 9999px;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #e5e7eb; /* gray-200 */
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+    text-align: center;
+    transition: background-color 0.2s, color 0.2s, transform 0.2s;
+}
+
+.notification-close-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    transform: scale(1.1);
+}
