@@ -9,12 +9,13 @@ import { isRestaurantOpen as checkRestaurantOpen } from '../utils/timeUtils';
 import type { BusinessHoursConfig } from '../utils/timeUtils';
 import { testCartStatus } from '../utils/testCart';
 
+// Interface de props atualizada para incluir a nova função onFinalize
 interface CartProps {
     items: CartItem[];
     onUpdateQuantity: (itemId: string, quantity: number) => void;
     onRemoveItem: (itemId: string) => void;
-    onCheckout: (orderId: string) => void;
     onClose: () => void;
+    onFinalize: (pedidoData: any) => void; // Nova prop para finalizar
 }
 
 const cartVariants = {
@@ -60,7 +61,7 @@ const itemVariants = {
     }
 };
 
-export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout, onClose }: CartProps) {
+export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, onFinalize }: CartProps) {
     const [currentPage, setCurrentPage] = useState<'items' | 'address'>('items');
     const [showAddressForm, setShowAddressForm] = useState(false);
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -82,7 +83,6 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
     const [formaPagamento, setFormaPagamento] = useState('');
     const [observacoes, setObservacoes] = useState('');
     const [troco, setTroco] = useState('');
-    const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [deliveryFees, setDeliveryFees] = useState<{ neighborhood: string; fee: number }[]>([]);
     const [tipoEntrega, setTipoEntrega] = useState<'entrega' | 'retirada'>('entrega');
@@ -207,10 +207,6 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
                     if (data.data.businessHours) {
                         const restaurantStatus = checkRestaurantOpen(data.data.businessHours as BusinessHoursConfig);
                         setIsRestaurantOpen(restaurantStatus);
-
-                        // Debug temporário
-                        console.log('Cart - Status calculado:', restaurantStatus);
-                        console.log('Cart - Configurações:', data.data.businessHours);
                     } else {
                         setIsRestaurantOpen(false);
                     }
@@ -223,33 +219,25 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
 
         fetchMenuItems();
         fetchDeliveryFees();
-
-        // Adicionar função de teste ao console
-        if (typeof window !== 'undefined') {
-            (window as any).testCartStatus = testCartStatus;
-            console.log('Função testCartStatus disponível no console');
-        }
     }, []);
 
     useEffect(() => {
-        // Carregar dados do endereço do localStorage
-        const savedNeighborhood = localStorage.getItem('customerNeighborhood');
-        const savedStreet = localStorage.getItem('customerStreet');
-        const savedNumber = localStorage.getItem('customerNumber');
-        const savedComplement = localStorage.getItem('customerComplement');
-        const savedReferencePoint = localStorage.getItem('customerReferencePoint');
-
-        if (savedNeighborhood) {
-            setAddress(prev => ({
-                ...prev,
-                neighborhood: savedNeighborhood,
-                street: savedStreet || '',
-                number: savedNumber || '',
-                complement: savedComplement || '',
-                referencePoint: savedReferencePoint || ''
-            }));
-        }
+        // Carregar dados salvos do localStorage ao montar
+        setCliente({
+            nome: localStorage.getItem('customerName') || '',
+            telefone: localStorage.getItem('customerPhone') || ''
+        });
+        setAddress({
+            street: localStorage.getItem('customerStreet') || '',
+            number: localStorage.getItem('customerNumber') || '',
+            complement: localStorage.getItem('customerComplement') || '',
+            neighborhood: localStorage.getItem('customerNeighborhood') || '',
+            referencePoint: localStorage.getItem('customerReferencePoint') || ''
+        });
+        setSelectedNeighborhood(localStorage.getItem('customerNeighborhood') || '');
+        setTipoEntrega((localStorage.getItem('tipoEntrega') as 'entrega' | 'retirada') || 'entrega');
     }, []);
+
 
     const calculateDeliveryFee = (neighborhood: string) => {
         if (tipoEntrega === 'retirada') return 0;
@@ -262,71 +250,62 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
     const deliveryFee = calculateDeliveryFee(address.neighborhood);
     const total = subtotal + deliveryFee;
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    // Função que é chamada ao submeter o formulário de endereço
+    const handleFinalizeOrder = (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
         setError(null);
 
-        try {
-            // Salvar o telefone do cliente no localStorage
-            localStorage.setItem('customerPhone', cliente.telefone);
-            localStorage.setItem('customerName', cliente.nome);
-            localStorage.setItem('customerTroco', troco);
-
-            const pedido = {
-                itens: items.map(item => ({
-                    nome: item.item.name,
-                    quantidade: item.quantity,
-                    preco: calculateUnitPrice(item),
-                    observacao: item.observation,
-                    size: item.size,
-                    border: item.border,
-                    extras: item.extras
-                })),
-                total,
-                tipoEntrega,
-                endereco: tipoEntrega === 'entrega' ? {
-                    address,
-                    deliveryFee: calculateDeliveryFee(address.neighborhood),
-                    estimatedTime: '30-45 minutos'
-                } : undefined,
-                cliente,
-                observacoes,
-                formaPagamento,
-                troco: formaPagamento === 'dinheiro' ? troco : undefined
-            };
-
-            const response = await fetch('/api/pedidos', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(pedido),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Erro ao processar pedido');
-            }
-
-            onCheckout(data.orderId);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erro ao processar pedido');
-        } finally {
-            setLoading(false);
+        // Validações básicas
+        if (tipoEntrega === 'entrega' && !address.neighborhood) {
+            setError('Por favor, selecione seu bairro.');
+            return;
         }
-    };
+        if (!formaPagamento) {
+            setError('Por favor, selecione uma forma de pagamento.');
+            return;
+        }
 
-    const handleAddressSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        // Salvar o bairro no localStorage
-        localStorage.setItem('customerNeighborhood', address.neighborhood);
+        // Salva os dados no localStorage para persistência
+        localStorage.setItem('customerName', cliente.nome);
+        localStorage.setItem('customerPhone', cliente.telefone);
         localStorage.setItem('customerStreet', address.street);
         localStorage.setItem('customerNumber', address.number);
-        localStorage.setItem('customerComplement', address.complement || '');
+        localStorage.setItem('customerComplement', address.complement);
+        localStorage.setItem('customerNeighborhood', address.neighborhood);
         localStorage.setItem('customerReferencePoint', address.referencePoint);
-        setShowAddressForm(false);
+        localStorage.setItem('tipoEntrega', tipoEntrega);
+        if (formaPagamento === 'dinheiro') {
+            localStorage.setItem('troco', troco);
+        } else {
+            localStorage.removeItem('troco');
+        }
+
+        // Monta o objeto do pedido
+        const pedidoData = {
+            itens: items.map(item => ({
+                nome: item.item.name,
+                quantidade: item.quantity,
+                preco: calculateUnitPrice(item),
+                observacao: item.observation,
+                size: item.size,
+                border: item.border,
+                extras: item.extras
+            })),
+            total,
+            tipoEntrega,
+            endereco: tipoEntrega === 'entrega' ? {
+                address,
+                deliveryFee: calculateDeliveryFee(address.neighborhood),
+                estimatedTime: '30-45 minutos'
+            } : undefined,
+            cliente,
+            observacoes,
+            formaPagamento,
+            troco: formaPagamento === 'dinheiro' ? troco : undefined
+        };
+
+        // Chama a função do componente pai para abrir o modal de confirmação
+        onFinalize(pedidoData);
     };
 
     return (
@@ -351,12 +330,12 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
                     <div className="flex justify-center pt-3 pb-2">
                         <div className="w-12 h-1 bg-gray-600 rounded-full"></div>
                     </div>
-                    
+
                     {/* Header */}
                     <div className="px-4 sm:px-6 pb-4">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
-                                🛒 Carrinho
+                                Carrinho
                                 {items.length > 0 && (
                                     <span className="bg-red-600 text-white text-sm px-2 py-1 rounded-full">
                                         {items.reduce((total, item) => total + item.quantity, 0)}
@@ -372,28 +351,26 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
                                 </svg>
                             </button>
                         </div>
-                        
+
                         {/* Navegação entre páginas */}
                         <div className="flex bg-[#2a2a2a] rounded-xl p-1">
                             <button
                                 onClick={() => setCurrentPage('items')}
-                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
-                                    currentPage === 'items'
-                                        ? 'bg-red-600 text-white'
-                                        : 'text-gray-400 hover:text-white'
-                                }`}
+                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${currentPage === 'items'
+                                    ? 'bg-red-600 text-white'
+                                    : 'text-gray-400 hover:text-white'
+                                    }`}
                             >
-                                📋 Itens ({items.length})
+                                Itens ({items.length})
                             </button>
                             <button
                                 onClick={() => setCurrentPage('address')}
-                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
-                                    currentPage === 'address'
-                                        ? 'bg-red-600 text-white'
-                                        : 'text-gray-400 hover:text-white'
-                                }`}
+                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${currentPage === 'address'
+                                    ? 'bg-red-600 text-white'
+                                    : 'text-gray-400 hover:text-white'
+                                    }`}
                             >
-                                📍 Endereço
+                                Endereço
                             </button>
                         </div>
                     </div>
@@ -416,357 +393,324 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout
                                 ) : (
                                     <>
                                         <div className="space-y-3 sm:space-y-4 mb-6">
-                                {items.map((item, index) => (
-                                    <motion.div
-                                        key={index}
-                                        className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-[#2a2a2a] rounded-xl border border-gray-700"
-                                        variants={itemVariants}
-                                        initial="hidden"
-                                        animate="visible"
-                                        exit="exit"
-                                    >
-                                        <div className="flex-1 w-full">
-                                            <div className="flex justify-between items-start">
-                                                <div className="flex-1">
-                                                    <h3 className="font-semibold text-gray-200 text-sm sm:text-base">{item.item.name}</h3>
-                                                    {(item.item.category === 'pizzas' || item.item.category === 'calzone' || item.item.category === 'massas') && (
-                                                        <div className="text-xs sm:text-sm text-gray-400">
-                                                            {item.size && <span>Tamanho: {item.size}</span>}
-                                                            {(item.item.category === 'pizzas' || item.item.category === 'calzone') && item.border && <span> • Borda: {item.border}</span>}
-                                                            {(item.item.category === 'pizzas' || item.item.category === 'calzone') && item.extras && item.extras.length > 0 && (
-                                                                <span> • Extras: {item.extras.join(', ')}</span>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                    {item.observation && (
-                                                        <p className="text-xs sm:text-sm text-gray-400">Obs: {item.observation}</p>
-                                                    )}
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-xs sm:text-sm text-gray-400">
-                                                        R$ {calculateUnitPrice(item).toFixed(2)} un.
-                                                    </p>
-                                                    <p className="font-semibold text-gray-200 text-sm sm:text-base">
-                                                        R$ {calculateItemPrice(item).toFixed(2)}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="flex justify-between items-center mt-2">
-                                                <div className="flex items-center space-x-2">
-                                                    <button
-                                                        onClick={() => onUpdateQuantity(item.item._id, Math.max(1, item.quantity - 1))}
-                                                        className="text-gray-400 hover:text-white text-sm sm:text-base"
-                                                    >
-                                                        -
-                                                    </button>
-                                                    <span className="text-gray-200 text-sm sm:text-base">{item.quantity}</span>
-                                                    <button
-                                                        onClick={() => onUpdateQuantity(item.item._id, item.quantity + 1)}
-                                                        className="text-gray-400 hover:text-white text-sm sm:text-base"
-                                                    >
-                                                        +
-                                                    </button>
-                                                </div>
-                                                <motion.button
-                                                    whileHover={{ scale: 1.1 }}
-                                                    whileTap={{ scale: 0.9 }}
-                                                    onClick={() => onRemoveItem(item.item._id)}
-                                                    className="text-gray-400 hover:text-red-500 text-xs sm:text-sm"
+                                            {items.map((item, index) => (
+                                                <motion.div
+                                                    key={index}
+                                                    className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-[#2a2a2a] rounded-xl border border-gray-700"
+                                                    variants={itemVariants}
+                                                    initial="hidden"
+                                                    animate="visible"
+                                                    exit="exit"
                                                 >
-                                                    Remover
-                                                </motion.button>
+                                                    <div className="flex-1 w-full">
+                                                        <div className="flex justify-between items-start">
+                                                            <div className="flex-1">
+                                                                <h3 className="font-semibold text-gray-200 text-sm sm:text-base">{item.item.name}</h3>
+                                                                {(item.item.category === 'pizzas' || item.item.category === 'calzone' || item.item.category === 'massas') && (
+                                                                    <div className="text-xs sm:text-sm text-gray-400">
+                                                                        {item.size && <span>Tamanho: {item.size}</span>}
+                                                                        {(item.item.category === 'pizzas' || item.item.category === 'calzone') && item.border && <span> • Borda: {item.border}</span>}
+                                                                        {(item.item.category === 'pizzas' || item.item.category === 'calzone') && item.extras && item.extras.length > 0 && (
+                                                                            <span> • Extras: {item.extras.join(', ')}</span>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                                {item.observation && (
+                                                                    <p className="text-xs sm:text-sm text-gray-400">Obs: {item.observation}</p>
+                                                                )}
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="text-xs sm:text-sm text-gray-400">
+                                                                    R$ {calculateUnitPrice(item).toFixed(2)} un.
+                                                                </p>
+                                                                <p className="font-semibold text-gray-200 text-sm sm:text-base">
+                                                                    R$ {calculateItemPrice(item).toFixed(2)}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex justify-between items-center mt-2">
+                                                            <div className="flex items-center space-x-2">
+                                                                <button
+                                                                    onClick={() => onUpdateQuantity(item.item._id, Math.max(1, item.quantity - 1))}
+                                                                    className="text-gray-400 hover:text-white text-sm sm:text-base"
+                                                                >
+                                                                    -
+                                                                </button>
+                                                                <span className="text-gray-200 text-sm sm:text-base">{item.quantity}</span>
+                                                                <button
+                                                                    onClick={() => onUpdateQuantity(item.item._id, item.quantity + 1)}
+                                                                    className="text-gray-400 hover:text-white text-sm sm:text-base"
+                                                                >
+                                                                    +
+                                                                </button>
+                                                            </div>
+                                                            <motion.button
+                                                                whileHover={{ scale: 1.1 }}
+                                                                whileTap={{ scale: 0.9 }}
+                                                                onClick={() => onRemoveItem(item.item._id)}
+                                                                className="text-gray-400 hover:text-red-500 text-xs sm:text-sm"
+                                                            >
+                                                                Remover
+                                                            </motion.button>
+                                                        </div>
+                                                    </div>
+                                                </motion.div>
+                                            ))}
+                                        </div>
+
+                                        <div className="mt-6 pt-4 border-t border-gray-800">
+                                            <div className="flex justify-between text-base sm:text-lg font-semibold text-white mb-6">
+                                                <span>Total:</span>
+                                                <span>R$ {total.toFixed(2)}</span>
+                                            </div>
+
+                                            {/* Botões da página de itens */}
+                                            <div className="flex flex-col gap-3">
+                                                <button
+                                                    onClick={onClose}
+                                                    className="w-full px-4 py-3 bg-gray-700 text-white text-sm sm:text-base rounded-xl hover:bg-gray-600 transition-colors font-medium"
+                                                >
+                                                    Continuar Comprando
+                                                </button>
+                                                <button
+                                                    onClick={() => setCurrentPage('address')}
+                                                    className="w-full px-4 py-3 bg-red-600 text-white text-sm sm:text-base rounded-xl hover:bg-red-700 transition-colors font-medium"
+                                                >
+                                                    Prosseguir para Endereço
+                                                </button>
                                             </div>
                                         </div>
-                                    </motion.div>
-                                ))}
-                            </div>
-
-                            <div className="mt-6 pt-4 border-t border-gray-800">
-                                <div className="flex justify-between text-base sm:text-lg font-semibold text-white mb-6">
-                                    <span>Total:</span>
-                                    <span>R$ {total.toFixed(2)}</span>
-                                </div>
-                                
-                                {/* Botões da página de itens */}
-                                <div className="flex flex-col gap-3">
-                                    <button
-                                        onClick={onClose}
-                                        className="w-full px-4 py-3 bg-gray-700 text-white text-sm sm:text-base rounded-xl hover:bg-gray-600 transition-colors font-medium"
-                                    >
-                                        Continuar Comprando
-                                    </button>
-                                    <button
-                                        onClick={() => setCurrentPage('address')}
-                                        className="w-full px-4 py-3 bg-red-600 text-white text-sm sm:text-base rounded-xl hover:bg-red-700 transition-colors font-medium"
-                                    >
-                                        Prosseguir para Endereço →
-                                    </button>
-                                </div>
-                            </div>
-                        </>
-                    )}
-                </>
-            ) : (
-                // Página de Endereço
-                <>
-                    {/* Resumo do Pedido */}
-                    <div className="mb-6 p-4 bg-[#2a2a2a] rounded-xl border border-gray-700">
-                        <h3 className="text-lg font-semibold text-white mb-3">📦 Resumo do Pedido</h3>
-                        <div className="space-y-2">
-                            {items.slice(0, 3).map((item, index) => (
-                                <div key={index} className="flex justify-between text-sm">
-                                    <span className="text-gray-300">
-                                        {item.quantity}x {item.item.name}
-                                        {item.size && ` (${item.size})`}
-                                    </span>
-                                    <span className="text-white">R$ {calculateItemPrice(item).toFixed(2)}</span>
-                                </div>
-                            ))}
-                            {items.length > 3 && (
-                                <div className="text-gray-400 text-sm">
-                                    ... e mais {items.length - 3} item(s)
-                                </div>
-                            )}
-                        </div>
-                        <div className="mt-3 pt-3 border-t border-gray-600 flex justify-between font-semibold">
-                            <span className="text-white">Total:</span>
-                            <span className="text-red-400">R$ {total.toFixed(2)}</span>
-                        </div>
-                    </div>
-
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                                <div>
-                                    <label htmlFor="nome" className="block text-xs sm:text-sm font-medium text-gray-200">Nome</label>
-                                    <input
-                                        type="text"
-                                        id="nome"
-                                        value={cliente.nome}
-                                        onChange={(e) => setCliente({ ...cliente, nome: e.target.value })}
-                                        className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
-                                        required
-                                    />
-                                </div>
-
-                                <div>
-                                    <label htmlFor="telefone" className="block text-xs sm:text-sm font-medium text-gray-200">Telefone</label>
-                                    <input
-                                        type="tel"
-                                        id="telefone"
-                                        value={cliente.telefone}
-                                        onChange={(e) => setCliente({ ...cliente, telefone: e.target.value })}
-                                        className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
-                                        required
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs sm:text-sm font-medium text-gray-200">Tipo de Entrega</label>
-                                    <div className="mt-2 space-x-4">
-                                        <label className="inline-flex items-center">
-                                            <input
-                                                type="radio"
-                                                value="entrega"
-                                                checked={tipoEntrega === 'entrega'}
-                                                onChange={(e) => {
-                                                    setTipoEntrega(e.target.value as 'entrega');
-                                                    localStorage.setItem('tipoEntrega', e.target.value);
-                                                }}
-                                                className="form-radio text-red-600"
-                                            />
-                                            <span className="ml-2 text-white text-sm sm:text-base">Entrega</span>
-                                        </label>
-                                        <label className="inline-flex items-center">
-                                            <input
-                                                type="radio"
-                                                value="retirada"
-                                                checked={tipoEntrega === 'retirada'}
-                                                onChange={(e) => {
-                                                    setTipoEntrega(e.target.value as 'retirada');
-                                                    localStorage.setItem('tipoEntrega', e.target.value);
-                                                }}
-                                                className="form-radio text-red-600"
-                                            />
-                                            <span className="ml-2 text-white text-sm sm:text-base">Retirada no Local</span>
-                                        </label>
+                                    </>
+                                )}
+                            </>
+                        ) : (
+                            // Página de Endereço
+                            <>
+                                {/* Resumo do Pedido */}
+                                <div className="mb-6 p-4 bg-[#2a2a2a] rounded-xl border border-gray-700">
+                                    <h3 className="text-lg font-semibold text-white mb-3">Resumo do Pedido</h3>
+                                    <div className="space-y-2">
+                                        {items.slice(0, 3).map((item, index) => (
+                                            <div key={index} className="flex justify-between text-sm">
+                                                <span className="text-gray-300">
+                                                    {item.quantity}x {item.item.name}
+                                                    {item.size && ` (${item.size})`}
+                                                </span>
+                                                <span className="text-white">R$ {calculateItemPrice(item).toFixed(2)}</span>
+                                            </div>
+                                        ))}
+                                        {items.length > 3 && (
+                                            <div className="text-gray-400 text-sm">
+                                                ... e mais {items.length - 3} item(s)
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="mt-3 pt-3 border-t border-gray-600 flex justify-between font-semibold">
+                                        <span className="text-white">Total:</span>
+                                        <span className="text-red-400">R$ {total.toFixed(2)}</span>
                                     </div>
                                 </div>
 
-                                {tipoEntrega === 'entrega' && (
-                                    <>
-                                        <div className="mb-4 p-4 bg-[#2a2a2a] rounded-xl border border-gray-700">
-                                            <p className="text-sm text-gray-300">
-                                                Taxas de entrega:
-                                                {deliveryFees.map((fee, index) => (
-                                                    <span key={index} className="block">
-                                                        • {fee.neighborhood}: R$ {fee.fee.toFixed(2)}
-                                                    </span>
-                                                ))}
-                                            </p>
-                                        </div>
-                                        <div className="mb-4">
-                                            <label htmlFor="neighborhood" className="block text-xs sm:text-sm font-medium text-gray-200">Bairro</label>
-                                            <select
-                                                id="neighborhood"
-                                                value={selectedNeighborhood}
-                                                onChange={(e) => {
-                                                    setSelectedNeighborhood(e.target.value);
-                                                    setAddress({ ...address, neighborhood: e.target.value });
-                                                    localStorage.setItem('customerNeighborhood', e.target.value);
-                                                }}
-                                                className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
-                                                required={tipoEntrega === 'entrega'}
-                                            >
-                                                <option value="">Selecione o bairro</option>
-                                                {deliveryFees.map((fee, index) => (
-                                                    <option key={index} value={fee.neighborhood}>
-                                                        {fee.neighborhood} - R$ {fee.fee.toFixed(2)}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label htmlFor="street" className="block text-xs sm:text-sm font-medium text-gray-200">Rua</label>
-                                            <input
-                                                type="text"
-                                                id="street"
-                                                value={address.street}
-                                                onChange={(e) => {
-                                                    setAddress({ ...address, street: e.target.value });
-                                                    localStorage.setItem('customerStreet', e.target.value);
-                                                }}
-                                                className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
-                                                required={tipoEntrega === 'entrega'}
-                                            />
-                                        </div>
+                                <form onSubmit={handleFinalizeOrder} className="space-y-4">
+                                    <div>
+                                        <label htmlFor="nome" className="block text-xs sm:text-sm font-medium text-gray-200">Nome</label>
+                                        <input
+                                            type="text"
+                                            id="nome"
+                                            value={cliente.nome}
+                                            onChange={(e) => setCliente({ ...cliente, nome: e.target.value })}
+                                            className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
+                                            required
+                                        />
+                                    </div>
 
-                                        <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label htmlFor="telefone" className="block text-xs sm:text-sm font-medium text-gray-200">Telefone</label>
+                                        <input
+                                            type="tel"
+                                            id="telefone"
+                                            value={cliente.telefone}
+                                            onChange={(e) => setCliente({ ...cliente, telefone: e.target.value })}
+                                            className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
+                                            required
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs sm:text-sm font-medium text-gray-200">Tipo de Entrega</label>
+                                        <div className="mt-2 space-x-4">
+                                            <label className="inline-flex items-center">
+                                                <input
+                                                    type="radio"
+                                                    value="entrega"
+                                                    checked={tipoEntrega === 'entrega'}
+                                                    onChange={(e) => setTipoEntrega(e.target.value as 'entrega')}
+                                                    className="form-radio text-red-600"
+                                                />
+                                                <span className="ml-2 text-white text-sm sm:text-base">Entrega</span>
+                                            </label>
+                                            <label className="inline-flex items-center">
+                                                <input
+                                                    type="radio"
+                                                    value="retirada"
+                                                    checked={tipoEntrega === 'retirada'}
+                                                    onChange={(e) => setTipoEntrega(e.target.value as 'retirada')}
+                                                    className="form-radio text-red-600"
+                                                />
+                                                <span className="ml-2 text-white text-sm sm:text-base">Retirada no Local</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    {tipoEntrega === 'entrega' && (
+                                        <>
+                                            <div className="mb-4">
+                                                <label htmlFor="neighborhood" className="block text-xs sm:text-sm font-medium text-gray-200">Bairro</label>
+                                                <select
+                                                    id="neighborhood"
+                                                    value={selectedNeighborhood}
+                                                    onChange={(e) => {
+                                                        setSelectedNeighborhood(e.target.value);
+                                                        setAddress({ ...address, neighborhood: e.target.value });
+                                                    }}
+                                                    className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
+                                                    required={tipoEntrega === 'entrega'}
+                                                >
+                                                    <option value="">Selecione o bairro</option>
+                                                    {deliveryFees.map((fee, index) => (
+                                                        <option key={index} value={fee.neighborhood}>
+                                                            {fee.neighborhood} - R$ {fee.fee.toFixed(2)}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
                                             <div>
-                                                <label htmlFor="number" className="block text-xs sm:text-sm font-medium text-gray-200">Número</label>
+                                                <label htmlFor="street" className="block text-xs sm:text-sm font-medium text-gray-200">Rua</label>
                                                 <input
                                                     type="text"
-                                                    id="number"
-                                                    value={address.number}
-                                                    onChange={(e) => {
-                                                        setAddress({ ...address, number: e.target.value });
-                                                        localStorage.setItem('customerNumber', e.target.value);
-                                                    }}
+                                                    id="street"
+                                                    value={address.street}
+                                                    onChange={(e) => setAddress({ ...address, street: e.target.value })}
                                                     className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
                                                     required={tipoEntrega === 'entrega'}
                                                 />
                                             </div>
 
-                                            <div>
-                                                <label htmlFor="complement" className="block text-xs sm:text-sm font-medium text-gray-200">Complemento</label>
-                                                <input
-                                                    type="text"
-                                                    id="complement"
-                                                    value={address.complement}
-                                                    onChange={(e) => {
-                                                        setAddress({ ...address, complement: e.target.value });
-                                                        localStorage.setItem('customerComplement', e.target.value);
-                                                    }}
-                                                    className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
-                                                />
-                                            </div>
-                                        </div>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <label htmlFor="number" className="block text-xs sm:text-sm font-medium text-gray-200">Número</label>
+                                                    <input
+                                                        type="text"
+                                                        id="number"
+                                                        value={address.number}
+                                                        onChange={(e) => setAddress({ ...address, number: e.target.value })}
+                                                        className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
+                                                        required={tipoEntrega === 'entrega'}
+                                                    />
+                                                </div>
 
-                                        <div className="grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <label htmlFor="complement" className="block text-xs sm:text-sm font-medium text-gray-200">Complemento</label>
+                                                    <input
+                                                        type="text"
+                                                        id="complement"
+                                                        value={address.complement}
+                                                        onChange={(e) => setAddress({ ...address, complement: e.target.value })}
+                                                        className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
+                                                    />
+                                                </div>
+                                            </div>
+
                                             <div>
                                                 <label htmlFor="referencePoint" className="block text-xs sm:text-sm font-medium text-gray-200">Ponto de Referência</label>
                                                 <input
                                                     type="text"
                                                     id="referencePoint"
                                                     value={address.referencePoint}
-                                                    onChange={(e) => {
-                                                        setAddress({ ...address, referencePoint: e.target.value });
-                                                        localStorage.setItem('customerReferencePoint', e.target.value);
-                                                    }}
+                                                    onChange={(e) => setAddress({ ...address, referencePoint: e.target.value })}
                                                     className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
-                                                    required
                                                 />
                                             </div>
-                                        </div>
-                                    </>
-                                )}
+                                        </>
+                                    )}
 
-                                <div>
-                                    <label htmlFor="formaPagamento" className="block text-xs sm:text-sm font-medium text-gray-200">Forma de Pagamento</label>
-                                    <select
-                                        id="formaPagamento"
-                                        value={formaPagamento}
-                                        onChange={(e) => setFormaPagamento(e.target.value)}
-                                        className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
-                                        required
-                                    >
-                                        <option value="">Selecione a forma de pagamento</option>
-                                        <option value="dinheiro">Dinheiro</option>
-                                        <option value="pix">PIX</option>
-                                        <option value="cartao">Cartão</option>
-                                    </select>
-                                </div>
-
-                                {formaPagamento === 'dinheiro' && (
-                                    <div className="mb-4">
-                                        <label htmlFor="troco" className="block text-xs sm:text-sm font-medium text-gray-200">Troco para quanto?</label>
-                                        <input
-                                            type="text"
-                                            id="troco"
-                                            value={troco}
-                                            onChange={(e) => setTroco(e.target.value)}
-                                            placeholder="Ex: 50,00"
+                                    <div>
+                                        <label htmlFor="formaPagamento" className="block text-xs sm:text-sm font-medium text-gray-200">Forma de Pagamento</label>
+                                        <select
+                                            id="formaPagamento"
+                                            value={formaPagamento}
+                                            onChange={(e) => setFormaPagamento(e.target.value)}
                                             className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
-                                            required={formaPagamento === 'dinheiro'}
+                                            required
+                                        >
+                                            <option value="">Selecione a forma de pagamento</option>
+                                            <option value="dinheiro">Dinheiro</option>
+                                            <option value="pix">PIX</option>
+                                            <option value="cartao">Cartão</option>
+                                        </select>
+                                    </div>
+
+                                    {formaPagamento === 'dinheiro' && (
+                                        <div className="mb-4">
+                                            <label htmlFor="troco" className="block text-xs sm:text-sm font-medium text-gray-200">Troco para quanto?</label>
+                                            <input
+                                                type="text"
+                                                id="troco"
+                                                value={troco}
+                                                onChange={(e) => setTroco(e.target.value)}
+                                                placeholder="Ex: 50,00"
+                                                className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div>
+                                        <label htmlFor="observacoes" className="block text-xs sm:text-sm font-medium text-gray-200">Observações</label>
+                                        <textarea
+                                            id="observacoes"
+                                            value={observacoes}
+                                            onChange={(e) => setObservacoes(e.target.value)}
+                                            className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
+                                            rows={2}
                                         />
                                     </div>
-                                )}
 
-                                <div>
-                                    <label htmlFor="observacoes" className="block text-xs sm:text-sm font-medium text-gray-200">Observações</label>
-                                    <textarea
-                                        id="observacoes"
-                                        value={observacoes}
-                                        onChange={(e) => setObservacoes(e.target.value)}
-                                        className="mt-1 block w-full rounded-xl border-2 border-gray-600 bg-[#2a2a2a] text-white text-sm sm:text-base shadow-sm focus:border-red-500 focus:ring-red-500 px-3 py-2"
-                                        rows={2}
-                                    />
-                                </div>
+                                    {error && (
+                                        <div className="text-red-500 text-sm mt-2">
+                                            {error}
+                                        </div>
+                                    )}
 
-                                {error && (
-                                    <div className="text-red-500 text-sm mt-2">
-                                        {error}
+                                    {!isRestaurantOpen && (
+                                        <div className="text-red-400 text-sm mt-2 p-3 bg-red-900/20 border border-red-600/50 rounded">
+                                            <strong>Estabelecimento Fechado:</strong> Pedidos não são aceitos no momento.
+                                        </div>
+                                    )}
+
+                                    <div className="mt-6 flex flex-col gap-3 sticky bottom-0 bg-[#262525] pt-4 border-t border-gray-700">
+                                        <div className="flex gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => setCurrentPage('items')}
+                                                className="flex-1 px-4 py-3 bg-gray-700 text-white text-sm sm:text-base rounded-xl hover:bg-gray-600 transition-colors font-medium"
+                                            >
+                                                Voltar aos Itens
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                disabled={!isRestaurantOpen || items.length === 0}
+                                                className="flex-1 px-4 py-3 bg-red-600 text-white text-sm sm:text-base rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50 font-medium"
+                                            >
+                                                {!isRestaurantOpen ? 'Estabelecimento Fechado' : 'Finalizar Pedido'}
+                                            </button>
+                                        </div>
                                     </div>
-                                )}
-
-                                {!isRestaurantOpen && (
-                                    <div className="text-red-400 text-sm mt-2 p-3 bg-red-900/20 border border-red-600/50 rounded">
-                                        <strong>Estabelecimento Fechado:</strong> Pedidos não são aceitos no momento. Volte durante o horário de funcionamento.
-                                    </div>
-                                )}
-
-                                <div className="mt-6 flex flex-col gap-3 sticky bottom-0 bg-[#262525] pt-4 border-t border-gray-700">
-                                    <div className="flex gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={() => setCurrentPage('items')}
-                                            className="flex-1 px-4 py-3 bg-gray-700 text-white text-sm sm:text-base rounded-xl hover:bg-gray-600 transition-colors font-medium"
-                                        >
-                                            ← Voltar aos Itens
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            disabled={loading || !isRestaurantOpen}
-                                            className="flex-1 px-4 py-3 bg-red-600 text-white text-sm sm:text-base rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50 font-medium"
-                                        >
-                                            {loading ? 'Processando...' : !isRestaurantOpen ? 'Estabelecimento Fechado' : 'Finalizar Pedido'}
-                                        </button>
-                                    </div>
-                                </div>
-                            </form>
-                        </>
-                    )}
+                                </form>
+                            </>
+                        )}
                     </div>
                 </motion.div>
             </motion.div>
         </AnimatePresence>
     );
-} 
+}

@@ -6,9 +6,8 @@ import ItemModal from './ItemModal';
 import Cart from './Cart';
 import { MenuItem } from '@/types/menu';
 import Image from 'next/image';
-import { FaExclamationCircle, FaWhatsapp, FaShare } from 'react-icons/fa';
+import { FaWhatsapp } from 'react-icons/fa';
 import { useCart } from '../contexts/CartContext';
-import { CartItem } from '../types/cart';
 import PastaModal from './PastaModal';
 import { isRestaurantOpen as checkRestaurantOpen } from '../utils/timeUtils';
 import type { BusinessHoursConfig } from '../utils/timeUtils';
@@ -35,592 +34,196 @@ const itemVariants = {
     }
 };
 
-const categoryVariants = {
-    hidden: { opacity: 0, x: -20 },
-    visible: {
-        opacity: 1,
-        x: 0,
-        transition: {
-            type: "spring",
-            stiffness: 100
-        }
-    }
-};
-
 export default function MenuDisplay() {
-    // Estado para permitir/desabilitar pizzas meio a meio
-    const [allowHalfAndHalf, setAllowHalfAndHalf] = useState(true); // Padrão true para não quebrar
-    // Buscar configuração allowHalfAndHalf junto com deliveryFees
-    useEffect(() => {
-        async function fetchSettingsData() {
-            try {
-                const res = await fetch('/api/settings');
-                const data = await res.json();
-                if (data.success && data.data) {
-                    setDeliveryFees(data.data.deliveryFees || []);
-                    setAllowHalfAndHalf(data.data.allowHalfAndHalf === true);
-                }
-            } catch (err) {
-                // erro silencioso
-            }
-        }
-        fetchSettingsData();
-    }, []);
-    // ...existing code...
+    const [allowHalfAndHalf, setAllowHalfAndHalf] = useState(true);
     const categoriesContainerRef = useRef<HTMLDivElement>(null);
-    const { isOpen, toggleOpen } = useMenu();
+    const { isOpen } = useMenu();
     const { items: cartItems, addToCart, removeFromCart, updateQuantity, clearCart } = useCart();
     const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [orderSuccessId, setOrderSuccessId] = useState<string | null>(null);
-    const [showInfo, setShowInfo] = useState(false);
     const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
-    const [orderDetails, setOrderDetails] = useState<CartItem[]>([]);
-    const [formaPagamento, setFormaPagamento] = useState<string>('');
-    const [showNotifications, setShowNotifications] = useState(false);
-    const [tipoEntrega, setTipoEntrega] = useState<'entrega' | 'retirada'>('entrega');
-
-    // Estados para dados da API
+    const [finalOrderData, setFinalOrderData] = useState<any>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [categories, setCategories] = useState<{ _id?: string, value: string, label: string }[]>([]);
-    const [catLoading, setCatLoading] = useState(false);
-    const [catError, setCatError] = useState('');
+    const [deliveryFees, setDeliveryFees] = useState<{ neighborhood: string; fee: number }[]>([]);
+    const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
+    const [selectedPasta, setSelectedPasta] = useState<MenuItem | null>(null);
+    const categoryRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-    // Carregar dados do menu e categorias da API
     useEffect(() => {
-        const fetchMenuItems = async () => {
+        const fetchAllData = async () => {
+            setLoading(true);
             try {
-                setLoading(true);
-                const response = await fetch('/api/menu');
-                const data = await response.json();
-                if (data.success) {
-                    setMenuItems(data.data);
-                } else {
-                    setError('Erro ao carregar o cardápio');
+                const [menuRes, catRes, settingsRes] = await Promise.all([
+                    fetch('/api/menu'),
+                    fetch('/api/categories'),
+                    fetch('/api/settings')
+                ]);
+
+                const menuData = await menuRes.json();
+                if (menuData.success) setMenuItems(menuData.data);
+                else setError('Erro ao carregar o cardápio');
+
+                const catData = await catRes.json();
+                if (catData.success) {
+                    const sorted = (catData.data || []).slice().sort((a: { order?: number }, b: { order?: number }) => (a.order ?? 0) - (b.order ?? 0));
+                    setCategories(sorted);
+                    if (sorted.length > 0 && !selectedCategory) {
+                        setSelectedCategory(sorted[0].value);
+                    }
+                } else setError(prev => prev + ' Falha ao buscar categorias.');
+
+                const settingsData = await settingsRes.json();
+                if (settingsData.success && settingsData.data) {
+                    setDeliveryFees(settingsData.data.deliveryFees || []);
+                    setAllowHalfAndHalf(settingsData.data.allowHalfAndHalf === true);
+                    if (settingsData.data.businessHours) {
+                        setIsRestaurantOpen(checkRestaurantOpen(settingsData.data.businessHours as BusinessHoursConfig));
+                    } else {
+                        setIsRestaurantOpen(false);
+                    }
                 }
+
             } catch (error) {
-                console.error('Erro ao carregar menu:', error);
+                console.error('Erro ao carregar dados:', error);
                 setError('Erro ao conectar com o servidor');
             } finally {
                 setLoading(false);
             }
         };
-        const fetchCategories = async () => {
-            setCatLoading(true);
-            setCatError('');
-            try {
-                const res = await fetch('/api/categories');
-                const data = await res.json();
-                if (data.success) {
-                    // Ordena as categorias pelo campo 'order' antes de exibir
-                    const sorted = (data.data || []).slice().sort((a: { order?: number }, b: { order?: number }) => (a.order ?? 0) - (b.order ?? 0));
-                    console.log('MenuDisplay - Categorias carregadas:', sorted);
-                    setCategories(sorted);
-                    // Inicializa a categoria selecionada após buscar
-                    if (sorted.length > 0) {
-                        setSelectedCategory(sorted[0].value);
-                    }
-                } else {
-                    setCatError(data.error || 'Falha ao buscar categorias.');
-                }
-            } catch (err) {
-                setCatError('Falha ao buscar categorias.');
-            } finally {
-                setCatLoading(false);
-            }
-        };
-        fetchMenuItems();
-        fetchCategories();
+        fetchAllData();
     }, []);
 
-    // Scroll horizontal automático da barra de categorias (somente horizontal, sem afetar a rolagem vertical)
     useEffect(() => {
-        if (!selectedCategory || !categoriesContainerRef.current) return;
-        const container = categoriesContainerRef.current;
-        const btn = container.querySelector(`[data-category="${selectedCategory}"]`) as HTMLElement | null;
-        if (!btn) return;
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const intersectingEntry = entries.find(entry => entry.isIntersecting);
+                if (intersectingEntry) {
+                    const categoryId = intersectingEntry.target.id.replace('category-', '');
+                    setSelectedCategory(categoryId);
+                }
+            },
+            {
+                rootMargin: '-40% 0px -60% 0px',
+                threshold: 0,
+            }
+        );
 
-        // Calcula ajuste necessário para centralizar o botão no container, apenas no eixo X
-        const containerRect = container.getBoundingClientRect();
-        const btnRect = btn.getBoundingClientRect();
-        const btnCenter = btnRect.left + btnRect.width / 2;
-        const containerCenter = containerRect.left + containerRect.width / 2;
-        const delta = btnCenter - containerCenter;
+        const currentCategoryRefs = categoryRefs.current;
+        currentCategoryRefs.forEach((ref) => {
+            if (ref) observer.observe(ref);
+        });
 
-        container.scrollTo({ left: container.scrollLeft + delta, behavior: 'smooth' });
+        return () => {
+            currentCategoryRefs.forEach((ref) => {
+                if (ref) observer.unobserve(ref);
+            });
+        };
+    }, [menuItems, categories]);
+
+    useEffect(() => {
+        if (selectedCategory && categoriesContainerRef.current) {
+            const activeButton = categoriesContainerRef.current.querySelector(`[data-category-value='${selectedCategory}']`);
+            if (activeButton) {
+                activeButton.scrollIntoView({
+                    behavior: 'smooth',
+                    inline: 'center',
+                    block: 'nearest',
+                });
+            }
+        }
     }, [selectedCategory]);
 
-    // Efeito para sincronizar tipoEntrega com localStorage
-    useEffect(() => {
-        const savedTipoEntrega = localStorage.getItem('tipoEntrega') as 'entrega' | 'retirada';
-        if (savedTipoEntrega) {
-            setTipoEntrega(savedTipoEntrega);
-        }
+    const handleFinalizeOrder = (pedidoData: any) => {
+        setFinalOrderData(pedidoData);
+        setShowWhatsAppModal(true);
+        setIsCartOpen(false);
+    };
 
-        // Listener para mudanças no localStorage (quando o usuário muda no Cart)
-        const handleStorageChange = () => {
-            const newTipoEntrega = localStorage.getItem('tipoEntrega') as 'entrega' | 'retirada';
-            if (newTipoEntrega) {
-                setTipoEntrega(newTipoEntrega);
-            }
-        };
+    const handleSendToWhatsappAndSave = async () => {
+        if (!finalOrderData) return;
+        setIsSubmitting(true);
 
-        window.addEventListener('storage', handleStorageChange);
-
-        // Verificar mudanças no localStorage a cada segundo (fallback)
-        const interval = setInterval(() => {
-            const currentTipoEntrega = localStorage.getItem('tipoEntrega') as 'entrega' | 'retirada';
-            if (currentTipoEntrega && currentTipoEntrega !== tipoEntrega) {
-                setTipoEntrega(currentTipoEntrega);
-            }
-        }, 1000);
-
-        return () => {
-            window.removeEventListener('storage', handleStorageChange);
-            clearInterval(interval);
-        };
-    }, [tipoEntrega]);
-    const [deliveryFees, setDeliveryFees] = useState<{ neighborhood: string; fee: number }[]>([]);
-    const [selectedPasta, setSelectedPasta] = useState<MenuItem | null>(null);
-    const [showCategoriesModal, setShowCategoriesModal] = useState(false);
-    const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
-
-    // Bloqueia scroll quando qualquer modal está aberto
-    useEffect(() => {
-        const anyOpen = !!selectedItem || isCartOpen || !!selectedPasta || showCategoriesModal;
-        if (anyOpen) {
-            document.body.classList.add('modal-open');
-        } else {
-            document.body.classList.remove('modal-open');
-        }
-        return () => { document.body.classList.remove('modal-open'); };
-    }, [selectedItem, isCartOpen, selectedPasta, showCategoriesModal]);
-
-    // Categorias agora vêm da API, não só dos itens
-    const allPizzas = menuItems.filter(item => item.category === 'pizzas');
-    // categoriesContainerRef já existe
-    // (removido efeito duplicado de scrollIntoView para evitar rolagem desnecessária)
-
-    useEffect(() => {
-        if (categories.length === 0) return;
-
-        let isScrolling = false;
-        let scrollTimeout: NodeJS.Timeout;
-
-        // Função para verificar qual categoria está mais visível
-        const checkVisibleCategory = () => {
-            if (isScrolling) return;
-
-            const categoryElements = categories.map(cat => ({
-                element: document.getElementById(`category-${cat.value}`),
-                value: cat.value
-            })).filter(item => item.element);
-
-            if (categoryElements.length === 0) return;
-
-            let bestCategory = null;
-            let bestScore = 0;
-            const viewportCenter = window.innerHeight / 2;
-            const viewportTop = window.scrollY;
-            const viewportBottom = viewportTop + window.innerHeight;
-
-            categoryElements.forEach(({ element, value }) => {
-                if (element) {
-                    const rect = element.getBoundingClientRect();
-                    const elementTop = viewportTop + rect.top;
-                    const elementBottom = viewportTop + rect.bottom;
-                    const elementCenter = elementTop + (elementBottom - elementTop) / 2;
-
-                    // Verifica se o elemento está na viewport
-                    const isInViewport = elementBottom > viewportTop && elementTop < viewportBottom;
-
-                    if (isInViewport) {
-                        // Calcula a porcentagem de visibilidade
-                        const visibleTop = Math.max(elementTop, viewportTop);
-                        const visibleBottom = Math.min(elementBottom, viewportBottom);
-                        const visibleHeight = Math.max(0, visibleBottom - visibleTop);
-                        const totalHeight = elementBottom - elementTop;
-                        const visibility = totalHeight > 0 ? visibleHeight / totalHeight : 0;
-
-                        // Calcula a distância do centro do elemento ao centro da viewport
-                        const distanceFromCenter = Math.abs(elementCenter - (viewportTop + viewportCenter));
-
-                        // Score baseado na visibilidade e proximidade do centro
-                        const score = visibility * (1 / (1 + distanceFromCenter / 300));
-
-                        if (score > bestScore && visibility > 0.05) {
-                            bestScore = score;
-                            bestCategory = value;
-                        }
-                    }
-                }
+        try {
+            const response = await fetch('/api/pedidos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(finalOrderData),
             });
 
-            // Só atualiza se encontrou uma categoria com score significativo
-            if (bestCategory && bestScore > 0.01) {
-                setSelectedCategory(bestCategory);
-            }
-            // Não faz fallback automático para evitar seleção incorreta
-        };        // Listener para detectar scroll
-        const handleScroll = () => {
-            // Se está muito próximo do topo, seleciona a primeira categoria
-            if (window.scrollY < 100) {
-                setSelectedCategory(categories[0]?.value || 'pizzas');
-                return;
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Não foi possível registrar o pedido.');
             }
 
-            // Debounce para melhor performance - mais rápido em mobile
-            clearTimeout(scrollTimeout);
-            const isMobile = window.innerWidth < 768;
-            const debounceTime = isMobile ? 15 : 25; // Mais rápido em mobile
-            scrollTimeout = setTimeout(() => {
-                checkVisibleCategory();
-            }, debounceTime);
-        };
+            const { cliente, tipoEntrega, endereco, formaPagamento, troco, itens, total, observacoes } = finalOrderData;
+            const deliveryFee = tipoEntrega === 'entrega' ? endereco.deliveryFee : 0;
+            const subtotal = total - deliveryFee;
 
-        // Listener para detectar quando o usuário está fazendo scroll manual
-        const handleScrollStart = () => {
-            isScrolling = true;
-            const isMobile = window.innerWidth < 768;
-            const scrollTimeoutMs = isMobile ? 100 : 150; // Mais rápido em mobile
-            setTimeout(() => {
-                isScrolling = false;
-            }, scrollTimeoutMs);
-        };
+            const header = `*Novo Pedido - Do'Cheff*`;
+            const customerInfo = `\n\n*Cliente:*\nNome: ${cliente.nome}\nTelefone: ${cliente.telefone}`;
+            const addressInfo = tipoEntrega === 'entrega'
+                ? `\n\n*Entrega:*\nRua: ${endereco.address.street}, N°: ${endereco.address.number}\nBairro: ${endereco.address.neighborhood}\nReferencia: ${endereco.address.referencePoint || 'N/A'}`
+                : `\n\n*Entrega:*\nRetirada no Local`;
+            const paymentInfo = `\n\n*Pagamento:*\nForma: ${formaPagamento}${formaPagamento === 'dinheiro' && troco ? `\nTroco para: R$ ${troco}` : ''}`;
+            const itemsInfo = itens.map((item: any) => {
+                let itemText = `- ${item.quantidade}x ${item.nome}`;
+                if (item.size) itemText += ` (${item.size})`;
+                if (item.observacao) itemText += `\n  Obs: ${item.observacao}`;
+                return itemText;
+            }).join('\n');
+            const generalObs = observacoes ? `\n\n*Observacoes Gerais:*\n${observacoes}` : '';
+            const totals = `\n\n*Valores:*\nSubtotal: R$ ${subtotal.toFixed(2)}\nTaxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n*Total: R$ ${total.toFixed(2)}*`;
+            const footer = formaPagamento === 'pix' ? `\n\n*Chave PIX para pagamento:*\n8498729126 (Celular)` : '';
+            const message = `${header}\n${customerInfo}\n${addressInfo}\n\n*Itens do Pedido:*\n${itemsInfo}${generalObs}\n${paymentInfo}\n${totals}${footer}`;
+            const whatsappUrl = `https://wa.me/558498729126?text=${encodeURIComponent(message)}`;
 
-        // Adiciona os event listeners
-        window.addEventListener('scroll', handleScroll, { passive: true });
-        window.addEventListener('scroll', handleScrollStart, { passive: true });
+            window.open(whatsappUrl, '_blank');
+            clearCart();
+            setShowWhatsAppModal(false);
+            setOrderSuccessId(data.pedidoId);
 
-        // Executa uma verificação inicial
-        const isMobile = window.innerWidth < 768;
-        const initialDelay = isMobile ? 100 : 200;
-        setTimeout(checkVisibleCategory, initialDelay);
+        } catch (error) {
+            alert(error instanceof Error ? error.message : "Ocorreu um erro.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
-        return () => {
-            window.removeEventListener('scroll', handleScroll);
-            window.removeEventListener('scroll', handleScrollStart);
-            clearTimeout(scrollTimeout);
-        };
-    }, [categories]);
+    useEffect(() => {
+        const anyOpen = !!selectedItem || isCartOpen || !!selectedPasta;
+        if (anyOpen) document.body.classList.add('modal-open');
+        else document.body.classList.remove('modal-open');
+        return () => { document.body.classList.remove('modal-open'); };
+    }, [selectedItem, isCartOpen, selectedPasta]);
+
+    const allPizzas = menuItems.filter(item => item.category === 'pizzas');
 
     const handleCategoryClick = (category: string | null) => {
-        setSelectedCategory(category);
         if (category) {
             const element = document.getElementById(`category-${category}`);
             if (element) {
-                // Adiciona um offset para considerar a barra de navegação fixa
-                const offset = 140; // Aumentado para dar mais espaço
+                const offset = 140;
                 const elementPosition = element.offsetTop - offset;
-
-                // Força o scroll para a posição correta
-                window.scrollTo({
-                    top: Math.max(0, elementPosition),
-                    behavior: 'smooth'
-                });
+                window.scrollTo({ top: Math.max(0, elementPosition), behavior: 'smooth' });
             }
         } else {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     };
 
-    useEffect(() => {
-        const interval = setInterval(async () => {
-            const notifyOrders = JSON.parse(localStorage.getItem('notifyOrders') || '[]');
-            if (notifyOrders.length === 0) return;
-            for (const orderId of notifyOrders) {
-                try {
-                    const res = await fetch(`/api/pedidos/${orderId}`);
-                    if (!res.ok) continue;
-                    const data = await res.json();
-                    const pedido = data.data || data;
-                    if (!pedido || !pedido.status) continue;
-                    localStorage.setItem(`notifyStatus_${orderId}`, pedido.status);
-                } catch (e) { /* ignorar erros */ }
-            }
-        }, 5000); // 5 segundos
-        return () => clearInterval(interval);
-    }, []);
-
-    useEffect(() => {
-        // Buscar taxas de entrega do banco
-        async function fetchDeliveryFees() {
-            try {
-                const res = await fetch('/api/settings');
-                const data = await res.json();
-                if (data.success && data.data) {
-                    console.log('Taxas de entrega carregadas:', data.data.deliveryFees);
-                    setDeliveryFees(data.data.deliveryFees || []);
-
-                    // Verificar se o estabelecimento está aberto
-                    if (data.data.businessHours) {
-                        const restaurantStatus = checkRestaurantOpen(data.data.businessHours as BusinessHoursConfig);
-                        setIsRestaurantOpen(restaurantStatus);
-
-                        // Debug temporário
-                        console.log('MenuDisplay - Status calculado:', restaurantStatus);
-                        console.log('MenuDisplay - Configurações:', data.data.businessHours);
-                    } else {
-                        setIsRestaurantOpen(false);
-                    }
-                }
-            } catch (err) {
-                console.error('Erro ao carregar taxas de entrega:', err);
-                setIsRestaurantOpen(false);
-            }
-        }
-        fetchDeliveryFees();
-    }, []);
-
-    const calculateDeliveryFee = (neighborhood: string, tipoEntrega: string) => {
-        if (tipoEntrega === 'retirada') return 0;
-        const deliveryFee = deliveryFees.find(fee => fee.neighborhood === neighborhood);
-        return deliveryFee ? deliveryFee.fee : 0;
-    };
-
     const handleAddToCart = (item: MenuItem, quantity: number, observation: string, size?: string, border?: string, extras?: string[]) => {
-        let price = item.price;
-        if (item.category === 'pizzas' && size && item.sizes) {
-            const sizeKey = size as keyof typeof item.sizes;
-
-            // Se for pizza meio a meio, pega o preço mais alto dos dois sabores
-            if (observation && observation.includes('Meio a meio:')) {
-                const meioAMeioText = observation.split('Meio a meio:')[1];
-                // Remove observações adicionais após o slash (como "- Sem cebola")
-                const cleanMeioAMeioText = meioAMeioText.split(' - ')[0];
-                const [sabor1, sabor2] = cleanMeioAMeioText.split('/').map(s => s.trim());
-                const pizzas = menuItems.filter((p: MenuItem) => p.category === 'pizzas');
-                const pizza1 = pizzas.find((p: MenuItem) => p.name === sabor1);
-                const pizza2 = pizzas.find((p: MenuItem) => p.name === sabor2);
-
-                if (pizza1 && pizza2) {
-                    const price1 = pizza1.sizes ? pizza1.sizes[sizeKey] || pizza1.price : pizza1.price;
-                    const price2 = pizza2.sizes ? pizza2.sizes[sizeKey] || pizza2.price : pizza2.price;
-                    price = Math.max(price1, price2);
-                }
-            } else {
-                price = item.sizes[sizeKey] || price;
-            }
-
-            if (border && item.borderOptions) {
-                const borderPrice = sizeKey === 'G' ? 8.00 : 4.00;
-                price += borderPrice;
-            }
-            if (extras && item.extraOptions) {
-                extras.forEach(extra => {
-                    const extraPrice = item.extraOptions![extra];
-                    if (extraPrice) {
-                        price += extraPrice;
-                    }
-                });
-            }
-        }
-
         addToCart(item, quantity, observation, size, border, extras);
         setSelectedItem(null);
     };
 
-    const handleCheckout = () => {
-        const customerName = localStorage.getItem('customerName') || '';
-        const customerPhone = localStorage.getItem('customerPhone') || '';
-        const customerStreet = localStorage.getItem('customerStreet') || '';
-        const customerNeighborhood = localStorage.getItem('customerNeighborhood') || '';
-        const customerComplement = localStorage.getItem('customerComplement') || '';
-        const customerReferencePoint = localStorage.getItem('customerReferencePoint') || '';
-        const customerNumber = localStorage.getItem('customerNumber') || '';
-        const troco = localStorage.getItem('troco') || '';
-
-        const deliveryFee = calculateDeliveryFee(customerNeighborhood, tipoEntrega);
-        const subtotal = cartItems.reduce((sum, item) => sum + calculateItemPrice(item), 0);
-        const valorFinal = subtotal + deliveryFee;
-
-        const customerInfo = `\nNome: ${customerName}\nTelefone: ${customerPhone}`;
-        const addressInfo = tipoEntrega === 'entrega'
-            ? `\nEndereço: ${customerStreet}, ${customerNumber}${customerComplement ? `, ${customerComplement}` : ''}\nBairro: ${customerNeighborhood}\nPonto de Referência: ${customerReferencePoint}`
-            : '\nTipo de Entrega: Retirada no Local';
-        const paymentInfo = formaPagamento === 'pix' ? '\nForma de Pagamento: PIX\n' :
-            formaPagamento === 'dinheiro' ? `\nForma de Pagamento: Dinheiro${troco ? `\nTroco para: R$ ${troco}` : ''}\n` :
-                formaPagamento === 'cartao' ? '\nForma de Pagamento: Cartão\n' : '';
-
-        const message = `*Novo Pedido*\n${customerInfo}${addressInfo}${paymentInfo}\n*Itens:*\n${cartItems.map(item => `${item.quantity}x ${item.item.name}${item.size ? ` (${item.size})` : ''}${item.observation ? ` - ${item.observation}` : ''} - R$ ${calculateItemPrice(item).toFixed(2)}`).join('\n')}\n\n*Valor Final: R$ ${valorFinal.toFixed(2)}*${formaPagamento === 'pix' ? '\n\n*Chave PIX para pagamento:* 84 99872-9126' : ''}`;
-
-        setOrderDetails(cartItems);
-        setShowWhatsAppModal(true);
-    };
-    const calculateItemPrice = (item: CartItem) => {
-        let price = item.item.price;
-
-        // Se o item tem tamanhos (sizes) e um tamanho foi selecionado, usa o preço do tamanho
-        if (item.size && item.item.sizes) {
-            // Garante que o tamanho existe nas opções
-            if (item.item.sizes[item.size as keyof typeof item.item.sizes]) {
-                price = item.item.sizes[item.size as keyof typeof item.item.sizes] ?? price;
-            }
-        }
-
-        // Lógica especial para pizzas meio a meio
-        if (
-            item.item.category === 'pizzas' &&
-            item.size &&
-            item.item.sizes &&
-            item.observation &&
-            item.observation.includes('Meio a meio:')
-        ) {
-            const sizeKey = item.size as keyof typeof item.item.sizes;
-            const meioAMeioText = item.observation.split('Meio a meio:')[1];
-            // Remove observações adicionais após o slash (como "- Sem cebola")
-            const cleanMeioAMeioText = meioAMeioText.split(' - ')[0];
-            const [sabor1, sabor2] = cleanMeioAMeioText.split('/').map(s => s.trim());
-            const pizzas = menuItems.filter((p: MenuItem) => p.category === 'pizzas');
-            const pizza1 = pizzas.find((p: MenuItem) => p.name === sabor1);
-            const pizza2 = pizzas.find((p: MenuItem) => p.name === sabor2);
-            if (pizza1 && pizza2) {
-                const price1 = pizza1.sizes ? pizza1.sizes[sizeKey] ?? pizza1.price : pizza1.price;
-                const price2 = pizza2.sizes ? pizza2.sizes[sizeKey] ?? pizza2.price : pizza2.price;
-                price = Math.max(price1, price2);
-            }
-        }
-
-        // Borda e extras (apenas para pizzas)
-        if (item.item.category === 'pizzas' && item.size && item.item.sizes) {
-            const sizeKey = item.size as keyof typeof item.item.sizes;
-            if (item.border && item.item.borderOptions) {
-                const borderPrice = sizeKey === 'G' ? 8.00 : 4.00;
-                price += borderPrice;
-            }
-            if (item.extras && item.item.extraOptions) {
-                item.extras.forEach(extra => {
-                    const extraPrice = item.item.extraOptions![extra];
-                    if (extraPrice) {
-                        price += extraPrice;
-                    }
-                });
-            }
-        }
-
-        return price * item.quantity;
-    };
-
-    const handleShareClick = () => {
-        const customerName = localStorage.getItem('customerName') || '';
-        const customerPhone = localStorage.getItem('customerPhone') || '';
-        const customerStreet = localStorage.getItem('customerStreet') || '';
-        const customerNeighborhood = localStorage.getItem('customerNeighborhood') || '';
-        const customerComplement = localStorage.getItem('customerComplement') || '';
-        const customerReferencePoint = localStorage.getItem('customerReferencePoint') || '';
-        const customerNumber = localStorage.getItem('customerNumber') || '';
-        const troco = localStorage.getItem('troco') || '';
-
-        const deliveryFee = calculateDeliveryFee(customerNeighborhood, tipoEntrega);
-        const subtotal = cartItems.reduce((sum, item) => sum + calculateItemPrice(item), 0);
-        const valorFinal = subtotal + deliveryFee;
-
-        const customerInfo = `\nNome: ${customerName}\nTelefone: ${customerPhone}`;
-        const addressInfo = tipoEntrega === 'entrega'
-            ? `\nEndereço: ${customerStreet}, ${customerNumber}${customerComplement ? `, ${customerComplement}` : ''}\nBairro: ${customerNeighborhood}\nPonto de Referência: ${customerReferencePoint}`
-            : '\nTipo de Entrega: Retirada no Local';
-        const paymentInfo = formaPagamento === 'pix' ? '\nForma de Pagamento: PIX\n' :
-            formaPagamento === 'dinheiro' ? `\nForma de Pagamento: Dinheiro${troco ? `\nTroco para: R$ ${troco}` : ''}\n` :
-                formaPagamento === 'cartao' ? '\nForma de Pagamento: Cartão\n' : '';
-
-        const itemsInfo = cartItems.map(item =>
-            `${item.quantity}x ${item.item.name}${item.size ? ` (${item.size})` : ''}${item.observation ? ` - ${item.observation}` : ''} - R$ ${calculateItemPrice(item).toFixed(2)}`
-        ).join('\n');
-
-        const message = `*Novo Pedido*\n${customerInfo}${addressInfo}${paymentInfo}\n*Itens:*\n${itemsInfo}\n\n*Valor Final: R$ ${valorFinal.toFixed(2)}*\n\n*Chave PIX do estabelecimento:* 84 99872-9126`;
-
-        if (navigator.share) {
-            navigator.share({
-                title: 'Meu Pedido',
-                text: message
-            });
-        } else {
-            alert('Compartilhamento não suportado neste navegador.');
-        }
-        setShowWhatsAppModal(false);
-    };
-
-    const handleWhatsAppClick = () => {
-        const customerName = localStorage.getItem('customerName') || '';
-        const customerPhone = localStorage.getItem('customerPhone') || '';
-        const customerStreet = localStorage.getItem('customerStreet') || '';
-        const customerNeighborhood = localStorage.getItem('customerNeighborhood') || '';
-        const customerComplement = localStorage.getItem('customerComplement') || '';
-        const customerReferencePoint = localStorage.getItem('customerReferencePoint') || '';
-        const customerNumber = localStorage.getItem('customerNumber') || '';
-        const troco = localStorage.getItem('troco') || '';
-
-        const deliveryFee = calculateDeliveryFee(customerNeighborhood, tipoEntrega);
-        const subtotal = cartItems.reduce((sum, item) => sum + calculateItemPrice(item), 0);
-        const valorFinal = subtotal + deliveryFee;
-
-        // Formatação melhorada da mensagem
-        const header = `🍕 *DO'CHEFF - NOVO PEDIDO* 🍕`;
-
-        const customerInfo = `\n\n👤 *DADOS DO CLIENTE*\n` +
-            `📝 Nome: ${customerName}\n` +
-            `📱 Telefone: ${customerPhone}`;
-
-        const addressInfo = tipoEntrega === 'entrega'
-            ? `\n\n📍 *ENDEREÇO DE ENTREGA*\n` +
-            `🏠 ${customerStreet}, ${customerNumber}\n` +
-            `${customerComplement ? `📋 Complemento: ${customerComplement}\n` : ''}` +
-            `🏘️ Bairro: ${customerNeighborhood}\n` +
-            `📌 Ponto de Referência: ${customerReferencePoint}\n` +
-            `🚚 Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}`
-            : `\n\n📍 *TIPO DE ENTREGA*\n🏪 Retirada no Local`;
-
-        const paymentInfo = formaPagamento === 'pix' ? '\n\n💳 *FORMA DE PAGAMENTO*\n🏦 PIX' :
-            formaPagamento === 'dinheiro' ? `\n\n💳 *FORMA DE PAGAMENTO*\n💵 Dinheiro${troco ? `\n💰 Troco para: R$ ${troco}` : ''}` :
-                formaPagamento === 'cartao' ? '\n\n💳 *FORMA DE PAGAMENTO*\n💳 Cartão' : '';
-
-        const itemsInfo = cartItems.map((item, index) => {
-            let itemText = `${index + 1}. ${item.quantity}x ${item.item.name}`;
-            if (item.size) itemText += ` (${item.size})`;
-            if (item.border) itemText += `\n   🔥 Borda: ${item.border}`;
-            if (item.extras && item.extras.length > 0) itemText += `\n   ➕ Extras: ${item.extras.join(', ')}`;
-            if (item.observation) itemText += `\n   📝 Obs: ${item.observation}`;
-            itemText += `\n   💰 R$ ${calculateItemPrice(item).toFixed(2)}`;
-            return itemText;
-        }).join('\n\n');
-
-        const totals = `\n\n💰 *VALORES*\n` +
-            `🧾 Subtotal: R$ ${subtotal.toFixed(2)}\n` +
-            (deliveryFee > 0 ? `🚚 Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n` : '') +
-            `💵 *TOTAL: R$ ${valorFinal.toFixed(2)}*`;
-
-        const footer = formaPagamento === 'pix' ?
-            `\n\n🏦 *CHAVE PIX PARA PAGAMENTO*\n📱 84 99872-9126\n\n✅ Envie o comprovante após o pagamento!` :
-            `\n\n⏰ Tempo estimado: 30-45 minutos\n📞 Em caso de dúvidas, entre em contato!`;
-
-        const message = `${header}${customerInfo}${addressInfo}${paymentInfo}\n\n🛒 *ITENS DO PEDIDO*\n${itemsInfo}${totals}${footer}`;
-
-        const whatsappUrl = `https://wa.me/558498729126?text=${encodeURIComponent(message)}`;
-        window.open(whatsappUrl, '_blank');
-        setShowWhatsAppModal(false);
-    };
-
-    useEffect(() => {
-        if (orderSuccessId) {
-            const notifyOrders = JSON.parse(localStorage.getItem('notifyOrders') || '[]');
-            if (!notifyOrders.includes(orderSuccessId)) {
-                notifyOrders.push(orderSuccessId);
-                localStorage.setItem('notifyOrders', JSON.stringify(notifyOrders));
-            }
-            setOrderSuccessId(null);
-        }
-    }, [orderSuccessId]);
-
-    const handlePastaClick = (item: MenuItem) => {
-        setSelectedPasta(item);
-    };
-
-    const handlePastaClose = () => {
-        setSelectedPasta(null);
-    };
+    const handlePastaClick = (item: MenuItem) => setSelectedPasta(item);
+    const handlePastaClose = () => setSelectedPasta(null);
 
     const handlePastaAddToCart = (quantity: number, observation: string, size?: 'P' | 'G') => {
         if (selectedPasta) {
@@ -629,494 +232,94 @@ export default function MenuDisplay() {
         }
     };
 
-    // Mapear nomes das categorias para exibição
-    const getCategoryDisplayName = (category: string) => {
-        const categoryNames: { [key: string]: string } = {
-            'pizzas': 'Pizzas',
-            'massas': 'Massas',
-            'hamburguer': 'Hambúrgueres',
-            'panquecas': 'Panquecas',
-            'tapiocas': 'Tapiocas',
-            'esfirras': 'Esfirras',
-            'petiscos': 'Petiscos',
-            'bebidas': 'Bebidas'
-        };
-        return categoryNames[category] || category;
-    };
-
-    const handleCategorySelect = (category: string) => {
-        setSelectedCategory(category);
-        setShowCategoriesModal(false);
-        setTimeout(() => {
-            const element = document.getElementById(`category-${category}`);
-            if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        }, 50); // Pequeno delay para garantir que o scroll do body foi liberado
-    };
-
-    // Controlar scroll quando modal de categorias estiver aberto
-    useEffect(() => {
-        if (showCategoriesModal) {
-            const scrollY = window.scrollY;
-            document.body.style.position = 'fixed';
-            document.body.style.top = `-${scrollY}px`;
-            document.body.style.width = '100%';
-        } else {
-            const scrollY = document.body.style.top;
-            document.body.style.position = '';
-            document.body.style.top = '';
-            document.body.style.width = '';
-            window.scrollTo(0, parseInt(scrollY || '0') * -1);
-        }
-    }, [showCategoriesModal]);
-
-
-
-    if (!isOpen) {
-        return (
-            <div className="text-center py-8">
-                <h2 className="text-2xl font-bold text-red-600 mb-4">Estabelecimento Fechado</h2>
-                <p className="text-gray-400 mb-4">Desculpe, estamos fechados no momento.</p>
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={toggleOpen}
-                    className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700"
-                >
-                    Abrir para Pedidos
-                </motion.button>
-            </div>
-        );
-    }
-
-    // Loading state
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-[#262525] p-4 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-red-600 mx-auto mb-4"></div>
-                    <p className="text-white text-lg">Carregando cardápio...</p>
-                </div>
-            </div>
-        );
-    }
-
-    // Error state
-    if (error) {
-        return (
-            <div className="min-h-screen bg-[#262525] p-4 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="text-red-600 text-6xl mb-4">⚠️</div>
-                    <h2 className="text-2xl font-bold text-red-600 mb-4">Erro ao carregar cardápio</h2>
-                    <p className="text-gray-400 mb-4">{error}</p>
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => window.location.reload()}
-                        className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700"
-                    >
-                        Tentar Novamente
-                    </motion.button>
-                </div>
-            </div>
-        );
-    }
+    if (loading) return <div className="text-center py-10">Carregando cardápio...</div>;
+    if (error) return <div className="text-center py-10 text-red-500">{error}</div>;
 
     return (
-        <div className="min-h-screen bg-[#262525] p-4">
-            <style jsx global>{`
-                .line-clamp-2 {
-                    display: -webkit-box;
-                    -webkit-line-clamp: 2;
-                    -webkit-box-orient: vertical;
-                    overflow: hidden;
-                }
-            `}</style>
-            {/* Barra de categorias (respeita área segura do notch) */}
-            <div
-                className="sticky top-0 z-20 bg-[#262525] pb-4 mb-6 pt-2"
-                style={{ paddingTop: 'env(safe-area-inset-top)' }}
-            >
-                {/* Container centralizado para desktop, sem limites laterais em mobile */}
-                <div className="max-w-7xl mx-auto px-0 sm:px-4">
-                    <motion.div
-                        ref={categoriesContainerRef}
-                        variants={containerVariants}
-                        initial="hidden"
-                        animate="visible"
-                        className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-red-600 scrollbar-track-gray-800 w-full px-4 sm:px-0 categories-container"
-                    >
-                        {/* Botão Hambúrguer visível em todos os dispositivos */}
-                        <motion.button
-                            variants={categoryVariants}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => setShowCategoriesModal(true)}
-                            className="px-4 py-2 rounded-full bg-red-600 text-white hover:bg-red-700 transition-colors flex-shrink-0"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                            </svg>
-                        </motion.button>
-
-                        {/* Categorias visíveis em todos os dispositivos */}
+        <div className="min-h-screen bg-[#262525]">
+            <div className="sticky top-0 z-20 bg-[#262525] pb-4 pt-2" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+                <div className="max-w-7xl mx-auto px-4 sm:px-6">
+                    <motion.div ref={categoriesContainerRef} className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-red-600 scrollbar-track-gray-800 -mx-4 px-4">
                         {categories.map(category => (
                             <motion.button
                                 key={category.value}
-                                variants={categoryVariants}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
+                                data-category-value={category.value}
                                 onClick={() => handleCategoryClick(category.value)}
-                                data-category={category.value}
-                                className={`px-4 py-2 rounded-full whitespace-nowrap flex-shrink-0 category-button relative ${selectedCategory === category.value
-                                    ? 'bg-red-600 text-white shadow-lg shadow-red-600/25'
-                                    : 'bg-[#262525] text-gray-200 hover:bg-gray-800'
-                                    }`}
+                                className={`px-4 py-2 rounded-full whitespace-nowrap flex-shrink-0 text-sm font-medium transition-colors ${selectedCategory === category.value ? 'bg-red-600 text-white' : 'bg-[#2a2a2a] text-gray-200 hover:bg-gray-700'}`}
                             >
                                 {category.label}
-                                {selectedCategory === category.value && (
-                                    <motion.div
-                                        layoutId="activeCategory"
-                                        className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-white rounded-full"
-                                        initial={{ opacity: 0, scale: 0 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0 }}
-                                    />
-                                )}
                             </motion.button>
                         ))}
                     </motion.div>
                 </div>
             </div>
-            {/* Container centralizado para o restante do conteúdo */}
+
             <div className="max-w-7xl mx-auto px-4 py-4">
-                <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-center mb-8"
-                >
+                <motion.div className="text-center mb-8">
                     <h1 className="text-4xl font-bold text-red-600 mb-2">Do'Cheff</h1>
                     <p className="text-gray-400">Escolha seus itens favoritos</p>
-
                     {!isRestaurantOpen && (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="mt-4 p-4 bg-red-900/20 border border-red-600/50 rounded-lg max-w-md mx-auto"
-                        >
-                            <div className="flex items-center justify-center gap-2 text-red-400">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                                </svg>
-                                <span className="font-semibold">Estabelecimento Fechado</span>
-                            </div>
-                            <p className="text-red-300 text-sm mt-1 text-center">
-                                Pedidos não são aceitos no momento. Volte durante o horário de funcionamento.
-                            </p>
-                        </motion.div>
+                        <div className="mt-4 p-3 bg-red-900/20 border border-red-600/50 rounded-lg max-w-md mx-auto text-red-400 text-sm">
+                            Estabelecimento Fechado. Pedidos não serão aceitos.
+                        </div>
                     )}
                 </motion.div>
 
-                <motion.div
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate="visible"
-                    className="space-y-8"
-                >
-                    {categories.map(category => (
-                        <div key={category.value} id={`category-${category.value}`} className="space-y-4">
+                <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-8">
+                    {categories.map((category, index) => (
+                        <div
+                            key={category.value}
+                            id={`category-${category.value}`}
+                            ref={el => { categoryRefs.current[index] = el }}
+                            className="space-y-4 pt-2" // pt-2 para dar um espaço para o observer
+                        >
                             <h2 className="text-2xl font-bold text-red-600 capitalize">{category.label}</h2>
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                                {menuItems
-                                    .filter(item => item.category === category.value)
-                                    .slice() // cópia para não mutar o estado
-                                    .sort((a, b) => {
-                                        // Mantém a regra especial: se for pizza, "Calabresa" vem primeiro.
-                                        if (category.value === 'pizzas') {
-                                            const aIsCalabresa = a.name.toLowerCase().includes('calabresa');
-                                            const bIsCalabresa = b.name.toLowerCase().includes('calabresa');
-                                            if (aIsCalabresa && !bIsCalabresa) return -1;
-                                            if (!aIsCalabresa && bIsCalabresa) return 1;
-                                        }
-                                        // Ordena todos os itens pelo preço, do menor para o maior.
-                                        return a.price - b.price;
-                                    })
-                                    .map((item) => (
-                                        <motion.div
-                                            key={item._id}
-                                            variants={itemVariants}
-                                            initial="hidden"
-                                            animate="visible"
-                                            className="bg-[#2a2a2a] rounded-2xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden group cursor-pointer"
-                                            onClick={() => {
-                                                if (!isRestaurantOpen) return;
-                                                if (item.category === 'pizzas' || item.category === 'calzone') {
-                                                    setSelectedItem(item);
-                                                } else if (item.category === 'massas') {
-                                                    handlePastaClick(item);
-                                                } else {
-                                                    setSelectedItem(item);
-                                                }
-                                            }}
-                                        >
-                                            <div className="relative aspect-square overflow-hidden">
-                                                <Image
-                                                    src={item.image || '/placeholder.jpg'}
-                                                    alt={item.name}
-                                                    fill
-                                                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                                                    className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                                />
-                                                {/* Badge de preço na imagem */}
-                                                <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded-lg text-sm font-bold shadow-lg">
-                                                    R$ {item.price.toFixed(2)}
-                                                </div>
-                                                {item.destaque && (
-                                                    <div className="absolute bottom-2 right-2 bg-yellow-500 text-black px-2 py-1 rounded-full text-xs font-semibold shadow-lg">
-                                                        Destaque
-                                                    </div>
-                                                )}
-                                                {!isRestaurantOpen && (
-                                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                                        <span className="text-white font-semibold text-sm bg-gray-800 px-3 py-1 rounded-full">
-                                                            Fechado
-                                                        </span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="p-4">
-                                                <h3 className="font-bold text-white text-base mb-3 line-clamp-2 min-h-[3rem]">
-                                                    {item.name}
-                                                </h3>
-                                                <button className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition-colors duration-300 ${isRestaurantOpen
-                                                        ? 'bg-red-500 hover:bg-red-600 text-white'
-                                                        : 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                                                    }`}>
-                                                    {isRestaurantOpen ? 'Adicionar' : 'Indisponível'}
-                                                </button>
-                                            </div>
-                                        </motion.div>
-                                    ))}
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                                {menuItems.filter(item => item.category === category.value).map(item => (
+                                    <motion.div
+                                        key={item._id}
+                                        variants={itemVariants}
+                                        className="bg-[#2a2a2a] rounded-2xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden group cursor-pointer"
+                                        onClick={() => isRestaurantOpen && (item.category === 'massas' ? handlePastaClick(item) : setSelectedItem(item))}
+                                    >
+                                        <div className="relative aspect-square overflow-hidden">
+                                            <Image src={item.image || '/placeholder.jpg'} alt={item.name} fill sizes="(max-width: 768px) 50vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-300" />
+                                            <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded-lg text-xs sm:text-sm font-bold">R$ {item.price.toFixed(2)}</div>
+                                            {!isRestaurantOpen && <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-sm font-semibold">Fechado</div>}
+                                        </div>
+                                        <div className="p-3 sm:p-4">
+                                            <h3 className="font-bold text-white text-sm sm:text-base mb-2 sm:mb-3 line-clamp-2 min-h-[2.5rem] sm:min-h-[3rem]">{item.name}</h3>
+                                            <button className={`w-full py-2 px-4 rounded-lg text-xs sm:text-sm font-medium ${isRestaurantOpen ? 'bg-red-500 text-white' : 'bg-gray-700 text-gray-400 cursor-not-allowed'}`}>
+                                                {isRestaurantOpen ? 'Adicionar' : 'Indisponível'}
+                                            </button>
+                                        </div>
+                                    </motion.div>
+                                ))}
                             </div>
                         </div>
                     ))}
                 </motion.div>
 
-                {/* Modal de Categorias */}
                 <AnimatePresence>
-                    {showCategoriesModal && (
-                        <motion.div
-                            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setShowCategoriesModal(false)}
-                        >
-                            <motion.div
-                                className="bg-gradient-to-br from-[#262525] to-[#1a1a1a] rounded-2xl shadow-2xl border border-gray-800 p-6 max-w-sm w-full mx-4 max-h-[80vh] flex flex-col"
-                                initial={{ scale: 0.8, y: 20, opacity: 0 }}
-                                animate={{ scale: 1, y: 0, opacity: 1 }}
-                                exit={{ scale: 0.8, y: 20, opacity: 0 }}
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <div className="flex items-center justify-between mb-6 flex-shrink-0 pb-4 border-b border-gray-700">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center">
-                                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                            </svg>
-                                        </div>
-                                        <h2 className="text-xl font-bold text-white">Categorias</h2>
-                                    </div>
-                                    <motion.button
-                                        whileHover={{ scale: 1.1, rotate: 90 }}
-                                        whileTap={{ scale: 0.9 }}
-                                        onClick={() => setShowCategoriesModal(false)}
-                                        className="w-8 h-8 bg-gray-800 hover:bg-gray-700 rounded-full flex items-center justify-center transition-colors"
-                                    >
-                                        <svg className="w-5 h-5 text-gray-400 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                    </motion.button>
-                                </div>
-
-                                <div className="space-y-2 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-red-600 scrollbar-track-gray-800 pr-2">
-                                    {categories.map((category, index) => (
-                                        <motion.button
-                                            key={category.value}
-                                            initial={{ opacity: 0, x: -20 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            transition={{ delay: index * 0.05 }}
-                                            whileHover={{ scale: 1.02, x: 5 }}
-                                            whileTap={{ scale: 0.98 }}
-                                            onClick={() => handleCategorySelect(category.value)}
-                                            className={`w-full text-left p-4 rounded-xl transition-all duration-300 border ${selectedCategory === category.value
-                                                ? 'bg-gradient-to-r from-red-600 to-red-700 text-white border-red-500 shadow-lg shadow-red-600/25'
-                                                : 'bg-gray-800/50 text-gray-200 hover:bg-gray-700/70 border-gray-700 hover:border-gray-600 hover:shadow-lg'
-                                                }`}
-                                        >
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-3 h-3 rounded-full ${selectedCategory === category.value ? 'bg-white' : 'bg-gray-500'
-                                                        }`}></div>
-                                                    <span className="text-lg font-medium">{getCategoryDisplayName(category.value)}</span>
-                                                </div>
-                                                <motion.div
-                                                    initial={{ opacity: 0 }}
-                                                    animate={{ opacity: 1 }}
-                                                    transition={{ delay: index * 0.1 + 0.2 }}
-                                                >
-                                                    <svg className={`w-5 h-5 transition-colors ${selectedCategory === category.value ? 'text-white' : 'text-gray-400'
-                                                        }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                                    </svg>
-                                                </motion.div>
-                                            </div>
-                                        </motion.button>
-                                    ))}
-                                </div>
-
-                                <div className="mt-4 pt-4 border-t border-gray-700 flex-shrink-0">
-                                    <p className="text-sm text-gray-400 text-center">
-                                        Selecione uma categoria para navegar
-                                    </p>
-                                </div>
-                            </motion.div>
-                        </motion.div>
-                    )}
+                    {selectedItem && <ItemModal item={selectedItem} onClose={() => setSelectedItem(null)} onAddToCart={(quantity, observation, size, border, extras) => handleAddToCart(selectedItem!, quantity, observation, size, border, extras)} allPizzas={allPizzas} allowHalfAndHalf={allowHalfAndHalf} categories={categories} />}
+                    {selectedPasta && <PastaModal item={selectedPasta} onClose={handlePastaClose} onAddToCart={handlePastaAddToCart} />}
+                    {isCartOpen && <Cart items={cartItems} onUpdateQuantity={updateQuantity} onRemoveItem={removeFromCart} onClose={() => setIsCartOpen(false)} onFinalize={handleFinalizeOrder} />}
                 </AnimatePresence>
 
                 <AnimatePresence>
-                    {selectedItem && (
-                        <ItemModal
-                            item={selectedItem}
-                            onClose={() => setSelectedItem(null)}
-                            onAddToCart={(quantity, observation, size, border, extras) => {
-                                handleAddToCart(selectedItem!, quantity, observation, size, border, extras);
-                            }}
-                            allPizzas={allPizzas}
-                            allowHalfAndHalf={allowHalfAndHalf}
-                            categories={categories}
-                        />
-                    )}
-                </AnimatePresence>
-
-                <AnimatePresence>
-                    {selectedPasta && (
-                        <PastaModal
-                            item={selectedPasta}
-                            onClose={handlePastaClose}
-                            onAddToCart={handlePastaAddToCart}
-                        />
-                    )}
-                </AnimatePresence>
-
-                <AnimatePresence>
-                    {isCartOpen && (
-                        <Cart
-                            items={cartItems}
-                            onUpdateQuantity={updateQuantity}
-                            onRemoveItem={removeFromCart}
-                            onCheckout={handleCheckout}
-                            onClose={() => setIsCartOpen(false)}
-                        />
-                    )}
-                </AnimatePresence>
-
-                {/* Modal do WhatsApp */}
-                <AnimatePresence>
-                    {showWhatsAppModal && (
-                        <motion.div
-                            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                        >
-                            <motion.div
-                                className="bg-[#262525] rounded-xl shadow-xl p-8 max-w-md w-full mx-4 text-center max-h-[90vh] overflow-y-auto"
-                                initial={{ scale: 0.8 }}
-                                animate={{ scale: 1 }}
-                                exit={{ scale: 0.8 }}
-                            >
-                                <h2 className="text-2xl font-bold text-red-600 mb-4">Confirme seu pedido</h2>
-                                <div className="bg-[#1a1a1a] p-4 rounded-lg mb-6 text-left">
-                                    <h3 className="text-red-600 font-semibold mb-2">Detalhes do seu pedido:</h3>
-                                    <pre className="text-gray-300 whitespace-pre-wrap text-sm">
-                                        {(() => {
-                                            const customerName = localStorage.getItem('customerName') || '';
-                                            const customerPhone = localStorage.getItem('customerPhone') || '';
-                                            const customerStreet = localStorage.getItem('customerStreet') || '';
-                                            const customerNeighborhood = localStorage.getItem('customerNeighborhood') || '';
-                                            const customerComplement = localStorage.getItem('customerComplement') || '';
-                                            const customerReferencePoint = localStorage.getItem('customerReferencePoint') || '';
-                                            const customerNumber = localStorage.getItem('customerNumber') || '';
-                                            const troco = localStorage.getItem('troco') || '';
-
-                                            const deliveryFee = calculateDeliveryFee(customerNeighborhood, tipoEntrega);
-                                            const subtotal = cartItems.reduce((sum, item) => sum + calculateItemPrice(item), 0);
-                                            const valorFinal = subtotal + deliveryFee;
-
-                                            // Formatação melhorada da mensagem de preview
-                                            const header = `🍕 DO'CHEFF - NOVO PEDIDO 🍕`;
-
-                                            const customerInfo = `\n\n👤 DADOS DO CLIENTE\n` +
-                                                `📝 Nome: ${customerName}\n` +
-                                                `📱 Telefone: ${customerPhone}`;
-
-                                            const addressInfo = tipoEntrega === 'entrega'
-                                                ? `\n\n📍 ENDEREÇO DE ENTREGA\n` +
-                                                `🏠 ${customerStreet}, ${customerNumber}\n` +
-                                                `${customerComplement ? `📋 Complemento: ${customerComplement}\n` : ''}` +
-                                                `🏘️ Bairro: ${customerNeighborhood}\n` +
-                                                `📌 Ponto de Referência: ${customerReferencePoint}\n` +
-                                                `🚚 Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}`
-                                                : `\n\n📍 TIPO DE ENTREGA\n🏪 Retirada no Local`;
-
-                                            const paymentInfo = formaPagamento === 'pix' ? '\n\n💳 FORMA DE PAGAMENTO\n🏦 PIX' :
-                                                formaPagamento === 'dinheiro' ? `\n\n💳 FORMA DE PAGAMENTO\n💵 Dinheiro${troco ? `\n💰 Troco para: R$ ${troco}` : ''}` :
-                                                    formaPagamento === 'cartao' ? '\n\n💳 FORMA DE PAGAMENTO\n💳 Cartão' : '';
-
-                                            const itemsInfo = cartItems.map((item, index) => {
-                                                let itemText = `${index + 1}. ${item.quantity}x ${item.item.name}`;
-                                                if (item.size) itemText += ` (${item.size})`;
-                                                if (item.border) itemText += `\n   🔥 Borda: ${item.border}`;
-                                                if (item.extras && item.extras.length > 0) itemText += `\n   ➕ Extras: ${item.extras.join(', ')}`;
-                                                if (item.observation) itemText += `\n   📝 Obs: ${item.observation}`;
-                                                itemText += `\n   💰 R$ ${calculateItemPrice(item).toFixed(2)}`;
-                                                return itemText;
-                                            }).join('\n\n');
-
-                                            const totals = `\n\n💰 VALORES\n` +
-                                                `🧾 Subtotal: R$ ${subtotal.toFixed(2)}\n` +
-                                                (deliveryFee > 0 ? `🚚 Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n` : '') +
-                                                `💵 TOTAL: R$ ${valorFinal.toFixed(2)}`;
-
-                                            const footer = formaPagamento === 'pix' ?
-                                                `\n\n🏦 CHAVE PIX PARA PAGAMENTO\n📱 84 99872-9126\n\n✅ Envie o comprovante após o pagamento!` :
-                                                `\n\n⏰ Tempo estimado: 30-45 minutos\n📞 Em caso de dúvidas, entre em contato!`;
-
-                                            return `${header}${customerInfo}${addressInfo}${paymentInfo}\n\n🛒 ITENS DO PEDIDO\n${itemsInfo}${totals}${footer}`;
-                                        })()}
-                                    </pre>
+                    {showWhatsAppModal && finalOrderData && (
+                        <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                            <motion.div className="bg-[#262525] rounded-xl shadow-xl p-6 max-w-md w-full mx-4 text-center" initial={{ scale: 0.8 }} animate={{ scale: 1 }} exit={{ scale: 0.8 }}>
+                                <h2 className="text-xl font-bold text-red-500 mb-4">Quase lá! Finalize seu Pedido</h2>
+                                <p className="text-gray-300 mb-4 text-sm">Seu pedido será enviado para o nosso WhatsApp para confirmação.</p>
+                                <div className="bg-yellow-900/30 border border-yellow-700/50 text-yellow-300 text-xs p-3 rounded-lg mb-6">
+                                    Atenção: Seu pedido só será confirmado e enviado para o estabelecimento após ser enviado pelo WhatsApp.
                                 </div>
-
                                 <div className="flex justify-center gap-4">
-                                    <motion.button
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        onClick={handleWhatsAppClick}
-                                        className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
-                                    >
-                                        <FaWhatsapp className="text-xl" />
-                                        Enviar para WhatsApp
+                                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSendToWhatsappAndSave} disabled={isSubmitting} className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 flex items-center gap-2 font-semibold disabled:opacity-50">
+                                        {isSubmitting ? 'Enviando...' : <><FaWhatsapp /> Enviar para WhatsApp</>}
                                     </motion.button>
-                                    <motion.button
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        onClick={() => setShowWhatsAppModal(false)}
-                                        className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
-                                    >
+                                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setShowWhatsAppModal(false)} className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">
                                         Cancelar
                                     </motion.button>
                                 </div>
@@ -1125,59 +328,15 @@ export default function MenuDisplay() {
                     )}
                 </AnimatePresence>
 
-                {/* Modal de sucesso do pedido */}
-                <AnimatePresence>
-                    {orderSuccessId && (
-                        <motion.div
-                            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                        >
-                            <motion.div
-                                className="bg-[#262525] rounded-xl shadow-xl p-8 max-w-md w-full mx-4 text-center"
-                                initial={{ scale: 0.8 }}
-                                animate={{ scale: 1 }}
-                                exit={{ scale: 0.8 }}
-                            >
-                                <h2 className="text-2xl font-bold text-red-600 mb-4">Pedido realizado com sucesso!</h2>
-                                <p className="text-gray-300 mb-2">Anote o número do seu pedido para acompanhar em <b>Pedidos</b>:</p>
-                                <div className="text-3xl font-bold text-red-500 mb-4 break-all max-w-full" style={{ wordBreak: 'break-all' }}>{orderSuccessId}</div>
-                                <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 mt-2"
-                                    onClick={() => {
-                                        setOrderSuccessId(null);
-                                    }}
-                                >
-                                    OK
-                                </motion.button>
-                            </motion.div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
                 <AnimatePresence>
                     {cartItems.length > 0 && (
-                        <motion.button
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 20 }}
-                            onClick={() => setIsCartOpen(true)}
-                            className="fixed bottom-4 right-4 bg-red-600 text-white p-4 rounded-full shadow-lg hover:bg-red-700 transition-colors duration-300"
-                        >
-                            <div className="flex items-center">
-                                <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                                </svg>
-                                <span className="font-semibold">{cartItems.reduce((total, item) => total + item.quantity, 0)}</span>
-                            </div>
+                        <motion.button initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} onClick={() => setIsCartOpen(true)} className="fixed bottom-4 right-4 bg-red-600 text-white p-4 rounded-full shadow-lg flex items-center justify-center gap-2">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                            <span className="font-bold text-lg">{cartItems.reduce((total, item) => total + item.quantity, 0)}</span>
                         </motion.button>
                     )}
                 </AnimatePresence>
             </div>
-            {/* Painel de Debug - Removido */}
         </div>
     );
 }

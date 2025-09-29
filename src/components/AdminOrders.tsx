@@ -353,11 +353,19 @@ export default function AdminOrders() {
     const formatDate = (dateString: string) => new Date(dateString).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     const calcularTotal = (pedido: Pedido) => pedido.total || pedido.itens.reduce((acc, item) => acc + (item.preco * item.quantidade), 0);
 
-    const filteredPedidos = pedidos.filter(pedido => {
-        const today = new Date().toISOString().split('T')[0];
-        const orderDate = new Date(pedido.data).toISOString().split('T')[0];
+    const getLocalDateString = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
 
-        const matchesDate = dateFilter === 'all' || orderDate === today;
+    const filteredPedidos = pedidos.filter(pedido => {
+        const todayString = getLocalDateString(new Date());
+        const orderDate = new Date(pedido.data);
+        const orderDateString = getLocalDateString(orderDate);
+
+        const matchesDate = dateFilter === 'all' || orderDateString === todayString;
         const matchesPhone = !phoneFilter || pedido.cliente?.telefone?.includes(phoneFilter);
         const matchesStatus = !statusFilter || pedido.status === statusFilter;
 
