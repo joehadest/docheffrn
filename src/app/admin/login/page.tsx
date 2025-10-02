@@ -1,8 +1,9 @@
 "use client";
 import React, { useState } from 'react';
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
+// As 3 linhas abaixo foram removidas
+// export const dynamic = 'force-dynamic';
+// export const fetchCache = 'force-no-store';
+// export const revalidate = 0;
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
