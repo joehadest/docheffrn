@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useMenu } from '@/contexts/MenuContext';
 import ItemModal from './ItemModal';
 import Cart from './Cart';
-import { MenuItem, Category } from '@/types/menu'; // Importa a interface Category
+import { MenuItem, Category } from '@/types/menu';
 import Image from 'next/image';
 import { FaWhatsapp, FaStar, FaDotCircle } from 'react-icons/fa';
 import { useCart } from '../contexts/CartContext';
@@ -49,11 +49,14 @@ export default function MenuDisplay() {
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [categories, setCategories] = useState<Category[]>([]); // Usa a interface importada
+    const [categories, setCategories] = useState<Category[]>([]);
     const [deliveryFees, setDeliveryFees] = useState<{ neighborhood: string; fee: number }[]>([]);
     const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
     const [selectedPasta, setSelectedPasta] = useState<MenuItem | null>(null);
     const categoryElementsRef = useRef<{ [key: string]: HTMLElement | null }>({});
+
+    // Ref para evitar que o clique acione o observer
+    const isClickScrolling = useRef(false);
 
     useEffect(() => {
         const fetchAllData = async () => {
@@ -99,12 +102,14 @@ export default function MenuDisplay() {
     useEffect(() => {
         const observer = new IntersectionObserver(
             (entries) => {
-                for (const entry of entries) {
-                    if (entry.isIntersecting) {
-                        const categoryId = entry.target.id.replace('category-', '');
-                        setSelectedCategory(categoryId);
-                        return;
-                    }
+                // Se o scroll foi iniciado por um clique, ignora a deteção
+                if (isClickScrolling.current) return;
+
+                // Encontra a primeira entrada que está visível
+                const intersectingEntry = entries.find(entry => entry.isIntersecting);
+                if (intersectingEntry) {
+                    const categoryId = intersectingEntry.target.id.replace('category-', '');
+                    setSelectedCategory(categoryId);
                 }
             },
             { rootMargin: "-40% 0px -60% 0px", threshold: 0 }
@@ -120,8 +125,7 @@ export default function MenuDisplay() {
                 if (el) observer.unobserve(el);
             });
         };
-    }, [menuItems, categories]);
-
+    }, [menuItems, categories]); // Dependências corretas
 
     useEffect(() => {
         if (selectedCategory && categoriesContainerRef.current) {
@@ -196,14 +200,23 @@ export default function MenuDisplay() {
     const allPizzas = menuItems.filter(item => item.category === 'pizzas');
 
     const handleCategoryClick = (categoryValue: string) => {
+        // 1. Atualiza o estado imediatamente para disparar a animação
+        setSelectedCategory(categoryValue);
+
         const element = document.getElementById(`category-${categoryValue}`);
         if (element) {
+            isClickScrolling.current = true; // Impede que o observer atue durante o scroll
             const offset = 140;
             const elementPosition = element.offsetTop - offset;
             window.scrollTo({
                 top: Math.max(0, elementPosition),
                 behavior: 'smooth'
             });
+
+            // Permite que o observer volte a funcionar após o scroll
+            setTimeout(() => {
+                isClickScrolling.current = false;
+            }, 1000); // 1 segundo de "pausa" para o observer
         }
     };
 
@@ -223,7 +236,6 @@ export default function MenuDisplay() {
     };
 
     const featuredItems = menuItems.filter(item => item.destaque);
-
 
     if (loading) return <div className="text-center py-10">Carregando cardápio...</div>;
     if (error) return <div className="text-center py-10 text-red-500">{error}</div>;
@@ -381,7 +393,7 @@ export default function MenuDisplay() {
                 <AnimatePresence>
                     {cartItems.length > 0 && (
                         <motion.button initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} onClick={() => setIsCartOpen(true)} className="fixed bottom-4 right-4 bg-red-600 text-white p-4 rounded-full shadow-lg flex items-center justify-center gap-2">
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                             <span className="font-bold text-lg">{cartItems.reduce((total, item) => total + item.quantity, 0)}</span>
                         </motion.button>
                     )}
