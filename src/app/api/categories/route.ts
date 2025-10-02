@@ -25,6 +25,7 @@ async function connectDB() {
 interface ICategory {
 	value: string;
 	label: string;
+	icon?: string;
 	order?: number;
 	allowHalfAndHalf?: boolean;
 }
@@ -32,6 +33,7 @@ interface ICategory {
 const categorySchema = new mongoose.Schema<ICategory>({
 	value: { type: String, required: true },
 	label: { type: String, required: true },
+	icon: { type: String, default: '' },
 	order: { type: Number, default: 0 },
 	allowHalfAndHalf: { type: Boolean, default: false }
 });
@@ -43,14 +45,12 @@ try {
 	Category = mongoose.model<ICategory>('Category', categorySchema);
 }
 
-// Endpoint para sincronizar a ordem das categorias conforme a ordem atual do painel admin
 export async function PATCH(request: Request) {
 	await connectDB();
 	const body = await request.json();
 	let updated = [];
-	
+
 	if (Array.isArray(body.categories)) {
-		// Sincroniza conforme o array recebido do painel admin
 		for (let i = 0; i < body.categories.length; i++) {
 			const cat = body.categories[i];
 			const result = await Category.findByIdAndUpdate(cat._id, { order: i + 1 }, { new: true });
@@ -74,26 +74,35 @@ export async function POST(request: Request) {
 	if (!body.value || !body.label) {
 		return NextResponse.json({ success: false, error: 'Campos obrigatórios.' }, { status: 400 });
 	}
-	const order = typeof body.order === 'number' ? body.order : 0;
-	const allowHalfAndHalf = typeof body.allowHalfAndHalf === 'boolean' ? body.allowHalfAndHalf : false;
-	const result = await Category.create({ value: body.value, label: body.label, order, allowHalfAndHalf });
+	const newCategory = {
+		value: body.value,
+		label: body.label,
+		icon: body.icon || '',
+		order: typeof body.order === 'number' ? body.order : 0,
+		allowHalfAndHalf: typeof body.allowHalfAndHalf === 'boolean' ? body.allowHalfAndHalf : false,
+	};
+	const result = await Category.create(newCategory);
 	return NextResponse.json({ success: true, data: result });
 }
 
-export async function PUT(request:Request) {
+export async function PUT(request: Request) {
 	await connectDB();
 	const body = await request.json();
 	if (!body._id || !body.value || !body.label) {
 		return NextResponse.json({ success: false, error: 'Campos obrigatórios.' }, { status: 400 });
 	}
-	const update: { value: any; label: any; order?: number; allowHalfAndHalf?: boolean } = { value: body.value, label: body.label };
+	const updateData: Partial<ICategory> = {
+		value: body.value,
+		label: body.label,
+		icon: body.icon,
+	};
 	if (body.order !== undefined) {
-		update.order = typeof body.order === 'number' ? body.order : parseInt(body.order) || 0;
+		updateData.order = typeof body.order === 'number' ? body.order : parseInt(body.order) || 0;
 	}
 	if (body.allowHalfAndHalf !== undefined) {
-		update.allowHalfAndHalf = typeof body.allowHalfAndHalf === 'boolean' ? body.allowHalfAndHalf : false;
+		updateData.allowHalfAndHalf = typeof body.allowHalfAndHalf === 'boolean' ? body.allowHalfAndHalf : false;
 	}
-	const result = await Category.findByIdAndUpdate(body._id, update, { new: true });
+	const result = await Category.findByIdAndUpdate(body._id, updateData, { new: true });
 	return NextResponse.json({ success: true, data: result });
 }
 

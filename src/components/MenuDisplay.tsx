@@ -4,9 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useMenu } from '@/contexts/MenuContext';
 import ItemModal from './ItemModal';
 import Cart from './Cart';
-import { MenuItem } from '@/types/menu';
+import { MenuItem, Category } from '@/types/menu'; // Importa a interface Category
 import Image from 'next/image';
-import { FaWhatsapp } from 'react-icons/fa';
+import { FaWhatsapp, FaStar, FaDotCircle } from 'react-icons/fa';
 import { useCart } from '../contexts/CartContext';
 import PastaModal from './PastaModal';
 import { isRestaurantOpen as checkRestaurantOpen } from '../utils/timeUtils';
@@ -41,7 +41,7 @@ export default function MenuDisplay() {
     const { items: cartItems, addToCart, removeFromCart, updateQuantity, clearCart } = useCart();
     const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
     const [isCartOpen, setIsCartOpen] = useState(false);
-    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+    const [selectedCategory, setSelectedCategory] = useState<string>('destaques');
     const [orderSuccessId, setOrderSuccessId] = useState<string | null>(null);
     const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
     const [finalOrderData, setFinalOrderData] = useState<any>(null);
@@ -49,11 +49,11 @@ export default function MenuDisplay() {
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [categories, setCategories] = useState<{ _id?: string, value: string, label: string }[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]); // Usa a interface importada
     const [deliveryFees, setDeliveryFees] = useState<{ neighborhood: string; fee: number }[]>([]);
     const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
     const [selectedPasta, setSelectedPasta] = useState<MenuItem | null>(null);
-    const categoryRefs = useRef<(HTMLDivElement | null)[]>([]);
+    const categoryElementsRef = useRef<{ [key: string]: HTMLElement | null }>({});
 
     useEffect(() => {
         const fetchAllData = async () => {
@@ -73,10 +73,7 @@ export default function MenuDisplay() {
                 if (catData.success) {
                     const sorted = (catData.data || []).slice().sort((a: { order?: number }, b: { order?: number }) => (a.order ?? 0) - (b.order ?? 0));
                     setCategories(sorted);
-                    if (sorted.length > 0 && !selectedCategory) {
-                        setSelectedCategory(sorted[0].value);
-                    }
-                } else setError(prev => prev + ' Falha ao buscar categorias.');
+                } else setError(prev => (prev ? prev + ' ' : '') + 'Falha ao buscar categorias.');
 
                 const settingsData = await settingsRes.json();
                 if (settingsData.success && settingsData.data) {
@@ -102,29 +99,29 @@ export default function MenuDisplay() {
     useEffect(() => {
         const observer = new IntersectionObserver(
             (entries) => {
-                const intersectingEntry = entries.find(entry => entry.isIntersecting);
-                if (intersectingEntry) {
-                    const categoryId = intersectingEntry.target.id.replace('category-', '');
-                    setSelectedCategory(categoryId);
+                for (const entry of entries) {
+                    if (entry.isIntersecting) {
+                        const categoryId = entry.target.id.replace('category-', '');
+                        setSelectedCategory(categoryId);
+                        return;
+                    }
                 }
             },
-            {
-                rootMargin: '-40% 0px -60% 0px',
-                threshold: 0,
-            }
+            { rootMargin: "-40% 0px -60% 0px", threshold: 0 }
         );
 
-        const currentCategoryRefs = categoryRefs.current;
-        currentCategoryRefs.forEach((ref) => {
-            if (ref) observer.observe(ref);
+        const currentElements = categoryElementsRef.current;
+        Object.values(currentElements).forEach((el) => {
+            if (el) observer.observe(el);
         });
 
         return () => {
-            currentCategoryRefs.forEach((ref) => {
-                if (ref) observer.unobserve(ref);
+            Object.values(currentElements).forEach((el) => {
+                if (el) observer.unobserve(el);
             });
         };
     }, [menuItems, categories]);
+
 
     useEffect(() => {
         if (selectedCategory && categoriesContainerRef.current) {
@@ -148,23 +145,19 @@ export default function MenuDisplay() {
     const handleSendToWhatsappAndSave = async () => {
         if (!finalOrderData) return;
         setIsSubmitting(true);
-
         try {
             const response = await fetch('/api/pedidos', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(finalOrderData),
             });
-
             const data = await response.json();
             if (!response.ok) {
                 throw new Error(data.message || 'Não foi possível registrar o pedido.');
             }
-
             const { cliente, tipoEntrega, endereco, formaPagamento, troco, itens, total, observacoes } = finalOrderData;
             const deliveryFee = tipoEntrega === 'entrega' ? endereco.deliveryFee : 0;
             const subtotal = total - deliveryFee;
-
             const header = `*Novo Pedido - Do'Cheff*`;
             const customerInfo = `\n\n*Cliente:*\nNome: ${cliente.nome}\nTelefone: ${cliente.telefone}`;
             const addressInfo = tipoEntrega === 'entrega'
@@ -182,12 +175,10 @@ export default function MenuDisplay() {
             const footer = formaPagamento === 'pix' ? `\n\n*Chave PIX para pagamento:*\n8498729126 (Celular)` : '';
             const message = `${header}\n${customerInfo}\n${addressInfo}\n\n*Itens do Pedido:*\n${itemsInfo}${generalObs}\n${paymentInfo}\n${totals}${footer}`;
             const whatsappUrl = `https://wa.me/558498729126?text=${encodeURIComponent(message)}`;
-
             window.open(whatsappUrl, '_blank');
             clearCart();
             setShowWhatsAppModal(false);
             setOrderSuccessId(data.pedidoId);
-
         } catch (error) {
             alert(error instanceof Error ? error.message : "Ocorreu um erro.");
         } finally {
@@ -204,16 +195,15 @@ export default function MenuDisplay() {
 
     const allPizzas = menuItems.filter(item => item.category === 'pizzas');
 
-    const handleCategoryClick = (category: string | null) => {
-        if (category) {
-            const element = document.getElementById(`category-${category}`);
-            if (element) {
-                const offset = 140;
-                const elementPosition = element.offsetTop - offset;
-                window.scrollTo({ top: Math.max(0, elementPosition), behavior: 'smooth' });
-            }
-        } else {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+    const handleCategoryClick = (categoryValue: string) => {
+        const element = document.getElementById(`category-${categoryValue}`);
+        if (element) {
+            const offset = 140;
+            const elementPosition = element.offsetTop - offset;
+            window.scrollTo({
+                top: Math.max(0, elementPosition),
+                behavior: 'smooth'
+            });
         }
     };
 
@@ -232,25 +222,53 @@ export default function MenuDisplay() {
         }
     };
 
+    const featuredItems = menuItems.filter(item => item.destaque);
+
+
     if (loading) return <div className="text-center py-10">Carregando cardápio...</div>;
     if (error) return <div className="text-center py-10 text-red-500">{error}</div>;
 
     return (
         <div className="min-h-screen bg-[#262525]">
-            <div className="sticky top-0 z-20 bg-[#262525] pb-4 pt-2" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+            <div className="sticky top-0 z-20 bg-gradient-to-b from-[#262525] via-[#262525] to-transparent pb-4 pt-2" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6">
-                    <motion.div ref={categoriesContainerRef} className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-red-600 scrollbar-track-gray-800 -mx-4 px-4">
+                    <div ref={categoriesContainerRef} className="flex gap-2 sm:gap-3 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4">
+                        <motion.button
+                            data-category-value="destaques"
+                            onClick={() => handleCategoryClick('destaques')}
+                            className={`relative px-4 py-2 rounded-full whitespace-nowrap flex-shrink-0 text-sm font-semibold transition-colors flex items-center gap-2 ${selectedCategory === 'destaques' ? 'text-white' : 'text-gray-300 hover:bg-gray-800'}`}
+                        >
+                            <span className="relative z-10 flex items-center gap-2"><FaStar className="text-yellow-400" /> Destaques</span>
+                            {selectedCategory === 'destaques' && (
+                                <motion.div
+                                    layoutId="activeCategoryHighlight"
+                                    className="absolute inset-0 bg-red-600 rounded-full"
+                                    transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                                />
+                            )}
+                        </motion.button>
+
                         {categories.map(category => (
                             <motion.button
                                 key={category.value}
                                 data-category-value={category.value}
                                 onClick={() => handleCategoryClick(category.value)}
-                                className={`px-4 py-2 rounded-full whitespace-nowrap flex-shrink-0 text-sm font-medium transition-colors ${selectedCategory === category.value ? 'bg-red-600 text-white' : 'bg-[#2a2a2a] text-gray-200 hover:bg-gray-700'}`}
+                                className={`relative px-4 py-2 rounded-full whitespace-nowrap flex-shrink-0 text-sm font-semibold transition-colors flex items-center gap-2 ${selectedCategory === category.value ? 'text-white' : 'text-gray-300 hover:bg-gray-800'}`}
                             >
-                                {category.label}
+                                <span className="relative z-10 flex items-center gap-2">
+                                    {category.icon || <FaDotCircle />}
+                                    {category.label}
+                                </span>
+                                {selectedCategory === category.value && (
+                                    <motion.div
+                                        layoutId="activeCategoryHighlight"
+                                        className="absolute inset-0 bg-red-600 rounded-full"
+                                        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                                    />
+                                )}
                             </motion.button>
                         ))}
-                    </motion.div>
+                    </div>
                 </div>
             </div>
 
@@ -265,15 +283,47 @@ export default function MenuDisplay() {
                     )}
                 </motion.div>
 
-                <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-8">
-                    {categories.map((category, index) => (
+                <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-12">
+                    <div
+                        id="category-destaques"
+                        ref={(el) => { categoryElementsRef.current['destaques'] = el; }}
+                        className="space-y-4 pt-2"
+                    >
+                        <h2 className="text-2xl font-bold text-red-500 flex items-center gap-2"><FaStar className="text-yellow-400" /> Destaques da Casa</h2>
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                            {featuredItems.map(item => (
+                                <motion.div
+                                    key={item._id}
+                                    variants={itemVariants}
+                                    className="bg-[#2a2a2a] rounded-2xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden group cursor-pointer"
+                                    onClick={() => isRestaurantOpen && (item.category === 'massas' ? handlePastaClick(item) : setSelectedItem(item))}
+                                >
+                                    <div className="relative aspect-square overflow-hidden">
+                                        <Image src={item.image || '/placeholder.jpg'} alt={item.name} fill sizes="(max-width: 768px) 50vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-300" />
+                                        <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded-lg text-xs sm:text-sm font-bold">R$ {item.price.toFixed(2)}</div>
+                                        {!isRestaurantOpen && <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-sm font-semibold">Fechado</div>}
+                                    </div>
+                                    <div className="p-3 sm:p-4">
+                                        <h3 className="font-bold text-white text-sm sm:text-base mb-2 sm:mb-3 line-clamp-2 min-h-[2.5rem] sm:min-h-[3rem]">{item.name}</h3>
+                                        <button className={`w-full py-2 px-4 rounded-lg text-xs sm:text-sm font-medium ${isRestaurantOpen ? 'bg-red-500 text-white' : 'bg-gray-700 text-gray-400 cursor-not-allowed'}`}>
+                                            {isRestaurantOpen ? 'Adicionar' : 'Indisponível'}
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {categories.map((category) => (
                         <div
                             key={category.value}
                             id={`category-${category.value}`}
-                            ref={el => { categoryRefs.current[index] = el }}
-                            className="space-y-4 pt-2" // pt-2 para dar um espaço para o observer
+                            ref={(el) => { categoryElementsRef.current[category.value] = el; }}
+                            className="space-y-4 pt-2"
                         >
-                            <h2 className="text-2xl font-bold text-red-600 capitalize">{category.label}</h2>
+                            <h2 className="text-2xl font-bold text-red-600 capitalize flex items-center gap-2">
+                                {category.icon || <FaDotCircle />} {category.label}
+                            </h2>
                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                                 {menuItems.filter(item => item.category === category.value).map(item => (
                                     <motion.div

@@ -395,7 +395,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, o
                                         <div className="space-y-3 sm:space-y-4 mb-6">
                                             {items.map((item, index) => (
                                                 <motion.div
-                                                    key={index}
+                                                    key={item._id} // Usar o ID único do item no carrinho
                                                     className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 p-3 sm:p-4 bg-[#2a2a2a] rounded-xl border border-gray-700"
                                                     variants={itemVariants}
                                                     initial="hidden"
@@ -430,15 +430,16 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, o
                                                         </div>
                                                         <div className="flex justify-between items-center mt-2">
                                                             <div className="flex items-center space-x-2">
+                                                                {/* ========== INÍCIO DA CORREÇÃO ========== */}
                                                                 <button
-                                                                    onClick={() => onUpdateQuantity(item.item._id, Math.max(1, item.quantity - 1))}
+                                                                    onClick={() => onUpdateQuantity(item._id, Math.max(1, item.quantity - 1))}
                                                                     className="text-gray-400 hover:text-white text-sm sm:text-base"
                                                                 >
                                                                     -
                                                                 </button>
                                                                 <span className="text-gray-200 text-sm sm:text-base">{item.quantity}</span>
                                                                 <button
-                                                                    onClick={() => onUpdateQuantity(item.item._id, item.quantity + 1)}
+                                                                    onClick={() => onUpdateQuantity(item._id, item.quantity + 1)}
                                                                     className="text-gray-400 hover:text-white text-sm sm:text-base"
                                                                 >
                                                                     +
@@ -447,11 +448,12 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, o
                                                             <motion.button
                                                                 whileHover={{ scale: 1.1 }}
                                                                 whileTap={{ scale: 0.9 }}
-                                                                onClick={() => onRemoveItem(item.item._id)}
+                                                                onClick={() => onRemoveItem(item._id)}
                                                                 className="text-gray-400 hover:text-red-500 text-xs sm:text-sm"
                                                             >
                                                                 Remover
                                                             </motion.button>
+                                                            {/* ========== FIM DA CORREÇÃO ========== */}
                                                         </div>
                                                     </div>
                                                 </motion.div>

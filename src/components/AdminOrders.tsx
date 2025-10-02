@@ -547,15 +547,30 @@ export default function AdminOrders() {
                                     ))}
                                 </ul>
                             </div>
+                            {/* ========== INÍCIO DA ALTERAÇÃO ========== */}
                             <div className="bg-[#1F1F1F] p-3 rounded-lg border border-gray-800/50">
                                 <h4 className="font-semibold text-gray-300 mb-2">Pagamento e Totais</h4>
                                 <div className="space-y-1">
                                     <div className="flex justify-between"><span className="text-gray-400">Forma:</span> <span className="text-white font-medium">{pedidoSelecionado.formaPagamento}</span></div>
                                     {pedidoSelecionado.formaPagamento === 'dinheiro' && <div className="flex justify-between"><span className="text-gray-400">Troco para:</span> <span className="text-white">R$ {pedidoSelecionado.troco || '-'}</span></div>}
-                                    <div className="flex justify-between"><span className="text-gray-400">Taxa de Entrega:</span> <span>R$ {pedidoSelecionado.endereco?.deliveryFee?.toFixed(2) || '0.00'}</span></div>
-                                    <div className="flex justify-between font-bold text-red-500 text-lg pt-2 border-t border-gray-700 mt-2"><span>Total:</span><span>R$ {calcularTotal(pedidoSelecionado).toFixed(2)}</span></div>
+
+                                    <div className="flex justify-between pt-2 border-t border-gray-700 mt-2">
+                                        <span className="text-gray-400">Subtotal:</span>
+                                        <span>R$ {pedidoSelecionado.itens.reduce((acc, item) => acc + (item.preco * item.quantidade), 0).toFixed(2)}</span>
+                                    </div>
+
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-400">Taxa de Entrega:</span>
+                                        <span>R$ {pedidoSelecionado.endereco?.deliveryFee?.toFixed(2) || '0.00'}</span>
+                                    </div>
+
+                                    <div className="flex justify-between font-bold text-red-500 text-lg pt-2 border-t border-gray-700 mt-2">
+                                        <span>Total:</span>
+                                        <span>R$ {calcularTotal(pedidoSelecionado).toFixed(2)}</span>
+                                    </div>
                                 </div>
                             </div>
+                            {/* ========== FIM DA ALTERAÇÃO ========== */}
                         </div>
                         <div className="mt-6 flex flex-col sm:flex-row gap-2 no-print">
                             <button className="flex-1 form-button-secondary" onClick={() => window.open(`/admin/print/${pedidoSelecionado._id}`, '_blank')}>Imprimir</button>

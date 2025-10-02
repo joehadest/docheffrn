@@ -1,10 +1,13 @@
 // Interface para categoria, compatível com o backend
 export interface Category {
+    _id?: string; // Adicionado para compatibilidade total
     value: string;
     label: string;
+    icon?: string; // Propriedade que estava em falta
     order?: number;
     allowHalfAndHalf?: boolean;
 }
+
 export interface MenuItem {
     _id: string;
     name: string;
@@ -26,4 +29,4 @@ export interface MenuItem {
     };
     ingredients?: string[];
     isAvailable?: boolean;
-} 
+}

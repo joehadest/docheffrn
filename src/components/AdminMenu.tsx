@@ -4,7 +4,9 @@ import React, { useState, useEffect, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MenuItem } from '@/types/menu';
 import Image from 'next/image';
-import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaListAlt, FaThList, FaInfoCircle, FaPizzaSlice, FaPepperHot } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaListAlt, FaThList, FaInfoCircle, FaPizzaSlice, FaPepperHot, FaSmile } from 'react-icons/fa';
+// Importa o seletor de Emojis
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 
 // --- COMPONENT: ITEM MODAL (TABBED) ---
 const ItemModal = ({
@@ -21,7 +23,6 @@ const ItemModal = ({
   const [formData, setFormData] = useState<Partial<MenuItem>>(item);
   const [tab, setTab] = useState<'basic' | 'options' | 'ingredients'>('basic');
 
-  // Inicialização / sincronização
   useEffect(() => {
     setFormData(prev => ({
       name: '', description: '', price: 0, category: categories[0]?.value || '', image: '', destaque: false,
@@ -230,19 +231,38 @@ const CategoryModal = ({
   onClose,
   onSaved
 }: {
-  category: { _id?: string; value: string; label: string; order?: number; allowHalfAndHalf?: boolean } | null;
+  category: { _id?: string; value: string; label: string; icon?: string; order?: number; allowHalfAndHalf?: boolean } | null;
   onClose: () => void;
   onSaved: () => void;
 }) => {
   const isEdit = !!category?._id;
   const [form, setForm] = useState({
-    value: category?.value || '',
-    label: category?.label || '',
-    order: category?.order || 0,
-    allowHalfAndHalf: category?.allowHalfAndHalf || false,
+    value: '',
+    label: '',
+    icon: '',
+    order: 0,
+    allowHalfAndHalf: false,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPicker, setShowPicker] = useState(false); // Estado para controlar o seletor
+
+  useEffect(() => {
+    setForm({
+      value: category?.value || '',
+      label: category?.label || '',
+      icon: category?.icon || '',
+      order: category?.order || 0,
+      allowHalfAndHalf: category?.allowHalfAndHalf || false,
+    });
+    // Fecha o seletor de emojis quando o modal é reaberto
+    setShowPicker(false);
+  }, [category]);
+
+  const onEmojiClick = (emojiData: EmojiClickData) => {
+    setForm({ ...form, icon: emojiData.emoji });
+    setShowPicker(false);
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault(); setLoading(true); setError('');
@@ -279,33 +299,51 @@ const CategoryModal = ({
           <h2 id="category-modal-title" className="text-xl font-bold mb-4 text-red-500">{isEdit ? 'Editar Categoria' : 'Nova Categoria'}</h2>
           <form onSubmit={handleSubmit} className="space-y-4 text-sm">
             <div>
-              <label className="form-label">Valor (slug)</label>
-              <input
-                type="text"
-                className="form-input"
-                value={form.value}
-                onChange={e => setForm({ ...form, value: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
-                required
-              />
-            </div>
-            <div>
               <label className="form-label">Nome</label>
               <input
                 type="text"
                 className="form-input"
                 value={form.label}
-                onChange={e => setForm({ ...form, label: e.target.value })}
+                onChange={e => setForm({ ...form, label: e.target.value, value: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
                 required
               />
             </div>
-            <div>
-              <label className="form-label">Ordem</label>
-              <input
-                type="number"
-                className="form-input"
-                value={form.order}
-                onChange={e => setForm({ ...form, order: parseInt(e.target.value) || 0 })}
-              />
+            {/* ========== INÍCIO DA ALTERAÇÃO (CAMPO DE EMOJI) ========== */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="form-label">Ícone (Emoji)</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    className="form-input pr-10" // Adiciona espaço para o botão
+                    value={form.icon}
+                    onChange={e => setForm({ ...form, icon: e.target.value })}
+                    placeholder="Ex: 🍕"
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white"
+                    onClick={() => setShowPicker(val => !val)}
+                  >
+                    <FaSmile />
+                  </button>
+                  {showPicker && (
+                    <div className="absolute z-10 mt-2">
+                      <EmojiPicker onEmojiClick={onEmojiClick} />
+                    </div>
+                  )}
+                </div>
+              </div>
+              {/* ========== FIM DA ALTERAÇÃO (CAMPO DE EMOJI) ========== */}
+              <div>
+                <label className="form-label">Ordem</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={form.order}
+                  onChange={e => setForm({ ...form, order: parseInt(e.target.value) || 0 })}
+                />
+              </div>
             </div>
             <div className="flex items-center gap-2 pt-2">
               <input
@@ -329,12 +367,12 @@ const CategoryModal = ({
   );
 };
 
-// --- COMPONENT: CATEGORIES TAB (MODAL VERSION) ---
-const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories: { _id?: string; value: string; label: string; order?: number; allowHalfAndHalf?: boolean }[]; onUpdate: () => void }) => {
-  const [categories, setCategories] = useState<{ _id?: string; value: string; label: string; order?: number; allowHalfAndHalf?: boolean }[]>(initialCategories);
+// --- COMPONENT: CATEGORIES TAB ---
+const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories: { _id?: string; value: string; label: string; icon?: string; order?: number; allowHalfAndHalf?: boolean }[]; onUpdate: () => void }) => {
+  const [categories, setCategories] = useState<{ _id?: string; value: string; label: string; icon?: string; order?: number; allowHalfAndHalf?: boolean }[]>(initialCategories);
   const [catLoading, setCatLoading] = useState(false);
   const [catError, setCatError] = useState('');
-  const [modalCategory, setModalCategory] = useState<{ _id?: string; value: string; label: string; order?: number; allowHalfAndHalf?: boolean } | null>(null);
+  const [modalCategory, setModalCategory] = useState<{ _id?: string; value: string; label: string; icon?: string; order?: number; allowHalfAndHalf?: boolean } | null>(null);
 
   const fetchCategories = async () => {
     setCatLoading(true);
@@ -359,7 +397,7 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
     if (!id || !confirm('Excluir esta categoria?')) return;
     setCatLoading(true);
     try {
-      const res = await fetch(`/api/categories?id=${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/categories`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ _id: id }) });
       const data = await res.json();
       if (data.success) { fetchCategories(); onUpdate(); }
       else { setCatError(data.error || 'Erro ao excluir'); }
@@ -367,12 +405,13 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
     finally { setCatLoading(false); }
   };
 
+
   return (
     <div className="p-0">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
         <h2 className="text-2xl font-bold text-white">Categorias</h2>
         <button
-          onClick={() => setModalCategory({ value: '', label: '', order: 0, allowHalfAndHalf: false })}
+          onClick={() => setModalCategory({ value: '', label: '', icon: '', order: 0, allowHalfAndHalf: false })}
           className="form-button-primary flex items-center gap-2"
         >
           <FaPlus /> Nova Categoria
@@ -384,7 +423,8 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
           <caption id="categories-table-caption" className="sr-only">Tabela de categorias do cardápio</caption>
           <thead>
             <tr className="border-b border-gray-700 text-gray-400 text-sm">
-              <th className="p-2">Ordem</th>
+              <th className="p-2 w-16">Ícone</th>
+              <th className="p-2 w-20">Ordem</th>
               <th className="p-2">Nome</th>
               <th className="p-2">Valor</th>
               <th className="p-2">Meio a Meio</th>
@@ -394,35 +434,20 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
           <tbody className="text-sm">
             {categories.sort((a, b) => (a.order || 0) - (b.order || 0)).map(cat => (
               <tr key={cat._id} className="border-b border-gray-800/60 last:border-0">
-                <td className="p-2 w-20">{cat.order}</td>
+                <td className="p-2 text-center text-xl">{cat.icon}</td>
+                <td className="p-2">{cat.order}</td>
                 <td className="p-2">{cat.label}</td>
                 <td className="p-2 text-gray-400">{cat.value}</td>
                 <td className="p-2">
                   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${cat.allowHalfAndHalf ? 'bg-green-900/30 text-green-400 border border-green-600/50' : 'bg-gray-700/40 text-gray-400 border border-gray-600/40'}`}>{cat.allowHalfAndHalf ? '✅ Sim' : '—'}</span>
                 </td>
                 <td className="p-2 flex gap-2">
-                  <button
-                    onClick={() => setModalCategory(cat)}
-                    className="form-button-secondary p-2"
-                    aria-label={`Editar categoria ${cat.label}`}
-                    title={`Editar ${cat.label}`}
-                  >
-                    <FaEdit />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteCategory(cat._id)}
-                    className="form-button-danger p-2"
-                    aria-label={`Excluir categoria ${cat.label}`}
-                    title={`Excluir ${cat.label}`}
-                  >
-                    <FaTrash />
-                  </button>
+                  <button onClick={() => setModalCategory(cat)} className="form-button-secondary p-2" aria-label={`Editar categoria ${cat.label}`} title={`Editar ${cat.label}`}><FaEdit /></button>
+                  <button onClick={() => handleDeleteCategory(cat._id)} className="form-button-danger p-2" aria-label={`Excluir categoria ${cat.label}`} title={`Excluir ${cat.label}`}><FaTrash /></button>
                 </td>
               </tr>
             ))}
-            {categories.length === 0 && (
-              <tr><td colSpan={5} className="p-4 text-center text-gray-400">Nenhuma categoria cadastrada.</td></tr>
-            )}
+            {categories.length === 0 && (<tr><td colSpan={6} className="p-4 text-center text-gray-400">Nenhuma categoria cadastrada.</td></tr>)}
           </tbody>
         </table>
       </div>
@@ -430,27 +455,16 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
         {categories.sort((a, b) => (a.order || 0) - (b.order || 0)).map(cat => (
           <div key={cat._id} className="bg-[#2a2a2a] rounded-lg p-4 border border-gray-700">
             <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-bold text-white">{cat.label}</h3>
-                <p className="text-xs text-gray-400">Ordem: {cat.order} | Valor: {cat.value}</p>
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">{cat.icon}</span>
+                <div>
+                  <h3 className="font-bold text-white">{cat.label}</h3>
+                  <p className="text-xs text-gray-400">Ordem: {cat.order} | Valor: {cat.value}</p>
+                </div>
               </div>
               <div className="flex gap-2">
-                <button
-                  onClick={() => setModalCategory(cat)}
-                  className="form-button-secondary p-2"
-                  aria-label={`Editar categoria ${cat.label}`}
-                  title={`Editar ${cat.label}`}
-                >
-                  <FaEdit />
-                </button>
-                <button
-                  onClick={() => handleDeleteCategory(cat._id)}
-                  className="form-button-danger p-2"
-                  aria-label={`Excluir categoria ${cat.label}`}
-                  title={`Excluir ${cat.label}`}
-                >
-                  <FaTrash />
-                </button>
+                <button onClick={() => setModalCategory(cat)} className="form-button-secondary p-2" aria-label={`Editar categoria ${cat.label}`} title={`Editar ${cat.label}`}><FaEdit /></button>
+                <button onClick={() => handleDeleteCategory(cat._id)} className="form-button-danger p-2" aria-label={`Excluir categoria ${cat.label}`} title={`Excluir ${cat.label}`}><FaTrash /></button>
               </div>
             </div>
             <div className="mt-2 pt-2 border-t border-gray-700/50 text-xs">
@@ -471,6 +485,7 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
   );
 };
 
+
 // --- COMPONENTE PRINCIPAL ---
 export default function AdminMenu() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -480,10 +495,9 @@ export default function AdminMenu() {
   const [editingItem, setEditingItem] = useState<Partial<MenuItem> | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('todas');
   const [activeTab, setActiveTab] = useState<'menu' | 'categories'>('menu');
-  const [categories, setCategories] = useState<{ _id?: string; value: string; label: string; order?: number }[]>([]);
+  const [categories, setCategories] = useState<{ _id?: string; value: string; label: string; icon?: string; order?: number }[]>([]);
   const [deletingItems, setDeletingItems] = useState<Set<string>>(new Set());
 
-  // Bloqueio de scroll para modais de item ou categoria
   useEffect(() => {
     const shouldLock = isModalOpen;
     if (shouldLock) {
@@ -519,7 +533,7 @@ export default function AdminMenu() {
         const orderedCats = (catData.data || []).slice().sort((a: { order?: number }, b: { order?: number }) => (a.order ?? 0) - (b.order ?? 0));
         setCategories(orderedCats);
       }
-      else { setError((prev) => prev + ' Falha ao carregar categorias.'); }
+      else { setError((prev) => (prev ? prev + ' ' : '') + 'Falha ao carregar categorias.'); }
     } catch (err) {
       setError('Erro de conexão.');
     } finally { setLoading(false); }
