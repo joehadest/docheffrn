@@ -109,7 +109,7 @@ export default function MenuDisplay() {
                     setSelectedCategory(categoryId);
                 }
             },
-            { rootMargin: "-150px 0px -40% 0px", threshold: 0 }
+            { rootMargin: "-40% 0px -60% 0px", threshold: 0 }
         );
 
         const currentElements = categoryElementsRef.current;
@@ -242,7 +242,7 @@ export default function MenuDisplay() {
         <div className="min-h-screen bg-[#262525]">
             <div className="sticky top-0 z-20 bg-gradient-to-b from-[#262525] via-[#262525] to-transparent pb-4 pt-2" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6">
-                    <div ref={categoriesContainerRef} className="flex gap-2 sm:gap-3 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4">
+                    <div ref={categoriesContainerRef} className="categories-container flex gap-2 sm:gap-3 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4">
                         <motion.button
                             data-category-value="destaques"
                             onClick={() => handleCategoryClick('destaques')}
