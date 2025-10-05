@@ -7,7 +7,7 @@ import Cart from './Cart';
 import { MenuItem, Category } from '@/types/menu';
 import Image from 'next/image';
 import { FaWhatsapp, FaStar, FaDotCircle } from 'react-icons/fa';
-import { useCart } from '../contexts/CartContext';
+import { useCart } from '@/contexts/CartContext';
 import PastaModal from './PastaModal';
 import { isRestaurantOpen as checkRestaurantOpen } from '../utils/timeUtils';
 import type { BusinessHoursConfig } from '../utils/timeUtils';
@@ -55,7 +55,6 @@ export default function MenuDisplay() {
     const [selectedPasta, setSelectedPasta] = useState<MenuItem | null>(null);
     const categoryElementsRef = useRef<{ [key: string]: HTMLElement | null }>({});
 
-    // Ref para evitar que o clique acione o observer
     const isClickScrolling = useRef(false);
 
     useEffect(() => {
@@ -102,10 +101,8 @@ export default function MenuDisplay() {
     useEffect(() => {
         const observer = new IntersectionObserver(
             (entries) => {
-                // Se o scroll foi iniciado por um clique, ignora a deteção
                 if (isClickScrolling.current) return;
 
-                // Encontra a primeira entrada que está visível
                 const intersectingEntry = entries.find(entry => entry.isIntersecting);
                 if (intersectingEntry) {
                     const categoryId = intersectingEntry.target.id.replace('category-', '');
@@ -125,7 +122,7 @@ export default function MenuDisplay() {
                 if (el) observer.unobserve(el);
             });
         };
-    }, [menuItems, categories]); // Dependências corretas
+    }, [menuItems, categories]);
 
     useEffect(() => {
         if (selectedCategory && categoriesContainerRef.current) {
@@ -200,12 +197,11 @@ export default function MenuDisplay() {
     const allPizzas = menuItems.filter(item => item.category === 'pizzas');
 
     const handleCategoryClick = (categoryValue: string) => {
-        // 1. Atualiza o estado imediatamente para disparar a animação
+        isClickScrolling.current = true;
         setSelectedCategory(categoryValue);
 
         const element = document.getElementById(`category-${categoryValue}`);
         if (element) {
-            isClickScrolling.current = true; // Impede que o observer atue durante o scroll
             const offset = 140;
             const elementPosition = element.offsetTop - offset;
             window.scrollTo({
@@ -213,16 +209,16 @@ export default function MenuDisplay() {
                 behavior: 'smooth'
             });
 
-            // Permite que o observer volte a funcionar após o scroll
             setTimeout(() => {
                 isClickScrolling.current = false;
-            }, 1000); // 1 segundo de "pausa" para o observer
+            }, 1000);
         }
     };
 
-    const handleAddToCart = (item: MenuItem, quantity: number, observation: string, size?: string, border?: string, extras?: string[]) => {
-        addToCart(item, quantity, observation, size, border, extras);
+    const handleAddToCart = (item: MenuItem, quantity: number, unitPrice: number, observation: string, size?: string, border?: string, extras?: string[]) => {
+        addToCart(item, quantity, unitPrice, observation, size, border, extras);
         setSelectedItem(null);
+        setIsCartOpen(true);
     };
 
     const handlePastaClick = (item: MenuItem) => setSelectedPasta(item);
@@ -230,8 +226,10 @@ export default function MenuDisplay() {
 
     const handlePastaAddToCart = (quantity: number, observation: string, size?: 'P' | 'G') => {
         if (selectedPasta) {
-            addToCart(selectedPasta, quantity, observation, size);
+            const unitPrice = selectedPasta.sizes?.[size || 'P'] || selectedPasta.price;
+            addToCart(selectedPasta, quantity, unitPrice, observation, size);
             setSelectedPasta(null);
+            setIsCartOpen(true);
         }
     };
 
@@ -363,7 +361,7 @@ export default function MenuDisplay() {
                 </motion.div>
 
                 <AnimatePresence>
-                    {selectedItem && <ItemModal item={selectedItem} onClose={() => setSelectedItem(null)} onAddToCart={(quantity, observation, size, border, extras) => handleAddToCart(selectedItem!, quantity, observation, size, border, extras)} allPizzas={allPizzas} allowHalfAndHalf={allowHalfAndHalf} categories={categories} />}
+                    {selectedItem && <ItemModal item={selectedItem} onClose={() => setSelectedItem(null)} onAddToCart={(item, quantity, unitPrice, observation, size, border, extras) => handleAddToCart(item, quantity, unitPrice, observation, size, border, extras)} allPizzas={allPizzas} allowHalfAndHalf={allowHalfAndHalf} categories={categories} />}
                     {selectedPasta && <PastaModal item={selectedPasta} onClose={handlePastaClose} onAddToCart={handlePastaAddToCart} />}
                     {isCartOpen && <Cart items={cartItems} onUpdateQuantity={updateQuantity} onRemoveItem={removeFromCart} onClose={() => setIsCartOpen(false)} onFinalize={handleFinalizeOrder} />}
                 </AnimatePresence>

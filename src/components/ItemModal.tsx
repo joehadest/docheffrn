@@ -9,7 +9,7 @@ import { MenuContext } from '../contexts/MenuContext'; // Importar o MenuContext
 interface ItemModalProps {
     item: MenuItem;
     onClose: () => void;
-    onAddToCart: (quantity: number, observation: string, size?: string, border?: string, extras?: string[]) => void;
+    onAddToCart: (item: MenuItem, quantity: number, unitPrice: number, observation: string, size?: string, border?: string, extras?: string[], flavors?: string[]) => void;
     allPizzas?: MenuItem[];
     categories?: any[];
     allowHalfAndHalf?: boolean;
@@ -73,9 +73,26 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas, categ
         
         if (isHalf && half1 && half2) {
             const description = `Meio a meio: ${half1.name} / ${half2.name}`;
-            onAddToCart(quantity, observation ? `${description} - ${observation}` : description, selectedSize, selectedBorder, selectedExtras);
+            onAddToCart(
+                item,
+                quantity,
+                calculatePizzaPrice(item, selectedSize, selectedBorder, selectedExtras, description, allPizzas),
+                observation ? `${description} - ${observation}` : description,
+                selectedSize,
+                selectedBorder,
+                selectedExtras,
+                [half1.name, half2.name]
+            );
         } else {
-            onAddToCart(quantity, observation, selectedSize, selectedBorder, selectedExtras);
+            onAddToCart(
+                item,
+                quantity,
+                calculatePizzaPrice(item, selectedSize, selectedBorder, selectedExtras, undefined, allPizzas),
+                observation,
+                selectedSize,
+                selectedBorder,
+                selectedExtras
+            );
         }
     };
 

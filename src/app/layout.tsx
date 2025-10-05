@@ -1,3 +1,5 @@
+// src/app/layout.tsx
+
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
@@ -34,7 +36,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <link rel="apple-touch-icon" href="/icon-192x192.png" />
                 <link rel="icon" href="/favicon/favicon.ico" type="image/x-icon" />
             </head>
-            <body className="bg-[#262525] min-h-screen">
+            {/* Adicione a classe 'overscroll-contain' aqui */}
+            <body className="bg-[#262525] min-h-screen overscroll-contain">
                 <AppShellClient>{children}</AppShellClient>
             </body>
         </html>

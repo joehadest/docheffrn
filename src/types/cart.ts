@@ -1,3 +1,5 @@
+// src/types/cart.ts
+
 import { MenuItem } from './menu';
 
 export interface CartItem {
@@ -11,11 +13,12 @@ export interface CartItem {
     observacao?: string;
     extras?: string[];
     price: number;
+    flavors?: string[];
 }
 
 export interface CartContextType {
     items: CartItem[];
-    addToCart: (item: MenuItem, quantity: number, observation?: string, size?: string, border?: string, extras?: string[]) => void;
+    addToCart: (item: MenuItem, quantity: number, unitPrice: number, observation?: string, size?: string, border?: string, extras?: string[], flavors?: string[]) => void;
     removeFromCart: (itemId: string) => void;
     updateQuantity: (itemId: string, quantity: number) => void;
     clearCart: () => void;
@@ -44,6 +47,11 @@ export interface Pedido {
         size?: string;
         border?: string;
         extras?: string[];
+        sizesTitle?: string;
+        borderTitle?: string;
+        extrasTitle?: string;
+        flavors?: string[]; // Campo adicionado
+        flavorsTitle?: string; // Campo adicionado
     }[];
     total: number;
     tipoEntrega: 'entrega' | 'retirada';
@@ -58,4 +66,4 @@ export interface Pedido {
     status: 'pendente' | 'preparando' | 'pronto' | 'em_entrega' | 'entregue' | 'cancelado';
     data: string;
     troco?: string;
-} 
+}
