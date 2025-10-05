@@ -109,7 +109,7 @@ export default function MenuDisplay() {
                     setSelectedCategory(categoryId);
                 }
             },
-            { rootMargin: "-40% 0px -60% 0px", threshold: 0 }
+            { rootMargin: "-150px 0px -40% 0px", threshold: 0 }
         );
 
         const currentElements = categoryElementsRef.current;
