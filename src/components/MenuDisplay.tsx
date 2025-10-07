@@ -109,7 +109,7 @@ export default function MenuDisplay() {
                     setSelectedCategory(categoryId);
                 }
             },
-            { rootMargin: "-40% 0px -60% 0px", threshold: 0 }
+            { rootMargin: "-140px 0px -60% 0px", threshold: 0 }
         );
 
         const currentElements = categoryElementsRef.current;
@@ -246,7 +246,7 @@ export default function MenuDisplay() {
                         <motion.button
                             data-category-value="destaques"
                             onClick={() => handleCategoryClick('destaques')}
-                            className={`relative px-4 py-2 rounded-full whitespace-nowrap flex-shrink-0 text-sm font-semibold transition-colors flex items-center gap-2 ${selectedCategory === 'destaques' ? 'text-white' : 'text-gray-300 hover:bg-gray-800'}`}
+                            className={`relative px-4 py-2 rounded-full whitespace-nowrap flex-shrink-0 text-sm font-semibold transition-colors flex items-center gap-2 ${selectedCategory === 'destaques' ? 'text-white' : 'text-gray-300 bg-[#2a2a2a] hover:bg-gray-700'}`}
                         >
                             <span className="relative z-10 flex items-center gap-2"><FaStar className="text-yellow-400" /> Destaques</span>
                             {selectedCategory === 'destaques' && (
@@ -263,7 +263,7 @@ export default function MenuDisplay() {
                                 key={category.value}
                                 data-category-value={category.value}
                                 onClick={() => handleCategoryClick(category.value)}
-                                className={`relative px-4 py-2 rounded-full whitespace-nowrap flex-shrink-0 text-sm font-semibold transition-colors flex items-center gap-2 ${selectedCategory === category.value ? 'text-white' : 'text-gray-300 hover:bg-gray-800'}`}
+                                className={`relative px-4 py-2 rounded-full whitespace-nowrap flex-shrink-0 text-sm font-semibold transition-colors flex items-center gap-2 ${selectedCategory === category.value ? 'text-white' : 'text-gray-300 bg-[#2a2a2a] hover:bg-gray-700'}`}
                             >
                                 <span className="relative z-10 flex items-center gap-2">
                                     {category.icon || <FaDotCircle />}
