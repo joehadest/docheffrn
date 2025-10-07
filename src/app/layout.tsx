@@ -36,8 +36,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <link rel="apple-touch-icon" href="/icon-192x192.png" />
                 <link rel="icon" href="/favicon/favicon.ico" type="image/x-icon" />
             </head>
-            {/* Adicione a classe 'overscroll-contain' aqui */}
-            <body className="bg-[#262525] min-h-screen overscroll-contain">
+            {/* A classe 'overscroll-contain' foi removida daqui */}
+            <body className="bg-[#262525] min-h-screen">
                 <AppShellClient>{children}</AppShellClient>
             </body>
         </html>

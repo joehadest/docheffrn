@@ -10,6 +10,11 @@
   --background-rgb: 38, 37, 37;
 }
 
+/* Adicionado para corrigir o overscroll no iOS */
+html, body {
+  overscroll-behavior-y: contain;
+}
+
 body {
   color: rgb(var(--foreground-rgb));
   background: rgb(var(--background-rgb));
@@ -21,11 +26,6 @@ body {
 body.modal-open {
   overflow: hidden;
   touch-action: none;
-}
-
-/* Adicione esta nova regra */
-.overscroll-contain {
-  overscroll-behavior-y: contain;
 }
 
 /* ==== Form / Botões (CSS puro) ==== */
