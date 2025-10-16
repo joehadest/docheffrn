@@ -73,12 +73,11 @@ export default function MenuDisplay() {
         // Em dispositivos móveis, visualViewport altera com a barra/teclado
         const vv = (window as any).visualViewport as VisualViewport | undefined;
         vv?.addEventListener('resize', computeStickyOffset);
-        vv?.addEventListener('scroll', computeStickyOffset);
+        // Importante: evitar recalcular em 'scroll' do visualViewport no iOS para não causar re-render em cada frame
 
         return () => {
             window.removeEventListener('resize', computeStickyOffset);
             vv?.removeEventListener('resize', computeStickyOffset);
-            vv?.removeEventListener('scroll', computeStickyOffset);
         };
     }, []);
 
@@ -123,33 +122,54 @@ export default function MenuDisplay() {
         fetchAllData();
     }, []);
 
+    // Fonte da seleção para controlar animações horizontais
+    const lastSelectionSource = useRef<'click' | 'observer'>('observer');
+    // Seleção de categoria baseada em scrollY com offset da barra sticky (mais estável que IO em iOS)
     useEffect(() => {
-        const observer = new IntersectionObserver(
-            (entries) => {
-                if (isClickScrolling.current) return;
+        let rafId = 0;
+        const ids = ['destaques', ...categories.map(c => c.value)];
 
-                // Escolhe a primeira seção realmente visível considerando o topo ocupado pela barra sticky
-                const intersectingEntry = entries.find(entry => entry.isIntersecting);
-                if (intersectingEntry) {
-                    const categoryId = intersectingEntry.target.id.replace('category-', '');
-                    setSelectedCategory(categoryId);
+        const updateActiveByScroll = () => {
+            rafId = 0;
+            if (isClickScrolling.current) return;
+
+            const y = window.scrollY + stickyOffset + 12; // compensa a barra sticky
+            let activeId = ids[0];
+            for (const id of ids) {
+                const el = categoryElementsRef.current[id];
+                if (!el) continue;
+                if (el.offsetTop <= y) {
+                    activeId = id;
+                } else {
+                    break;
                 }
-            },
-            // Ajuste fino: considera a altura da barra sticky e evita mudanças muito precoces
-            { rootMargin: `${-(stickyOffset + 12)}px 0px -55% 0px`, threshold: 0 }
-        );
+            }
+            if (activeId !== selectedCategory) {
+                lastSelectionSource.current = 'observer';
+                setSelectedCategory(activeId);
+            }
+        };
 
-        const currentElements = categoryElementsRef.current;
-        Object.values(currentElements).forEach((el) => {
-            if (el) observer.observe(el);
-        });
+        const onScroll = () => {
+            if (rafId) return;
+            rafId = requestAnimationFrame(updateActiveByScroll);
+        };
+        const onResize = () => {
+            if (rafId) cancelAnimationFrame(rafId);
+            rafId = requestAnimationFrame(updateActiveByScroll);
+        };
+
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', onResize);
+        // Atualiza uma vez ao montar/alterar dependências
+        updateActiveByScroll();
 
         return () => {
-            Object.values(currentElements).forEach((el) => {
-                if (el) observer.unobserve(el);
-            });
+            window.removeEventListener('scroll', onScroll);
+            window.removeEventListener('resize', onResize);
+            if (rafId) cancelAnimationFrame(rafId);
         };
-    }, [menuItems, categories, stickyOffset]);
+    }, [categories, stickyOffset, selectedCategory]);
 
     // Rolagem horizontal controlada da barra de categorias (sem afetar o scroll vertical da página)
     useEffect(() => {
@@ -159,16 +179,23 @@ export default function MenuDisplay() {
         const activeButton = container.querySelector(`[data-category-value='${selectedCategory}']`) as HTMLElement | null;
         if (!activeButton) return;
 
-        // Calcula o alvo de scrollLeft para centralizar aproximadamente o botão ativo
+        // Só anima se o botão estiver fora de vista (para evitar jitter)
         const containerRect = container.getBoundingClientRect();
         const buttonRect = activeButton.getBoundingClientRect();
+        const leftIn = buttonRect.left - containerRect.left;
+        const rightIn = leftIn + buttonRect.width;
+        const margin = 16; // margem de conforto visual
+        const fullyVisible = leftIn >= margin && rightIn <= containerRect.width - margin;
+        if (fullyVisible) return;
+
+        // Calcula o alvo de scrollLeft para centralizar aproximadamente o botão ativo
         const currentLeft = container.scrollLeft;
         const buttonOffsetLeft = buttonRect.left - containerRect.left + currentLeft;
         const targetLeft = buttonOffsetLeft - (containerRect.width - buttonRect.width) / 2;
 
         // Anima suavemente apenas o eixo horizontal
         const start = performance.now();
-        const duration = 280; // ms
+        const duration = 240; // ms
         const from = currentLeft;
         const to = Math.max(0, targetLeft);
 
@@ -245,6 +272,7 @@ export default function MenuDisplay() {
 
     const handleCategoryClick = (categoryValue: string) => {
         isClickScrolling.current = true;
+        lastSelectionSource.current = 'click';
         setSelectedCategory(categoryValue);
 
         const element = document.getElementById(`category-${categoryValue}`);
@@ -258,6 +286,8 @@ export default function MenuDisplay() {
 
             setTimeout(() => {
                 isClickScrolling.current = false;
+                // Após a rolagem por clique, futuras mudanças voltam a ser marcadas como provenientes do observer
+                lastSelectionSource.current = 'observer';
             }, 1000);
         }
     };
