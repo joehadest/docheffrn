@@ -37,6 +37,7 @@ const itemVariants = {
 export default function MenuDisplay() {
     const [allowHalfAndHalf, setAllowHalfAndHalf] = useState(true);
     const categoriesContainerRef = useRef<HTMLDivElement>(null);
+    const stickyBarRef = useRef<HTMLDivElement>(null);
     const { isOpen } = useMenu();
     const { items: cartItems, addToCart, removeFromCart, updateQuantity, clearCart } = useCart();
     const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
@@ -56,6 +57,30 @@ export default function MenuDisplay() {
     const categoryElementsRef = useRef<{ [key: string]: HTMLElement | null }>({});
 
     const isClickScrolling = useRef(false);
+    const [stickyOffset, setStickyOffset] = useState<number>(0);
+
+    // Calcula dinamicamente a altura/offset da barra de categorias sticky,
+    // considerando safe-area/topo e variações de toolbar móvel
+    useEffect(() => {
+        const computeStickyOffset = () => {
+            const h = stickyBarRef.current?.getBoundingClientRect().height ?? 0;
+            // margem extra para respirar abaixo da barra
+            setStickyOffset(Math.max(0, Math.ceil(h)));
+        };
+
+        computeStickyOffset();
+        window.addEventListener('resize', computeStickyOffset);
+        // Em dispositivos móveis, visualViewport altera com a barra/teclado
+        const vv = (window as any).visualViewport as VisualViewport | undefined;
+        vv?.addEventListener('resize', computeStickyOffset);
+        vv?.addEventListener('scroll', computeStickyOffset);
+
+        return () => {
+            window.removeEventListener('resize', computeStickyOffset);
+            vv?.removeEventListener('resize', computeStickyOffset);
+            vv?.removeEventListener('scroll', computeStickyOffset);
+        };
+    }, []);
 
     useEffect(() => {
         const fetchAllData = async () => {
@@ -103,13 +128,15 @@ export default function MenuDisplay() {
             (entries) => {
                 if (isClickScrolling.current) return;
 
+                // Escolhe a primeira seção realmente visível considerando o topo ocupado pela barra sticky
                 const intersectingEntry = entries.find(entry => entry.isIntersecting);
                 if (intersectingEntry) {
                     const categoryId = intersectingEntry.target.id.replace('category-', '');
                     setSelectedCategory(categoryId);
                 }
             },
-            { rootMargin: "-140px 0px -60% 0px", threshold: 0 }
+            // Ajuste fino: considera a altura da barra sticky e evita mudanças muito precoces
+            { rootMargin: `${-(stickyOffset + 12)}px 0px -55% 0px`, threshold: 0 }
         );
 
         const currentElements = categoryElementsRef.current;
@@ -122,19 +149,39 @@ export default function MenuDisplay() {
                 if (el) observer.unobserve(el);
             });
         };
-    }, [menuItems, categories]);
+    }, [menuItems, categories, stickyOffset]);
 
+    // Rolagem horizontal controlada da barra de categorias (sem afetar o scroll vertical da página)
     useEffect(() => {
-        if (selectedCategory && categoriesContainerRef.current) {
-            const activeButton = categoriesContainerRef.current.querySelector(`[data-category-value='${selectedCategory}']`);
-            if (activeButton) {
-                activeButton.scrollIntoView({
-                    behavior: 'smooth',
-                    inline: 'center',
-                    block: 'nearest',
-                });
-            }
-        }
+        const container = categoriesContainerRef.current;
+        if (!selectedCategory || !container) return;
+
+        const activeButton = container.querySelector(`[data-category-value='${selectedCategory}']`) as HTMLElement | null;
+        if (!activeButton) return;
+
+        // Calcula o alvo de scrollLeft para centralizar aproximadamente o botão ativo
+        const containerRect = container.getBoundingClientRect();
+        const buttonRect = activeButton.getBoundingClientRect();
+        const currentLeft = container.scrollLeft;
+        const buttonOffsetLeft = buttonRect.left - containerRect.left + currentLeft;
+        const targetLeft = buttonOffsetLeft - (containerRect.width - buttonRect.width) / 2;
+
+        // Anima suavemente apenas o eixo horizontal
+        const start = performance.now();
+        const duration = 280; // ms
+        const from = currentLeft;
+        const to = Math.max(0, targetLeft);
+
+        let rafId = 0;
+        const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+        const tick = (now: number) => {
+            const p = Math.min(1, (now - start) / duration);
+            const eased = easeOutCubic(p);
+            container.scrollLeft = from + (to - from) * eased;
+            if (p < 1) rafId = requestAnimationFrame(tick);
+        };
+        rafId = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(rafId);
     }, [selectedCategory]);
 
     const handleFinalizeOrder = (pedidoData: any) => {
@@ -202,7 +249,7 @@ export default function MenuDisplay() {
 
         const element = document.getElementById(`category-${categoryValue}`);
         if (element) {
-            const offset = 140;
+            const offset = stickyOffset + 8; // 8px de folga abaixo da barra
             const elementPosition = element.offsetTop - offset;
             window.scrollTo({
                 top: Math.max(0, elementPosition),
@@ -240,7 +287,8 @@ export default function MenuDisplay() {
 
     return (
         <div className="min-h-screen bg-[#262525]">
-            <div className="sticky top-0 z-20 bg-gradient-to-b from-[#262525] via-[#262525] to-transparent pb-4 pt-2" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+            {/* Barra de categorias sticky com safe-area e z-index elevado */}
+            <div ref={stickyBarRef} className="sticky top-0 z-40 bg-gradient-to-b from-[#262525] via-[#262525] to-transparent pb-4 pt-2" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6">
                     <div ref={categoriesContainerRef} className="categories-container flex gap-2 sm:gap-3 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4">
                         <motion.button
@@ -298,6 +346,7 @@ export default function MenuDisplay() {
                         id="category-destaques"
                         ref={(el) => { categoryElementsRef.current['destaques'] = el; }}
                         className="space-y-4 pt-2"
+                        style={{ scrollMarginTop: `${stickyOffset + 8}px` }}
                     >
                         <h2 className="text-2xl font-bold text-red-500 flex items-center gap-2"><FaStar className="text-yellow-400" /> Destaques da Casa</h2>
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
@@ -330,6 +379,7 @@ export default function MenuDisplay() {
                             id={`category-${category.value}`}
                             ref={(el) => { categoryElementsRef.current[category.value] = el; }}
                             className="space-y-4 pt-2"
+                            style={{ scrollMarginTop: `${stickyOffset + 8}px` }}
                         >
                             <h2 className="text-2xl font-bold text-red-600 capitalize flex items-center gap-2">
                                 {category.icon || <FaDotCircle />} {category.label}
