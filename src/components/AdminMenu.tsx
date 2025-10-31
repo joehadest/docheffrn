@@ -5,72 +5,99 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MenuItem } from '@/types/menu';
 import Image from 'next/image';
 import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaListAlt, FaThList, FaInfoCircle, FaPizzaSlice, FaPepperHot, FaSmile } from 'react-icons/fa';
-// Importa o seletor de Emojis
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 
-// --- COMPONENT: ITEM MODAL (TABBED) ---
-const ItemModal = ({
-  item,
-  onClose,
-  onSave,
-  categories,
-}: {
+// --- SIMPLE INPUT COMPONENT (prevents re-render issues) ---
+const StableInput = ({ value, onChange, ...props }: any) => {
+  const [localValue, setLocalValue] = React.useState(value);
+  
+  React.useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+  
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalValue(e.target.value);
+    onChange(e);
+  };
+  
+  return <input {...props} value={localValue} onChange={handleChange} />;
+};
+
+// --- COMPONENT: ITEM MODAL (TABBED) - REBUILT FROM SCRATCH ---
+function ItemModal({ item, onClose, onSave, categories }: {
   item: Partial<MenuItem>;
   onClose: () => void;
   onSave: (itemData: Partial<MenuItem>) => void;
   categories: { value: string; label: string }[];
-}) => {
-  const [formData, setFormData] = useState<Partial<MenuItem>>(item);
+}) {
+  // Estado do formulário
+  const [name, setName] = useState(item.name || '');
+  const [description, setDescription] = useState(item.description || '');
+  const [price, setPrice] = useState(item.price || 0);
+  const [category, setCategory] = useState(item.category || categories[0]?.value || '');
+  const [image, setImage] = useState(item.image || '');
+  const [destaque, setDestaque] = useState(item.destaque || false);
+  
+  // Listas dinâmicas como arrays de objetos com IDs únicos
+  const [sizes, setSizes] = useState<Array<{ id: string; name: string; price: number }>>(() => {
+    return Object.entries(item.sizes || {}).map(([name, price]) => ({
+      id: `${name}-${Math.random()}`,
+      name,
+      price: price as number
+    }));
+  });
+  
+  const [borders, setBorders] = useState<Array<{ id: string; name: string; price: number }>>(() => {
+    return Object.entries(item.borderOptions || {}).map(([name, price]) => ({
+      id: `${name}-${Math.random()}`,
+      name,
+      price: price as number
+    }));
+  });
+  
+  const [extras, setExtras] = useState<Array<{ id: string; name: string; price: number }>>(() => {
+    return Object.entries(item.extraOptions || {}).map(([name, price]) => ({
+      id: `${name}-${Math.random()}`,
+      name,
+      price: price as number
+    }));
+  });
+  
+  const [ingredients, setIngredients] = useState<Array<{ id: string; value: string }>>(() => {
+    return (item.ingredients || []).map((value) => ({
+      id: `${value}-${Math.random()}`,
+      value
+    }));
+  });
+  
   const [tab, setTab] = useState<'basic' | 'options' | 'ingredients'>('basic');
 
-  useEffect(() => {
-    setFormData(prev => ({
-      name: '', description: '', price: 0, category: categories[0]?.value || '', image: '', destaque: false,
-      ingredients: [], sizes: {}, borderOptions: {}, extraOptions: {},
+  const handleSave = () => {
+    // Converte arrays de volta para objetos
+    const sizesObj: Record<string, number> = {};
+    sizes.forEach(s => { if (s.name) sizesObj[s.name] = s.price; });
+    
+    const bordersObj: Record<string, number> = {};
+    borders.forEach(b => { if (b.name) bordersObj[b.name] = b.price; });
+    
+    const extrasObj: Record<string, number> = {};
+    extras.forEach(e => { if (e.name) extrasObj[e.name] = e.price; });
+    
+    const ingredientsArr = ingredients.map(i => i.value).filter(v => v);
+    
+    onSave({
       ...item,
-    }));
-  }, [item, categories]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    const isCheckbox = type === 'checkbox';
-    const checked = (e.target as HTMLInputElement).checked;
-    setFormData(prev => ({ ...prev, [name]: isCheckbox ? checked : value }));
-  };
-
-  const handleDynamicChange = (section: 'sizes' | 'borderOptions' | 'extraOptions', key: string, field: 'name' | 'price', value: string) => {
-    const current = formData[section] || {};
-    if (field === 'name') {
-      const newEntries = Object.entries(current).map(([k, v]) => (k === key ? [value, v] : [k, v]));
-      setFormData(prev => ({ ...prev, [section]: Object.fromEntries(newEntries) }));
-    } else {
-      setFormData(prev => ({ ...prev, [section]: { ...current, [key]: parseFloat(value) || 0 } }));
-    }
-  };
-
-  const addDynamicField = (section: 'sizes' | 'borderOptions' | 'extraOptions') => {
-    const current = formData[section] || {};
-    const newKey = `Novo ${Object.keys(current).length + 1}`;
-    setFormData(prev => ({ ...prev, [section]: { ...current, [newKey]: 0 } }));
-  };
-
-  const removeDynamicField = (section: 'sizes' | 'borderOptions' | 'extraOptions', key: string) => {
-    const current = { ...(formData[section] || {}) } as Record<string, number>;
-    delete current[key];
-    setFormData(prev => ({ ...prev, [section]: current }));
-  };
-
-  const handleIngredientChange = (index: number, value: string) => {
-    const arr = [...(formData.ingredients || [])];
-    arr[index] = value;
-    setFormData(prev => ({ ...prev, ingredients: arr }));
-  };
-  const addIngredient = () => setFormData(prev => ({ ...prev, ingredients: [...(prev.ingredients || []), ''] }));
-  const removeIngredient = (index: number) => setFormData(prev => ({ ...prev, ingredients: (prev.ingredients || []).filter((_, i) => i !== index) }));
-
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    onSave(formData);
+      name,
+      description,
+      price,
+      category,
+      image,
+      destaque,
+      sizes: sizesObj,
+      borderOptions: bordersObj,
+      extraOptions: extrasObj,
+      ingredients: ingredientsArr
+    });
   };
 
   const TabButton = ({ id, icon, label }: { id: 'basic' | 'options' | 'ingredients'; icon: React.ReactNode; label: string }) => (
@@ -78,48 +105,10 @@ const ItemModal = ({
       type="button"
       onClick={() => setTab(id)}
       className={`flex-1 flex items-center justify-center gap-2 px-2 py-2 text-xs sm:text-sm font-medium rounded-lg border transition-colors whitespace-nowrap ${tab === id ? 'bg-red-600 text-white border-red-500' : 'bg-[#2a2a2a] border-gray-700 text-gray-300 hover:bg-gray-700'}`}
-      aria-current={tab === id ? 'page' : undefined}
     >
       {icon} <span className="hidden sm:inline">{label}</span>
       <span className="sm:hidden">{label.substring(0, 4)}</span>
     </button>
-  );
-
-  const Section: React.FC<{ title?: string; children: React.ReactNode; className?: string }> = ({ title, children, className }) => (
-    <section className={`space-y-3 ${className || ''}`}>
-      {title && <h3 className="text-sm font-semibold text-gray-300 tracking-wide">{title}</h3>}
-      {children}
-    </section>
-  );
-
-  const DynamicList = ({
-    section,
-    label,
-    currencyPrefix,
-  }: { section: 'sizes' | 'borderOptions' | 'extraOptions'; label: string; currencyPrefix?: string }) => (
-    <div className="space-y-2">
-      <label className="form-label">{label}</label>
-      {Object.entries(formData[section] || {}).map(([key, value]) => (
-        <div key={key} className="flex items-center gap-2">
-          <input
-            type="text"
-            value={key}
-            onChange={e => handleDynamicChange(section, key, 'name', e.target.value)}
-            className="form-input w-1/3"
-          />
-          <span className="text-gray-400">{currencyPrefix || 'R$'}</span>
-          <input
-            type="number"
-            value={value}
-            onChange={e => handleDynamicChange(section, key, 'price', e.target.value)}
-            className="form-input flex-grow"
-            step="0.01"
-          />
-          <button type="button" onClick={() => removeDynamicField(section, key)} className="form-button-danger p-2"><FaTrash /></button>
-        </div>
-      ))}
-      <button type="button" onClick={() => addDynamicField(section)} className="form-button-secondary text-sm">+ Adicionar</button>
-    </div>
   );
 
   return (
@@ -127,103 +116,279 @@ const ItemModal = ({
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="modal-overlay"
       onClick={onClose}
-      role="dialog" aria-modal="true" aria-labelledby="edit-item-modal-title"
     >
       <motion.div
         initial={{ scale: 0.94, y: 18 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.94, y: 18 }}
         className="modal-panel wide text-white flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
-        role="document"
       >
-        <button onClick={onClose} className="modal-close-btn focus-outline" aria-label="Fechar modal"><FaTimes /></button>
-        <h2 id="edit-item-modal-title" className="text-2xl font-bold mb-4 text-red-500">{formData._id ? 'Editar Item' : 'Adicionar Novo Item'}</h2>
-        {/* Tabs */}
+        <button onClick={onClose} className="modal-close-btn focus-outline"><FaTimes /></button>
+        <h2 className="text-2xl font-bold mb-4 text-red-500">{item._id ? 'Editar Item' : 'Adicionar Novo Item'}</h2>
+        
         <div className="flex flex-wrap gap-2 mb-6">
           <TabButton id="basic" icon={<FaInfoCircle />} label="Básico" />
           <TabButton id="options" icon={<FaPizzaSlice />} label="Opções" />
           <TabButton id="ingredients" icon={<FaPepperHot />} label="Ingredientes" />
         </div>
-        <form onSubmit={handleSubmit} className="space-y-6 text-sm overflow-y-auto pr-1 custom-scrollbar flex-1">
+
+        <div className="space-y-6 text-sm overflow-y-auto pr-1 custom-scrollbar flex-1">
           {tab === 'basic' && (
-            <div className="space-y-6">
-              <Section>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="form-label">Nome *</label>
-                    <input type="text" name="name" value={formData.name} onChange={handleChange} className="form-input" required />
-                  </div>
-                  <div>
-                    <label className="form-label">Categoria *</label>
-                    <select name="category" value={formData.category} onChange={handleChange} className="form-input" required>
-                      {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                    </select>
-                  </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="form-label">Nome *</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="form-input"
+                    required
+                  />
                 </div>
                 <div>
-                  <label className="form-label">Descrição *</label>
-                  <textarea name="description" value={formData.description} onChange={handleChange} rows={3} className="form-input"></textarea>
+                  <label className="form-label">Categoria *</label>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="form-input"
+                    required
+                  >
+                    {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  </select>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="form-label">Preço (R$) *</label>
-                    <input type="number" name="price" value={formData.price} onChange={handleChange} step="0.01" className="form-input" required />
-                  </div>
-                  <div>
-                    <label className="form-label">URL da Imagem</label>
-                    <input type="text" name="image" value={formData.image} onChange={handleChange} className="form-input" />
-                  </div>
+              </div>
+              
+              <div>
+                <label className="form-label">Descrição</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                  className="form-input"
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="form-label">Preço (R$) *</label>
+                  <input
+                    type="number"
+                    value={price}
+                    onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
+                    step="0.01"
+                    className="form-input"
+                    required
+                  />
                 </div>
-                <div className="flex items-center pt-2">
-                  <input type="checkbox" id="destaque" name="destaque" checked={formData.destaque} onChange={handleChange} className="form-checkbox" />
-                  <label htmlFor="destaque" className="ml-2 text-sm text-gray-300 select-none">Item em destaque</label>
+                <div>
+                  <label className="form-label">URL da Imagem</label>
+                  <input
+                    type="text"
+                    value={image}
+                    onChange={(e) => setImage(e.target.value)}
+                    className="form-input"
+                  />
                 </div>
-              </Section>
+              </div>
+              
+              <div className="flex items-center pt-2">
+                <input
+                  type="checkbox"
+                  id="destaque"
+                  checked={destaque}
+                  onChange={(e) => setDestaque(e.target.checked)}
+                  className="form-checkbox"
+                />
+                <label htmlFor="destaque" className="ml-2 text-sm text-gray-300">Item em destaque</label>
+              </div>
             </div>
           )}
 
           {tab === 'options' && (
             <div className="space-y-8">
-              <Section title="Tamanhos e Preços">
-                <DynamicList section="sizes" label="Tamanhos" />
-              </Section>
-              <Section title="Opções de Borda">
-                <DynamicList section="borderOptions" label="Bordas" currencyPrefix="+ R$" />
-              </Section>
-              <Section title="Opções de Extras">
-                <DynamicList section="extraOptions" label="Extras" currencyPrefix="+ R$" />
-              </Section>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-300 mb-3">Tamanhos e Preços</h3>
+                {sizes.map((size, idx) => (
+                  <div key={size.id} className="flex items-center gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={size.name}
+                      onChange={(e) => {
+                        const newSizes = [...sizes];
+                        newSizes[idx] = { ...size, name: e.target.value };
+                        setSizes(newSizes);
+                      }}
+                      className="form-input w-1/3"
+                      placeholder="Ex: P, M, G"
+                    />
+                    <span className="text-gray-400">R$</span>
+                    <input
+                      type="number"
+                      value={size.price}
+                      onChange={(e) => {
+                        const newSizes = [...sizes];
+                        newSizes[idx] = { ...size, price: parseFloat(e.target.value) || 0 };
+                        setSizes(newSizes);
+                      }}
+                      step="0.01"
+                      className="form-input flex-grow"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setSizes(sizes.filter((_, i) => i !== idx))}
+                      className="form-button-danger p-2"
+                    >
+                      <FaTrash />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setSizes([...sizes, { id: `new-${Date.now()}`, name: '', price: 0 }])}
+                  className="form-button-secondary text-sm"
+                >
+                  + Adicionar Tamanho
+                </button>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-gray-300 mb-3">Opções de Borda</h3>
+                {borders.map((border, idx) => (
+                  <div key={border.id} className="flex items-center gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={border.name}
+                      onChange={(e) => {
+                        const newBorders = [...borders];
+                        newBorders[idx] = { ...border, name: e.target.value };
+                        setBorders(newBorders);
+                      }}
+                      className="form-input w-1/3"
+                      placeholder="Ex: Catupiry"
+                    />
+                    <span className="text-gray-400">+ R$</span>
+                    <input
+                      type="number"
+                      value={border.price}
+                      onChange={(e) => {
+                        const newBorders = [...borders];
+                        newBorders[idx] = { ...border, price: parseFloat(e.target.value) || 0 };
+                        setBorders(newBorders);
+                      }}
+                      step="0.01"
+                      className="form-input flex-grow"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setBorders(borders.filter((_, i) => i !== idx))}
+                      className="form-button-danger p-2"
+                    >
+                      <FaTrash />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setBorders([...borders, { id: `new-${Date.now()}`, name: '', price: 0 }])}
+                  className="form-button-secondary text-sm"
+                >
+                  + Adicionar Borda
+                </button>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-gray-300 mb-3">Opções de Extras</h3>
+                {extras.map((extra, idx) => (
+                  <div key={extra.id} className="flex items-center gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={extra.name}
+                      onChange={(e) => {
+                        const newExtras = [...extras];
+                        newExtras[idx] = { ...extra, name: e.target.value };
+                        setExtras(newExtras);
+                      }}
+                      className="form-input w-1/3"
+                      placeholder="Ex: Bacon"
+                    />
+                    <span className="text-gray-400">+ R$</span>
+                    <input
+                      type="number"
+                      value={extra.price}
+                      onChange={(e) => {
+                        const newExtras = [...extras];
+                        newExtras[idx] = { ...extra, price: parseFloat(e.target.value) || 0 };
+                        setExtras(newExtras);
+                      }}
+                      step="0.01"
+                      className="form-input flex-grow"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setExtras(extras.filter((_, i) => i !== idx))}
+                      className="form-button-danger p-2"
+                    >
+                      <FaTrash />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setExtras([...extras, { id: `new-${Date.now()}`, name: '', price: 0 }])}
+                  className="form-button-secondary text-sm"
+                >
+                  + Adicionar Extra
+                </button>
+              </div>
             </div>
           )}
 
           {tab === 'ingredients' && (
-            <div className="space-y-6">
-              <Section title="Ingredientes">
-                <div className="space-y-2">
-                  {(formData.ingredients || []).map((ing, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={ing}
-                        onChange={e => handleIngredientChange(index, e.target.value)}
-                        className="form-input flex-grow"
-                      />
-                      <button type="button" onClick={() => removeIngredient(index)} className="form-button-danger p-2" aria-label="Remover ingrediente"><FaTrash /></button>
-                    </div>
-                  ))}
-                  <button type="button" onClick={addIngredient} className="form-button-secondary text-sm">+ Adicionar</button>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-300 mb-3">Ingredientes</h3>
+              {ingredients.map((ing, idx) => (
+                <div key={ing.id} className="flex items-center gap-2 mb-2">
+                  <input
+                    type="text"
+                    value={ing.value}
+                    onChange={(e) => {
+                      const newIngredients = [...ingredients];
+                      newIngredients[idx] = { ...ing, value: e.target.value };
+                      setIngredients(newIngredients);
+                    }}
+                    className="form-input flex-grow"
+                    placeholder="Ex: Tomate, Queijo..."
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIngredients(ingredients.filter((_, i) => i !== idx))}
+                    className="form-button-danger p-2"
+                  >
+                    <FaTrash />
+                  </button>
                 </div>
-              </Section>
+              ))}
+              <button
+                type="button"
+                onClick={() => setIngredients([...ingredients, { id: `new-${Date.now()}`, value: '' }])}
+                className="form-button-secondary text-sm"
+              >
+                + Adicionar Ingrediente
+              </button>
             </div>
           )}
-        </form>
+        </div>
+
         <div className="flex justify-end gap-4 pt-4 mt-4 border-t border-gray-800">
           <button type="button" onClick={onClose} className="form-button-secondary">Cancelar</button>
-          <button onClick={(e) => { e.preventDefault(); onSave(formData); }} className="form-button-primary inline-flex items-center gap-2"><FaSave /> {formData._id ? 'Atualizar' : 'Salvar'}</button>
+          <button onClick={handleSave} className="form-button-primary inline-flex items-center gap-2">
+            <FaSave /> {item._id ? 'Atualizar' : 'Salvar'}
+          </button>
         </div>
       </motion.div>
     </motion.div>
   );
-};
+}
 
 // --- COMPONENT: CATEGORY MODAL ---
 const CategoryModal = ({
@@ -236,28 +401,16 @@ const CategoryModal = ({
   onSaved: () => void;
 }) => {
   const isEdit = !!category?._id;
-  const [form, setForm] = useState({
-    value: '',
-    label: '',
-    icon: '',
-    order: 0,
-    allowHalfAndHalf: false,
-  });
+  const [form, setForm] = useState(() => ({
+    value: category?.value || '',
+    label: category?.label || '',
+    icon: category?.icon || '',
+    order: category?.order || 0,
+    allowHalfAndHalf: category?.allowHalfAndHalf || false,
+  }));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPicker, setShowPicker] = useState(false); // Estado para controlar o seletor
-
-  useEffect(() => {
-    setForm({
-      value: category?.value || '',
-      label: category?.label || '',
-      icon: category?.icon || '',
-      order: category?.order || 0,
-      allowHalfAndHalf: category?.allowHalfAndHalf || false,
-    });
-    // Fecha o seletor de emojis quando o modal é reaberto
-    setShowPicker(false);
-  }, [category]);
 
   const onEmojiClick = (emojiData: EmojiClickData) => {
     setForm({ ...form, icon: emojiData.emoji });
@@ -675,7 +828,7 @@ export default function AdminMenu() {
         {activeTab === 'categories' && <CategoriesTab categories={categories} onUpdate={fetchData} />}
       </div>
 
-      {isModalOpen && <AnimatePresence><ItemModal item={editingItem!} onClose={handleCloseModal} onSave={handleSaveItem} categories={categories} /></AnimatePresence>}
+      {isModalOpen && <ItemModal item={editingItem!} onClose={handleCloseModal} onSave={handleSaveItem} categories={categories} />}
     </div>
   );
 }
