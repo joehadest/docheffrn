@@ -218,18 +218,10 @@ export default function MenuDisplay() {
     };
 
     const handleSendToWhatsappAndSave = async () => {
-        if (!finalOrderData) return;
+        if (!finalOrderData || isSubmitting) return;
         setIsSubmitting(true);
         try {
-            const response = await fetch('/api/pedidos', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(finalOrderData),
-            });
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.message || 'Não foi possível registrar o pedido.');
-            }
+            // Monta a mensagem primeiro e tenta abrir o WhatsApp imediatamente (evita bloqueio de pop-up)
             const { cliente, tipoEntrega, endereco, formaPagamento, troco, itens, total, observacoes } = finalOrderData;
             const deliveryFee = tipoEntrega === 'entrega' ? endereco.deliveryFee : 0;
             const subtotal = total - deliveryFee;
@@ -250,12 +242,32 @@ export default function MenuDisplay() {
             const footer = formaPagamento === 'pix' ? `\n\n*Chave PIX para pagamento:*\n8498729126 (Celular)` : '';
             const message = `${header}\n${customerInfo}\n${addressInfo}\n\n*Itens do Pedido:*\n${itemsInfo}${generalObs}\n${paymentInfo}\n${totals}${footer}`;
             const whatsappUrl = `https://wa.me/558498729126?text=${encodeURIComponent(message)}`;
-            window.open(whatsappUrl, '_blank');
+
+            const popup = window.open(whatsappUrl, '_blank');
+            if (!popup) {
+                // Pop-up bloqueado: mantém o modal aberto e orienta o usuário
+                alert('Não foi possível abrir o WhatsApp. Por favor, permita pop-ups ou toque novamente.');
+                setIsSubmitting(false);
+                return;
+            }
+
+            // Salva o pedido em background (não bloquear a abertura do WhatsApp)
+            // Ignora erros aqui para não interromper a experiência do usuário
+            fetch('/api/pedidos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(finalOrderData),
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.pedidoId) setOrderSuccessId(data.pedidoId);
+                })
+                .catch(() => { /* noop */ });
+
             clearCart();
             setShowWhatsAppModal(false);
-            setOrderSuccessId(data.pedidoId);
         } catch (error) {
-            alert(error instanceof Error ? error.message : "Ocorreu um erro.");
+            alert(error instanceof Error ? error.message : 'Ocorreu um erro.');
         } finally {
             setIsSubmitting(false);
         }
