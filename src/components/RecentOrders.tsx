@@ -198,8 +198,8 @@ export default function RecentOrders() {
       }));
 
       // Detectar novos pedidos
-      const previousPedidoIds = new Set(pedidos.map(p => p._id));
-      const novosPedidos = pedidosFormatados.filter(p => !previousPedidoIds.has(p._id));
+      const previousPedidoIds = new Set(pedidos.map((p: Pedido) => p._id));
+      const novosPedidos = pedidosFormatados.filter((p: Pedido) => !previousPedidoIds.has(p._id));
       
       // Se houver novos pedidos e não for o primeiro carregamento
       if (novosPedidos.length > 0 && pedidos.length > 0) {
@@ -229,7 +229,7 @@ export default function RecentOrders() {
       // Verificar se há pedidos PIX sem comprovante ao carregar a página
       if (pedidos.length === 0 && pedidosFormatados.length > 0) {
         const pedidosPixSemComprovante = pedidosFormatados.filter(
-          p => p.formaPagamento?.toLowerCase() === 'pix' && !p.comprovante
+          (p: Pedido) => p.formaPagamento?.toLowerCase() === 'pix' && !p.comprovante
         );
         if (pedidosPixSemComprovante.length > 0) {
           const maisRecente = pedidosPixSemComprovante[0];
