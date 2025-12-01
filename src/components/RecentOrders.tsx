@@ -213,31 +213,10 @@ export default function RecentOrders() {
           // Mostra notificação
           setNewOrderNotification(`Novo pedido #${pedidoId.slice(-6)} recebido!`);
           
-          // Se for PIX e não tiver comprovante, mostra modal de comprovante
-          if (novoPedido.formaPagamento?.toLowerCase() === 'pix' && !novoPedido.comprovante) {
-            setPedidoParaComprovante(novoPedido);
-            setShowComprovanteModal(true);
-          }
-          
           // Esconde notificação após 5 segundos
           setTimeout(() => {
             setNewOrderNotification(null);
           }, 5000);
-        }
-      }
-      
-      // Verificar se há pedidos PIX sem comprovante ao carregar a página
-      if (pedidos.length === 0 && pedidosFormatados.length > 0) {
-        const pedidosPixSemComprovante = pedidosFormatados.filter(
-          (p: Pedido) => p.formaPagamento?.toLowerCase() === 'pix' && !p.comprovante
-        );
-        if (pedidosPixSemComprovante.length > 0) {
-          const maisRecente = pedidosPixSemComprovante[0];
-          if (!notifiedPedidosRef.current.has(maisRecente._id)) {
-            setPedidoParaComprovante(maisRecente);
-            setShowComprovanteModal(true);
-            notifiedPedidosRef.current.add(maisRecente._id);
-          }
         }
       }
 
