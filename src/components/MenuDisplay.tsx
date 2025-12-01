@@ -36,6 +36,8 @@ const itemVariants = {
 
 export default function MenuDisplay() {
     const [allowHalfAndHalf, setAllowHalfAndHalf] = useState(true);
+    const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+    const [successMessage, setSuccessMessage] = useState('');
     const categoriesContainerRef = useRef<HTMLDivElement>(null);
     const stickyBarRef = useRef<HTMLDivElement>(null);
     const { isOpen } = useMenu();
@@ -243,31 +245,82 @@ export default function MenuDisplay() {
             const message = `${header}\n${customerInfo}\n${addressInfo}\n\n*Itens do Pedido:*\n${itemsInfo}${generalObs}\n${paymentInfo}\n${totals}${footer}`;
             const whatsappUrl = `https://wa.me/558498729126?text=${encodeURIComponent(message)}`;
 
-            const popup = window.open(whatsappUrl, '_blank');
-            if (!popup) {
-                // Pop-up bloqueado: mantém o modal aberto e orienta o usuário
-                alert('Não foi possível abrir o WhatsApp. Por favor, permita pop-ups ou toque novamente.');
+            // IMPORTANTE: Salvar o pedido ANTES de abrir o WhatsApp
+            // Isso garante que o pedido seja registrado mesmo se o WhatsApp falhar
+            const saveResponse = await fetch('/api/pedidos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(finalOrderData),
+            });
+
+            const saveData = await saveResponse.json();
+
+            if (!saveData.success) {
+                // Se houver erro ao salvar, mostra mensagem de erro visual
+                setSuccessMessage(saveData.message || 'Erro ao salvar pedido. Por favor, tente novamente.');
+                setShowSuccessMessage(true);
+                setTimeout(() => {
+                    setShowSuccessMessage(false);
+                }, 5000);
                 setIsSubmitting(false);
                 return;
             }
 
-            // Salva o pedido em background (não bloquear a abertura do WhatsApp)
-            // Ignora erros aqui para não interromper a experiência do usuário
-            fetch('/api/pedidos', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(finalOrderData),
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data && data.pedidoId) setOrderSuccessId(data.pedidoId);
-                })
-                .catch(() => { /* noop */ });
+            // Pedido salvo com sucesso
+            if (saveData.pedidoId) {
+                setOrderSuccessId(saveData.pedidoId);
+                
+                // Mostrar mensagem de sucesso
+                setSuccessMessage('Pedido salvo com sucesso! Agora envie pelo WhatsApp para confirmar.');
+                setShowSuccessMessage(true);
+                
+                // Disparar evento para atualizar lista de pedidos
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('pedido-salvo'));
+                }
+                
+                // Esconder mensagem após 5 segundos
+                setTimeout(() => {
+                    setShowSuccessMessage(false);
+                }, 5000);
+            }
+
+            // Agora tenta abrir o WhatsApp
+            try {
+                // Primeiro, tenta abrir em nova aba
+                const popup = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+                
+                // Se pop-up foi bloqueado, tenta redirecionar diretamente
+                if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+                    // Verifica se está em dispositivo móvel
+                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                    
+                    if (isMobile) {
+                        // Em mobile, tenta abrir diretamente
+                        window.location.href = whatsappUrl;
+                    } else {
+                        // Em desktop, tenta copiar a mensagem e abrir WhatsApp silenciosamente
+                        // Sem mostrar alerts desnecessários
+                        navigator.clipboard.writeText(message).catch(() => {
+                            // Se falhar ao copiar, apenas abre o WhatsApp
+                        });
+                        window.open('https://wa.me/558498729126', '_blank');
+                    }
+                }
+            } catch (error) {
+                // Pedido já foi salvo, então apenas informa o usuário
+                // Erro silencioso - não precisa logar
+            }
 
             clearCart();
             setShowWhatsAppModal(false);
         } catch (error) {
-            alert(error instanceof Error ? error.message : 'Ocorreu um erro.');
+            // Mostra erro visual em vez de alert
+            setSuccessMessage(error instanceof Error ? error.message : 'Ocorreu um erro. Por favor, tente novamente.');
+            setShowSuccessMessage(true);
+            setTimeout(() => {
+                setShowSuccessMessage(false);
+            }, 5000);
         } finally {
             setIsSubmitting(false);
         }
@@ -460,18 +513,54 @@ export default function MenuDisplay() {
 
                 <AnimatePresence>
                     {showWhatsAppModal && finalOrderData && (
-                        <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                            <motion.div className="bg-[#262525] rounded-xl shadow-xl p-6 max-w-md w-full mx-4 text-center" initial={{ scale: 0.8 }} animate={{ scale: 1 }} exit={{ scale: 0.8 }}>
-                                <h2 className="text-xl font-bold text-red-500 mb-4">Quase lá! Finalize seu Pedido</h2>
-                                <p className="text-gray-300 mb-4 text-sm">Seu pedido será enviado para o nosso WhatsApp para confirmação.</p>
-                                <div className="bg-yellow-900/30 border border-yellow-700/50 text-yellow-300 text-xs p-3 rounded-lg mb-6">
-                                    Atenção: Seu pedido só será confirmado e enviado para o estabelecimento após ser enviado pelo WhatsApp.
+                        <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                            <motion.div className="bg-[#262525] rounded-2xl shadow-2xl p-8 max-w-lg w-full mx-4 text-center border-2 border-red-500/20" initial={{ scale: 0.8, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.8, y: 20 }} transition={{ type: "spring", damping: 20 }}>
+                                <div className="mb-6">
+                                    <div className="inline-flex items-center justify-center w-20 h-20 bg-red-500/20 rounded-full mb-4">
+                                        <FaWhatsapp className="text-4xl text-green-500" />
+                                    </div>
+                                    <h2 className="text-3xl font-bold text-red-500 mb-3">Quase lá! Finalize seu Pedido</h2>
+                                    <p className="text-gray-300 mb-6 text-base">Seu pedido será enviado para o nosso WhatsApp para confirmação.</p>
                                 </div>
-                                <div className="flex justify-center gap-4">
-                                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSendToWhatsappAndSave} disabled={isSubmitting} className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 flex items-center gap-2 font-semibold disabled:opacity-50">
-                                        {isSubmitting ? 'Enviando...' : <><FaWhatsapp /> Enviar para WhatsApp</>}
+                                
+                                <div className="bg-gradient-to-r from-yellow-900/50 to-orange-900/50 border-2 border-yellow-500/60 text-yellow-100 text-base font-semibold p-5 rounded-xl mb-8 shadow-lg animate-pulse">
+                                    <div className="flex items-start gap-3">
+                                        <span className="text-2xl">⚠️</span>
+                                        <div className="text-left">
+                                            <p className="text-lg font-bold mb-1">ATENÇÃO IMPORTANTE!</p>
+                                            <p className="text-sm leading-relaxed">
+                                                Seu pedido <span className="font-bold text-yellow-300">SÓ SERÁ CONFIRMADO</span> e enviado para o estabelecimento <span className="font-bold text-yellow-300">APÓS SER ENVIADO PELO WHATSAPP</span>.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex flex-col sm:flex-row justify-center gap-4">
+                                    <motion.button 
+                                        whileHover={{ scale: 1.05 }} 
+                                        whileTap={{ scale: 0.95 }} 
+                                        onClick={handleSendToWhatsappAndSave} 
+                                        disabled={isSubmitting} 
+                                        className="bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-4 rounded-xl hover:from-green-700 hover:to-green-800 flex items-center justify-center gap-3 font-bold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        {isSubmitting ? (
+                                            <>
+                                                <span className="animate-spin">⏳</span>
+                                                <span>Enviando...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <FaWhatsapp className="text-2xl" />
+                                                <span>Enviar para WhatsApp</span>
+                                            </>
+                                        )}
                                     </motion.button>
-                                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setShowWhatsAppModal(false)} className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">
+                                    <motion.button 
+                                        whileHover={{ scale: 1.05 }} 
+                                        whileTap={{ scale: 0.95 }} 
+                                        onClick={() => setShowWhatsAppModal(false)} 
+                                        className="bg-gray-700 text-white px-6 py-4 rounded-xl hover:bg-gray-600 font-semibold text-base transition-all"
+                                    >
                                         Cancelar
                                     </motion.button>
                                 </div>
@@ -479,6 +568,51 @@ export default function MenuDisplay() {
                         </motion.div>
                     )}
                 </AnimatePresence>
+
+                 {/* Mensagem de Sucesso/Erro */}
+                 <AnimatePresence>
+                     {showSuccessMessage && (
+                         <motion.div
+                             initial={{ opacity: 0, y: -50, scale: 0.8 }}
+                             animate={{ opacity: 1, y: 0, scale: 1 }}
+                             exit={{ opacity: 0, y: -20, scale: 0.9 }}
+                             transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                             className="fixed top-6 left-1/2 transform -translate-x-1/2 z-[60] max-w-md w-full mx-4"
+                         >
+                             <div className={`${successMessage.includes('Erro') || successMessage.includes('erro') ? 'bg-gradient-to-r from-red-600 to-red-700 border-red-400/50' : 'bg-gradient-to-r from-green-600 to-green-700 border-green-400/50'} text-white p-6 rounded-2xl shadow-2xl border-2 backdrop-blur-sm`}>
+                                 <div className="flex items-center gap-4">
+                                     <div className="flex-shrink-0">
+                                         <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+                                             {successMessage.includes('Erro') || successMessage.includes('erro') ? (
+                                                 <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                                                 </svg>
+                                             ) : (
+                                                 <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                 </svg>
+                                             )}
+                                         </div>
+                                     </div>
+                                     <div className="flex-1">
+                                         <h3 className="text-xl font-bold mb-1">
+                                             {successMessage.includes('Erro') || successMessage.includes('erro') ? 'Erro!' : 'Pedido Salvo!'}
+                                         </h3>
+                                         <p className={`${successMessage.includes('Erro') || successMessage.includes('erro') ? 'text-red-100' : 'text-green-100'} text-sm leading-relaxed`}>{successMessage}</p>
+                                     </div>
+                                     <button
+                                         onClick={() => setShowSuccessMessage(false)}
+                                         className="flex-shrink-0 text-white/80 hover:text-white transition-colors"
+                                     >
+                                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                         </svg>
+                                     </button>
+                                 </div>
+                             </div>
+                         </motion.div>
+                     )}
+                 </AnimatePresence>
 
                 <AnimatePresence>
                     {cartItems.length > 0 && (

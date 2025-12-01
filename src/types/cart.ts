@@ -66,4 +66,8 @@ export interface Pedido {
     status: 'pendente' | 'preparando' | 'pronto' | 'em_entrega' | 'entregue' | 'cancelado';
     data: string;
     troco?: string;
+    comprovante?: {
+        url: string;
+        uploadedAt: string;
+    };
 }

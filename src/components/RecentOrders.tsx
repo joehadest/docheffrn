@@ -48,6 +48,10 @@ interface Pedido {
   formaPagamento?: string;
   troco?: string;
   tipoEntrega?: string;
+  comprovante?: {
+    url: string;
+    uploadedAt: string;
+  };
 }
 
 const statusColors: Record<PedidoStatus, string> = {
@@ -106,6 +110,11 @@ export default function RecentOrders() {
   const [searchFilter, setSearchFilter] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
+  const [uploadingComprovante, setUploadingComprovante] = useState<string | null>(null);
+  const [newOrderNotification, setNewOrderNotification] = useState<string | null>(null);
+  const [showComprovanteModal, setShowComprovanteModal] = useState(false);
+  const [pedidoParaComprovante, setPedidoParaComprovante] = useState<Pedido | null>(null);
+  const notifiedPedidosRef = useRef<Set<string>>(new Set());
   const [statusUpdateCount, setStatusUpdateCount] = useState<Record<string, number>>(() => {
     if (typeof window !== 'undefined') {
       const savedCounts = localStorage.getItem('statusUpdateCounts');
@@ -129,14 +138,14 @@ export default function RecentOrders() {
       const telefone = localStorage.getItem('customerPhone');
 
       // Se não houver telefone, não buscar pedidos
-      if (!telefone) {
+      if (!telefone || !telefone.trim()) {
         setPedidos([]);
         setLoading(false);
         return;
       }
 
-      // Construir a URL com o parâmetro de telefone
-      const url = `/api/pedidos?telefone=${encodeURIComponent(telefone)}`;
+      // Construir a URL com o parâmetro de telefone (sempre obrigatório)
+      const url = `/api/pedidos?telefone=${encodeURIComponent(telefone.trim())}`;
 
       const response = await fetch(url);
       const data = await response.json();
@@ -145,8 +154,26 @@ export default function RecentOrders() {
         throw new Error(data.message || 'Erro ao carregar pedidos');
       }
 
+      // Filtrar apenas pedidos do cliente atual (segurança extra)
+      const telefoneCliente = telefone.trim();
+      const telefoneClienteNormalizado = telefoneCliente.replace(/\D/g, '');
+      
+      const pedidosFiltrados = (data.data || []).filter((pedido: any) => {
+        const telefonePedido = pedido.cliente?.telefone || '';
+        if (!telefonePedido) return false;
+        
+        // Comparar telefones normalizados (apenas dígitos)
+        const telefonePedidoNormalizado = telefonePedido.replace(/\D/g, '');
+        
+        // Comparação exata ou se um contém o outro (para casos como "8498729126" vs "8498729126")
+        return telefoneClienteNormalizado === telefonePedidoNormalizado || 
+               (telefoneClienteNormalizado.length >= 8 && telefonePedidoNormalizado.includes(telefoneClienteNormalizado)) ||
+               (telefonePedidoNormalizado.length >= 8 && telefoneClienteNormalizado.includes(telefonePedidoNormalizado));
+      });
+
+
       // Garantir que os pedidos tenham todos os campos necessários
-      const pedidosFormatados = (data.data || []).map((pedido: any) => ({
+      const pedidosFormatados = pedidosFiltrados.map((pedido: any) => ({
         ...pedido,
         itens: pedido.itens || [],
         total: pedido.total || 0,
@@ -166,8 +193,53 @@ export default function RecentOrders() {
         },
         formaPagamento: pedido.formaPagamento || '',
         observacoes: pedido.observacoes || '',
-        tipoEntrega: pedido.tipoEntrega || 'entrega'
+        tipoEntrega: pedido.tipoEntrega || 'entrega',
+        comprovante: pedido.comprovante || undefined
       }));
+
+      // Detectar novos pedidos
+      const previousPedidoIds = new Set(pedidos.map(p => p._id));
+      const novosPedidos = pedidosFormatados.filter(p => !previousPedidoIds.has(p._id));
+      
+      // Se houver novos pedidos e não for o primeiro carregamento
+      if (novosPedidos.length > 0 && pedidos.length > 0) {
+        const novoPedido = novosPedidos[0]; // Pega o mais recente
+        const pedidoId = novoPedido._id;
+        
+        // Verifica se já notificou sobre este pedido
+        if (!notifiedPedidosRef.current.has(pedidoId)) {
+          notifiedPedidosRef.current.add(pedidoId);
+          
+          // Mostra notificação
+          setNewOrderNotification(`Novo pedido #${pedidoId.slice(-6)} recebido!`);
+          
+          // Se for PIX e não tiver comprovante, mostra modal de comprovante
+          if (novoPedido.formaPagamento?.toLowerCase() === 'pix' && !novoPedido.comprovante) {
+            setPedidoParaComprovante(novoPedido);
+            setShowComprovanteModal(true);
+          }
+          
+          // Esconde notificação após 5 segundos
+          setTimeout(() => {
+            setNewOrderNotification(null);
+          }, 5000);
+        }
+      }
+      
+      // Verificar se há pedidos PIX sem comprovante ao carregar a página
+      if (pedidos.length === 0 && pedidosFormatados.length > 0) {
+        const pedidosPixSemComprovante = pedidosFormatados.filter(
+          p => p.formaPagamento?.toLowerCase() === 'pix' && !p.comprovante
+        );
+        if (pedidosPixSemComprovante.length > 0) {
+          const maisRecente = pedidosPixSemComprovante[0];
+          if (!notifiedPedidosRef.current.has(maisRecente._id)) {
+            setPedidoParaComprovante(maisRecente);
+            setShowComprovanteModal(true);
+            notifiedPedidosRef.current.add(maisRecente._id);
+          }
+        }
+      }
 
       setPedidos(pedidosFormatados);
       setLastUpdate(now);
@@ -258,6 +330,45 @@ export default function RecentOrders() {
     }
   };
 
+  const handleUploadComprovante = async (pedidoId: string, file: File) => {
+    try {
+      setUploadingComprovante(pedidoId);
+      setError(null);
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`/api/pedidos/${pedidoId}/comprovante`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.message || 'Erro ao enviar comprovante');
+      }
+
+      // Atualizar pedido localmente
+      setPedidos(pedidos.map(pedido =>
+        pedido._id === pedidoId
+          ? { ...pedido, comprovante: data.data }
+          : pedido
+      ));
+
+      setMensagem('Comprovante enviado com sucesso!');
+      setTimeout(() => setMensagem(null), 3000);
+
+      // Força atualização
+      fetchPedidos(true);
+    } catch (error) {
+      console.error('Erro ao enviar comprovante:', error);
+      setError(error instanceof Error ? error.message : 'Erro ao enviar comprovante');
+    } finally {
+      setUploadingComprovante(null);
+    }
+  };
+
   useEffect(() => {
     fetchPedidos(true); // Carrega inicialmente
 
@@ -266,7 +377,29 @@ export default function RecentOrders() {
       fetchPedidos();
     }, UPDATE_INTERVAL);
 
-    return () => clearInterval(interval);
+    // Atualizar quando a página voltar ao foco (útil após voltar do WhatsApp)
+    const handleFocus = () => {
+      fetchPedidos(true);
+    };
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        fetchPedidos(true);
+      }
+    });
+
+    // Listener para evento customizado de novo pedido
+    const handleNewOrder = () => {
+      fetchPedidos(true);
+    };
+    window.addEventListener('pedido-salvo', handleNewOrder);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('visibilitychange', handleFocus);
+      window.removeEventListener('pedido-salvo', handleNewOrder);
+    };
   }, []);
 
   useEffect(() => {
@@ -445,9 +578,10 @@ export default function RecentOrders() {
           {pedidos.map((pedido) => (
             <motion.div
               key={pedido._id}
+              id={`pedido-${pedido._id}`}
               variants={itemVariants}
               exit="exit"
-              className="bg-white rounded-lg shadow-md p-4"
+              className="bg-white rounded-lg shadow-md p-4 transition-all"
             >
               <div className="flex justify-between items-start mb-4">
                 <div>
@@ -567,6 +701,71 @@ export default function RecentOrders() {
                   <span>R$ {pedido.total.toFixed(2)}</span>
                 </div>
               </div>
+
+              {/* Seção de Comprovante para pagamentos PIX */}
+              {pedido.formaPagamento?.toLowerCase() === 'pix' && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h4 className="font-medium text-sm text-gray-700 mb-2">Comprovante de Pagamento</h4>
+                  {pedido.comprovante ? (
+                    <div className="space-y-2">
+                      <div className="text-sm text-green-600 font-semibold">
+                        ✓ Comprovante enviado
+                      </div>
+                      <a
+                        href={pedido.comprovante.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block text-sm text-blue-600 hover:text-blue-800 underline"
+                      >
+                        Ver comprovante
+                      </a>
+                      <p className="text-xs text-gray-500">
+                        Enviado em: {new Date(pedido.comprovante.uploadedAt).toLocaleString('pt-BR')}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-600">
+                        Envie o comprovante do pagamento PIX
+                      </p>
+                      <label className="block">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              handleUploadComprovante(pedido._id, file);
+                            }
+                          }}
+                          disabled={uploadingComprovante === pedido._id}
+                        />
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          disabled={uploadingComprovante === pedido._id}
+                          className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
+                          onClick={() => {
+                            const input = document.createElement('input');
+                            input.type = 'file';
+                            input.accept = 'image/*';
+                            input.onchange = (e) => {
+                              const file = (e.target as HTMLInputElement).files?.[0];
+                              if (file) {
+                                handleUploadComprovante(pedido._id, file);
+                              }
+                            };
+                            input.click();
+                          }}
+                        >
+                          {uploadingComprovante === pedido._id ? 'Enviando...' : 'Enviar Comprovante'}
+                        </motion.button>
+                      </label>
+                    </div>
+                  )}
+                </div>
+              )}
             </motion.div>
           ))}
         </motion.div>
@@ -577,6 +776,128 @@ export default function RecentOrders() {
           {mensagemCompartilhamento}
         </div>
       )}
+
+      {mensagem && (
+        <div className="mt-4 p-3 bg-green-900 border border-green-700 text-green-200 rounded text-center font-semibold">
+          {mensagem}
+        </div>
+      )}
+
+      {/* Notificação de Novo Pedido */}
+      <AnimatePresence>
+        {newOrderNotification && (
+          <motion.div
+            initial={{ opacity: 0, y: -50, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="fixed top-6 left-1/2 transform -translate-x-1/2 z-[60] max-w-md w-full mx-4"
+          >
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 rounded-2xl shadow-2xl border-2 border-blue-400/50 backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <p className="text-white font-semibold text-sm">{newOrderNotification}</p>
+                </div>
+                <button
+                  onClick={() => setNewOrderNotification(null)}
+                  className="flex-shrink-0 text-white/80 hover:text-white transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Lembrete de Comprovante */}
+      <AnimatePresence>
+        {showComprovanteModal && pedidoParaComprovante && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm"
+            onClick={() => setShowComprovanteModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.8, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.8, y: 20 }}
+              transition={{ type: "spring", damping: 20 }}
+              className="bg-[#262525] rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 text-center border-2 border-yellow-500/30"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-6">
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-yellow-500/20 rounded-full mb-4">
+                  <svg className="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-yellow-400 mb-3">Novo Pedido Recebido!</h2>
+                <p className="text-gray-300 mb-4 text-base">
+                  Pedido #{pedidoParaComprovante._id.slice(-6)} foi registrado com sucesso.
+                </p>
+              </div>
+              
+              <div className="bg-gradient-to-r from-yellow-900/50 to-orange-900/50 border-2 border-yellow-500/60 text-yellow-100 text-base font-semibold p-5 rounded-xl mb-6 shadow-lg">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">📸</span>
+                  <div className="text-left">
+                    <p className="text-lg font-bold mb-2">Envie o Comprovante de Pagamento</p>
+                    <p className="text-sm leading-relaxed">
+                      Para confirmar seu pedido, por favor <span className="font-bold text-yellow-300">envie o comprovante do pagamento PIX</span> na seção do pedido abaixo.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row justify-center gap-4">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    setShowComprovanteModal(false);
+                    // Scroll para o pedido
+                    const pedidoElement = document.getElementById(`pedido-${pedidoParaComprovante._id}`);
+                    if (pedidoElement) {
+                      pedidoElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      // Destacar o pedido
+                      pedidoElement.classList.add('ring-4', 'ring-yellow-500', 'ring-offset-2');
+                      setTimeout(() => {
+                        pedidoElement.classList.remove('ring-4', 'ring-yellow-500', 'ring-offset-2');
+                      }, 3000);
+                    }
+                  }}
+                  className="bg-gradient-to-r from-yellow-600 to-yellow-700 text-white px-8 py-4 rounded-xl hover:from-yellow-700 hover:to-yellow-800 flex items-center justify-center gap-3 font-bold text-lg shadow-lg transition-all"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13l-3-3m0 0l-3 3m3-3v8" />
+                  </svg>
+                  <span>Ver Pedido</span>
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowComprovanteModal(false)}
+                  className="bg-gray-700 text-white px-6 py-4 rounded-xl hover:bg-gray-600 font-semibold text-base transition-all"
+                >
+                  Fechar
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Modal de detalhes */}
       {pedidoSelecionado && (
@@ -661,6 +982,63 @@ export default function RecentOrders() {
               <div className="flex justify-between text-sm text-gray-300">
                 <span>Troco para:</span>
                 <span>R$ {pedidoSelecionado.troco || '-'}</span>
+              </div>
+            )}
+            {pedidoSelecionado.formaPagamento?.toLowerCase() === 'pix' && (
+              <div className="mb-2 text-xs">
+                <h4 className="font-semibold mb-1">Comprovante de Pagamento:</h4>
+                {pedidoSelecionado.comprovante ? (
+                  <div className="space-y-1">
+                    <div className="text-green-400 font-semibold">✓ Comprovante enviado</div>
+                    <a
+                      href={pedidoSelecionado.comprovante.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block text-blue-400 hover:text-blue-300 underline"
+                    >
+                      Ver comprovante
+                    </a>
+                    <p className="text-gray-400 text-xs">
+                      Enviado em: {new Date(pedidoSelecionado.comprovante.uploadedAt).toLocaleString('pt-BR')}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-gray-300">Envie o comprovante do pagamento PIX</p>
+                    <label className="block">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handleUploadComprovante(pedidoSelecionado._id, file);
+                          }
+                        }}
+                        disabled={uploadingComprovante === pedidoSelecionado._id}
+                      />
+                      <button
+                        disabled={uploadingComprovante === pedidoSelecionado._id}
+                        className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-xs"
+                        onClick={() => {
+                          const input = document.createElement('input');
+                          input.type = 'file';
+                          input.accept = 'image/*';
+                          input.onchange = (e) => {
+                            const file = (e.target as HTMLInputElement).files?.[0];
+                            if (file) {
+                              handleUploadComprovante(pedidoSelecionado._id, file);
+                            }
+                          };
+                          input.click();
+                        }}
+                      >
+                        {uploadingComprovante === pedidoSelecionado._id ? 'Enviando...' : 'Enviar Comprovante'}
+                      </button>
+                    </label>
+                  </div>
+                )}
               </div>
             )}
             <div className="font-bold text-orange-600 mt-2 text-lg flex justify-between">

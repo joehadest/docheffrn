@@ -101,10 +101,29 @@ export async function GET(request: Request) {
             return NextResponse.json({ success: true, data: pedido });
         }
 
-        let query = {};
-        if (telefone) {
-            query = { 'cliente.telefone': telefone };
+        // Se telefone foi fornecido, buscar apenas pedidos desse cliente
+        // Se não foi fornecido, retornar TODOS os pedidos (para o painel admin)
+        let query: any = {};
+        
+        if (telefone && telefone.trim()) {
+            // Normalizar telefone removendo caracteres especiais para busca mais flexível
+            const telefoneNormalizado = telefone.replace(/\D/g, ''); // Remove tudo que não é dígito
+            
+            // Se o telefone normalizado tiver menos de 8 dígitos, usar apenas busca exata
+            if (telefoneNormalizado.length >= 8) {
+                // Buscar por correspondência exata ou que contenha os dígitos normalizados
+                query = {
+                    $or: [
+                        { 'cliente.telefone': telefone },
+                        { 'cliente.telefone': { $regex: telefoneNormalizado, $options: 'i' } }
+                    ]
+                };
+            } else {
+                // Se telefone muito curto, usar apenas busca exata
+                query = { 'cliente.telefone': telefone };
+            }
         }
+        // Se não há telefone, query fica vazio {} e retorna todos os pedidos (para admin)
 
         const pedidos = await collection.find(query).sort({ data: -1 }).toArray();
         return NextResponse.json({ success: true, data: pedidos });

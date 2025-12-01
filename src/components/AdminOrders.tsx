@@ -204,6 +204,19 @@ export default function AdminOrders() {
                         setNewOrderNotification(`Novo pedido recebido! #${String(pedidoNovo._id).slice(-6)}`);
                     }
                 }
+                if (payload?.type === 'comprovante-enviado' && payload.pedidoId) {
+                    // Atualizar pedido quando comprovante é enviado
+                    const res = await fetch(`/api/pedidos?id=${payload.pedidoId}&ts=${Date.now()}`, { cache: 'no-store' });
+                    const single = await res.json();
+                    if (single?.success && single.data) {
+                        const pedidoAtualizado: Pedido = single.data;
+                        setPedidos(prev => prev.map(p => p._id === pedidoAtualizado._id ? pedidoAtualizado : p));
+                        setNewOrderNotification(`Comprovante recebido para pedido #${String(pedidoAtualizado._id).slice(-6)}`);
+                        if (userInteractedRef.current) {
+                            await playNotificationSound();
+                        }
+                    }
+                }
             } catch (e) { console.warn('Falha ao processar evento SSE', e); }
         };
         es.onerror = () => {
@@ -553,6 +566,29 @@ export default function AdminOrders() {
                                 <div className="space-y-1">
                                     <div className="flex justify-between"><span className="text-gray-400">Forma:</span> <span className="text-white font-medium">{pedidoSelecionado.formaPagamento}</span></div>
                                     {pedidoSelecionado.formaPagamento === 'dinheiro' && <div className="flex justify-between"><span className="text-gray-400">Troco para:</span> <span className="text-white">R$ {pedidoSelecionado.troco || '-'}</span></div>}
+                                    {pedidoSelecionado.formaPagamento?.toLowerCase() === 'pix' && (
+                                        <div className="mt-2 pt-2 border-t border-gray-600">
+                                            <div className="text-gray-400 text-sm mb-2">Comprovante de Pagamento:</div>
+                                            {pedidoSelecionado.comprovante ? (
+                                                <div className="space-y-2">
+                                                    <div className="text-green-400 font-semibold text-sm">✓ Comprovante recebido</div>
+                                                    <a
+                                                        href={pedidoSelecionado.comprovante.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="block text-blue-400 hover:text-blue-300 underline text-sm"
+                                                    >
+                                                        Ver comprovante
+                                                    </a>
+                                                    <p className="text-gray-500 text-xs">
+                                                        Enviado em: {new Date(pedidoSelecionado.comprovante.uploadedAt).toLocaleString('pt-BR')}
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="text-yellow-400 text-sm">⏳ Aguardando comprovante</div>
+                                            )}
+                                        </div>
+                                    )}
 
                                     <div className="flex justify-between pt-2 border-t border-gray-700 mt-2">
                                         <span className="text-gray-400">Subtotal:</span>
