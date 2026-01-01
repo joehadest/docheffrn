@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
+import { hashPassword, comparePassword, isHashedPassword } from '@/lib/passwordUtils';
 
 // Conexão com MongoDB
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -88,7 +89,18 @@ export async function POST(request: Request) {
         await connectDB();
         const settings = await Settings.findOne() || await Settings.create({});
 
-        if (settings.adminPassword === password) {
+        // Se a senha não está hasheada (migração de versão antiga), hash ela agora
+        if (settings.adminPassword && !isHashedPassword(settings.adminPassword)) {
+            settings.adminPassword = await hashPassword(settings.adminPassword);
+            await settings.save();
+        }
+
+        // Compara a senha fornecida com o hash armazenado
+        const isPasswordValid = settings.adminPassword 
+            ? await comparePassword(password, settings.adminPassword)
+            : false;
+
+        if (isPasswordValid) {
             const res = NextResponse.json({ success: true, message: 'Senha correta' });
             res.cookies.set('isAuthenticated', 'true', { httpOnly: true, path: '/admin', maxAge: 60 * 60 * 24 });
             return res;
@@ -129,16 +141,26 @@ export async function PUT(request: Request) {
         await connectDB();
         const settings = await Settings.findOne() || await Settings.create({});
 
+        // Se a senha não está hasheada (migração de versão antiga), hash ela primeiro
+        if (settings.adminPassword && !isHashedPassword(settings.adminPassword)) {
+            settings.adminPassword = await hashPassword(settings.adminPassword);
+            await settings.save();
+        }
+
         // Verifica se a senha atual está correta
-        if (settings.adminPassword !== currentPassword) {
+        const isCurrentPasswordValid = settings.adminPassword 
+            ? await comparePassword(currentPassword, settings.adminPassword)
+            : false;
+
+        if (!isCurrentPasswordValid) {
             return NextResponse.json(
                 { success: false, message: 'Senha atual incorreta' },
                 { status: 401 }
             );
         }
 
-        // Atualiza a senha
-        settings.adminPassword = newPassword;
+        // Hash e atualiza a nova senha
+        settings.adminPassword = await hashPassword(newPassword);
         settings.lastUpdated = new Date();
         await settings.save();
 

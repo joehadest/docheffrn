@@ -241,7 +241,7 @@ export default function MenuDisplay() {
             }).join('\n');
             const generalObs = observacoes ? `\n\n*Observacoes Gerais:*\n${observacoes}` : '';
             const totals = `\n\n*Valores:*\nSubtotal: R$ ${subtotal.toFixed(2)}\nTaxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n*Total: R$ ${total.toFixed(2)}*`;
-            const footer = formaPagamento === 'pix' ? `\n\n*Chave PIX para pagamento:*\n8498729126 (Celular)` : '';
+            const footer = formaPagamento === 'pix' ? `\n\n*Chave PIX para pagamento:*\n84987291269 (Celular)` : '';
             const message = `${header}\n${customerInfo}\n${addressInfo}\n\n*Itens do Pedido:*\n${itemsInfo}${generalObs}\n${paymentInfo}\n${totals}${footer}`;
             const whatsappUrl = `https://wa.me/558498729126?text=${encodeURIComponent(message)}`;
 

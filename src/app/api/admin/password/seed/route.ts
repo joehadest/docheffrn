@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
+import { hashPassword } from '@/lib/passwordUtils';
 
 // Conexão com MongoDB
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -80,30 +81,44 @@ export async function POST() {
         // Verifica se já existe um documento de configurações
         let settings = await Settings.findOne();
         
+        const defaultPassword = 'admin123';
+        const hashedPassword = await hashPassword(defaultPassword);
+
         if (!settings) {
-            // Cria um novo documento com a senha padrão
+            // Cria um novo documento com a senha padrão hasheada
             settings = await Settings.create({
-                adminPassword: 'admin123',
+                adminPassword: hashedPassword,
                 lastUpdated: new Date()
             });
             return NextResponse.json({ 
                 success: true, 
-                message: 'Configurações iniciais criadas com senha padrão: admin123' 
+                message: 'Configurações iniciais criadas com senha padrão: admin123 (hasheada)' 
             });
         } else {
             // Se já existe, verifica se tem senha
             if (!settings.adminPassword) {
-                settings.adminPassword = 'admin123';
+                settings.adminPassword = hashedPassword;
                 settings.lastUpdated = new Date();
                 await settings.save();
                 return NextResponse.json({ 
                     success: true, 
-                    message: 'Senha padrão adicionada: admin123' 
+                    message: 'Senha padrão adicionada: admin123 (hasheada)' 
                 });
             } else {
+                // Se já tem senha mas não está hasheada, hash ela
+                const bcryptPattern = /^\$2[ayb]\$\d{2}\$[./A-Za-z0-9]{53}$/;
+                if (!bcryptPattern.test(settings.adminPassword)) {
+                    settings.adminPassword = await hashPassword(settings.adminPassword);
+                    settings.lastUpdated = new Date();
+                    await settings.save();
+                    return NextResponse.json({ 
+                        success: true, 
+                        message: 'Senha existente foi hasheada com sucesso' 
+                    });
+                }
                 return NextResponse.json({ 
                     success: true, 
-                    message: 'Configurações já existem com senha definida' 
+                    message: 'Configurações já existem com senha definida e hasheada' 
                 });
             }
         }

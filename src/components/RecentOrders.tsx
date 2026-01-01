@@ -410,7 +410,7 @@ export default function RecentOrders() {
           ` - R$ ${(item.preco * item.quantidade).toFixed(2)}`
         ).join('\n') + '\n\n' +
         `*Forma de Pagamento:* ${pedido.formaPagamento?.toLowerCase() === 'pix' ? 'PIX' : 'Dinheiro'}\n` +
-        (pedido.formaPagamento?.toLowerCase() === 'pix' ? `*Chave PIX:* 8498729126\n` : '') +
+        (pedido.formaPagamento?.toLowerCase() === 'pix' ? `*Chave PIX:* 84987291269\n` : '') +
         `*Total:* R$ ${pedido.total.toFixed(2)}`;
 
       if (navigator.share) {
@@ -510,7 +510,7 @@ export default function RecentOrders() {
                 'Dinheiro'
           }</p>
           {pedido.formaPagamento?.toLowerCase() === 'pix' && (
-            <p className="text-gray-300">Chave PIX: 8498729126</p>
+            <p className="text-gray-300">Chave PIX: 84987291269</p>
           )}
         </div>
 

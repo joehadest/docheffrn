@@ -66,16 +66,11 @@ async function checkRestaurantStatus(): Promise<boolean> {
 
         const settings = await Settings.findOne() || await Settings.create({});
         if (!settings) {
-            console.log('Nenhuma configuração encontrada no banco');
             return false;
         }
 
         // Usar a função utilitária para verificar o status
         const status = getRestaurantStatus(settings.businessHours as BusinessHoursConfig);
-        
-        console.log('=== Verificação de Status na API de Pedidos ===');
-        console.log('Status detalhado:', status);
-        console.log('==============================================');
 
         return status.isOpen;
     } catch (error) {

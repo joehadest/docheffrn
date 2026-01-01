@@ -142,16 +142,12 @@ export async function GET() {
 export async function PUT(request: Request) {
     try {
     const { isOpen, deliveryFees, businessHours, allowHalfAndHalf } = await request.json();
-        console.log('Recebendo dados para atualização:', { isOpen, deliveryFees, businessHours });
 
         await connectDB();
-        console.log('Conexão com o banco estabelecida');
 
         let settings = await Settings.findOne();
-        console.log('Configurações encontradas:', settings);
 
         if (!settings) {
-            console.log('Criando novas configurações');
             settings = await Settings.create({
                 isOpen,
                 deliveryFees,
@@ -160,7 +156,6 @@ export async function PUT(request: Request) {
                 lastUpdated: new Date()
             });
         } else {
-            console.log('Atualizando configurações existentes');
             settings.isOpen = isOpen;
             settings.deliveryFees = deliveryFees;
             settings.businessHours = businessHours;
@@ -168,8 +163,6 @@ export async function PUT(request: Request) {
             settings.lastUpdated = new Date();
             await settings.save();
         }
-
-        console.log('Configurações salvas com sucesso:', settings);
         return NextResponse.json({ success: true, data: settings });
     } catch (error) {
         console.error('Erro ao atualizar configurações:', error);
