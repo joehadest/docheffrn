@@ -65,6 +65,7 @@ export default function AdminOrders() {
     const [loading, setLoading] = useState(true);
     const [pedidoSelecionado, setPedidoSelecionado] = useState<Pedido | null>(null);
     const [mensagem, setMensagem] = useState<string | null>(null);
+    const [pixKey, setPixKey] = useState('84987291269'); // Valor padrão
     const [mensagemCompartilhamento, setMensagemCompartilhamento] = useState<string | null>(null);
     const [phoneFilter, setPhoneFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
@@ -139,6 +140,22 @@ export default function AdminOrders() {
             window.removeEventListener('click', enableAudio);
             window.removeEventListener('keydown', enableAudio);
         };
+    }, []);
+
+    // Buscar chave PIX das configurações
+    useEffect(() => {
+        async function fetchPixKey() {
+            try {
+                const res = await fetch('/api/settings');
+                const data = await res.json();
+                if (data.success && data.data?.pixKey) {
+                    setPixKey(data.data.pixKey);
+                }
+            } catch (error) {
+                // Mantém o valor padrão em caso de erro
+            }
+        }
+        fetchPixKey();
     }, []);
 
     const fetchPedidos = async (isPolling = false) => {
@@ -284,7 +301,7 @@ export default function AdminOrders() {
             `*Endereço de Entrega:*\n${enderecoFormatado}\n\n` +
             `*Itens do Pedido:*\n${itensFormatados}\n\n` +
             `*Resumo Financeiro:*\nSubtotal: R$ ${subtotal.toFixed(2)}${taxaEntrega}\n*Total: R$ ${total.toFixed(2)}*\n\n` +
-            `*Forma de Pagamento:* ${formaPagamento}${troco}\n\n` +
+            `*Forma de Pagamento:* ${formaPagamento}${troco}${pedido.formaPagamento === 'pix' ? `\n*Chave PIX:* ${pixKey}` : ''}\n\n` +
             `*Observações Gerais:*\n${pedido.observacoes || 'Nenhuma'}`;
         if (navigator.share) {
             navigator.share({ title: `Pedido Do'Cheff #${pedido._id.slice(-6)}`, text: mensagem }).catch(err => console.error('Erro ao compartilhar:', err));

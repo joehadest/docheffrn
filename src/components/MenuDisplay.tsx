@@ -56,6 +56,7 @@ export default function MenuDisplay() {
     const [deliveryFees, setDeliveryFees] = useState<{ neighborhood: string; fee: number }[]>([]);
     const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
     const [selectedPasta, setSelectedPasta] = useState<MenuItem | null>(null);
+    const [pixKey, setPixKey] = useState('84987291269'); // Valor padrão
     const categoryElementsRef = useRef<{ [key: string]: HTMLElement | null }>({});
 
     const isClickScrolling = useRef(false);
@@ -107,6 +108,7 @@ export default function MenuDisplay() {
                 if (settingsData.success && settingsData.data) {
                     setDeliveryFees(settingsData.data.deliveryFees || []);
                     setAllowHalfAndHalf(settingsData.data.allowHalfAndHalf === true);
+                    setPixKey(settingsData.data.pixKey || '84987291269');
                     if (settingsData.data.businessHours) {
                         setIsRestaurantOpen(checkRestaurantOpen(settingsData.data.businessHours as BusinessHoursConfig));
                     } else {
@@ -241,9 +243,11 @@ export default function MenuDisplay() {
             }).join('\n');
             const generalObs = observacoes ? `\n\n*Observacoes Gerais:*\n${observacoes}` : '';
             const totals = `\n\n*Valores:*\nSubtotal: R$ ${subtotal.toFixed(2)}\nTaxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n*Total: R$ ${total.toFixed(2)}*`;
-            const footer = formaPagamento === 'pix' ? `\n\n*Chave PIX para pagamento:*\n84987291269 (Celular)` : '';
+            const footer = formaPagamento === 'pix' ? `\n\n*Chave PIX para pagamento:*\n${pixKey} (Celular)` : '';
             const message = `${header}\n${customerInfo}\n${addressInfo}\n\n*Itens do Pedido:*\n${itemsInfo}${generalObs}\n${paymentInfo}\n${totals}${footer}`;
-            const whatsappUrl = `https://wa.me/558498729126?text=${encodeURIComponent(message)}`;
+            // Extrai apenas os números da chave PIX para o número do WhatsApp (remove formatação)
+            const whatsappNumber = pixKey.replace(/\D/g, '');
+            const whatsappUrl = `https://wa.me/55${whatsappNumber}?text=${encodeURIComponent(message)}`;
 
             // IMPORTANTE: Salvar o pedido ANTES de abrir o WhatsApp
             // Isso garante que o pedido seja registrado mesmo se o WhatsApp falhar
@@ -304,7 +308,8 @@ export default function MenuDisplay() {
                         navigator.clipboard.writeText(message).catch(() => {
                             // Se falhar ao copiar, apenas abre o WhatsApp
                         });
-                        window.open('https://wa.me/558498729126', '_blank');
+                        const whatsappNumber = pixKey.replace(/\D/g, '');
+                        window.open(`https://wa.me/55${whatsappNumber}`, '_blank');
                     }
                 }
             } catch (error) {

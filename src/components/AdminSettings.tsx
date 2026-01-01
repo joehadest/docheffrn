@@ -33,6 +33,7 @@ export default function AdminSettings() {
   });
   const [newNeighborhood, setNewNeighborhood] = useState('');
   const [newFee, setNewFee] = useState('');
+  const [pixKey, setPixKey] = useState('');
   const [loading, setLoading] = useState(true);
 
   const checkOpenStatus = useCallback(() => getRestaurantStatus(businessHours).isOpen, [businessHours]);
@@ -46,6 +47,7 @@ export default function AdminSettings() {
         if (data.success && data.data) {
           setBusinessHours(data.data.businessHours || {});
           setDeliveryFees(data.data.deliveryFees || []);
+          setPixKey(data.data.pixKey || '84987291269');
         }
       } catch {
         setSaveMessage('Erro ao carregar configurações.');
@@ -72,7 +74,7 @@ export default function AdminSettings() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ businessHours, deliveryFees }) });
+      const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ businessHours, deliveryFees, pixKey }) });
       setSaveMessage(res.ok ? 'Salvo com sucesso!' : 'Erro ao salvar.');
     } catch { setSaveMessage('Erro de conexão.'); } finally {
       setIsSaving(false); setTimeout(() => setSaveMessage(''), 3000);
@@ -153,6 +155,26 @@ export default function AdminSettings() {
             <input type="text" value={newNeighborhood} onChange={e => setNewNeighborhood(e.target.value)} placeholder="Bairro" className="form-input" />
             <input type="number" value={newFee} onChange={e => setNewFee(e.target.value)} placeholder="Taxa" className="form-input sm:w-28" />
             <button onClick={handleAddFee} className="form-button-secondary">Adicionar</button>
+          </div>
+        </SettingsCard>
+
+        <SettingsCard title="Chave PIX">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Chave PIX para Pagamento
+              </label>
+              <input
+                type="text"
+                value={pixKey}
+                onChange={(e) => setPixKey(e.target.value)}
+                placeholder="Digite a chave PIX"
+                className="form-input w-full"
+              />
+              <p className="mt-2 text-xs text-gray-400">
+                Esta chave será exibida nas mensagens do WhatsApp quando o pagamento for via PIX.
+              </p>
+            </div>
           </div>
         </SettingsCard>
       </div>

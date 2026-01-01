@@ -114,6 +114,7 @@ export default function RecentOrders() {
   const [newOrderNotification, setNewOrderNotification] = useState<string | null>(null);
   const [showComprovanteModal, setShowComprovanteModal] = useState(false);
   const [pedidoParaComprovante, setPedidoParaComprovante] = useState<Pedido | null>(null);
+  const [pixKey, setPixKey] = useState('84987291269'); // Valor padrão
   const notifiedPedidosRef = useRef<Set<string>>(new Set());
   const [statusUpdateCount, setStatusUpdateCount] = useState<Record<string, number>>(() => {
     if (typeof window !== 'undefined') {
@@ -348,6 +349,22 @@ export default function RecentOrders() {
     }
   };
 
+  // Buscar chave PIX das configurações
+  useEffect(() => {
+    async function fetchPixKey() {
+      try {
+        const res = await fetch('/api/settings');
+        const data = await res.json();
+        if (data.success && data.data?.pixKey) {
+          setPixKey(data.data.pixKey);
+        }
+      } catch (error) {
+        // Mantém o valor padrão em caso de erro
+      }
+    }
+    fetchPixKey();
+  }, []);
+
   useEffect(() => {
     fetchPedidos(true); // Carrega inicialmente
 
@@ -410,7 +427,7 @@ export default function RecentOrders() {
           ` - R$ ${(item.preco * item.quantidade).toFixed(2)}`
         ).join('\n') + '\n\n' +
         `*Forma de Pagamento:* ${pedido.formaPagamento?.toLowerCase() === 'pix' ? 'PIX' : 'Dinheiro'}\n` +
-        (pedido.formaPagamento?.toLowerCase() === 'pix' ? `*Chave PIX:* 84987291269\n` : '') +
+        (pedido.formaPagamento?.toLowerCase() === 'pix' ? `*Chave PIX:* ${pixKey}\n` : '') +
         `*Total:* R$ ${pedido.total.toFixed(2)}`;
 
       if (navigator.share) {
@@ -510,7 +527,7 @@ export default function RecentOrders() {
                 'Dinheiro'
           }</p>
           {pedido.formaPagamento?.toLowerCase() === 'pix' && (
-            <p className="text-gray-300">Chave PIX: 84987291269</p>
+            <p className="text-gray-300">Chave PIX: {pixKey}</p>
           )}
         </div>
 

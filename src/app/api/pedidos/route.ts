@@ -42,6 +42,10 @@ const settingsSchema = new mongoose.Schema({
         type: String,
         default: 'admin123'
     },
+    pixKey: {
+        type: String,
+        default: '84987291269'
+    },
     lastUpdated: {
         type: Date,
         default: Date.now

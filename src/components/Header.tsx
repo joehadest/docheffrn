@@ -9,6 +9,7 @@ import type { BusinessHoursConfig } from '../utils/timeUtils';
 
 export default function Header() {
     const [isOpen, setIsOpen] = useState(false);
+    const [pixKey, setPixKey] = useState('84987291269'); // Valor padrão
     const [showInfo, setShowInfo] = useState(false);
     const [businessHours, setBusinessHours] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -45,8 +46,13 @@ export default function Header() {
             try {
                 const res = await fetch('/api/settings');
                 const data = await res.json();
-                if (data.success && data.data && data.data.businessHours) {
-                    setBusinessHours(data.data.businessHours);
+                if (data.success && data.data) {
+                    if (data.data.businessHours) {
+                        setBusinessHours(data.data.businessHours);
+                    }
+                    if (data.data.pixKey) {
+                        setPixKey(data.data.pixKey);
+                    }
                 }
             } catch (err) {
                 setBusinessHours(null);
@@ -220,7 +226,7 @@ export default function Header() {
                                     </div>
                                     <div className="text-sm">
                                         <p className="text-gray-400">Telefone/WhatsApp:</p>
-                                        <p className="text-white font-medium">+55 84 9872-9126</p>
+                                        <p className="text-white font-medium">+55 {pixKey.length === 11 ? pixKey.replace(/(\d{2})(\d{5})(\d{4})/, '$1 $2-$3') : pixKey}</p>
                                     </div>
                                 </div>
 

@@ -1,6 +1,6 @@
 export async function POST(request: Request) {
     try {
-        const { isOpen, deliveryFees, businessHours, allowHalfAndHalf } = await request.json();
+        const { isOpen, deliveryFees, businessHours, allowHalfAndHalf, pixKey } = await request.json();
         await connectDB();
         let settings = await Settings.findOne();
         if (!settings) {
@@ -9,6 +9,7 @@ export async function POST(request: Request) {
                 deliveryFees,
                 businessHours,
                 allowHalfAndHalf,
+                pixKey: pixKey || '84987291269',
                 lastUpdated: new Date()
             });
         } else {
@@ -16,6 +17,9 @@ export async function POST(request: Request) {
             settings.deliveryFees = deliveryFees;
             settings.businessHours = businessHours;
             settings.allowHalfAndHalf = allowHalfAndHalf;
+            if (pixKey !== undefined) {
+                settings.pixKey = pixKey;
+            }
             settings.lastUpdated = new Date();
             await settings.save();
         }
@@ -107,6 +111,10 @@ const settingsSchema = new mongoose.Schema({
         type: String,
         default: 'admin123' // Senha padrão
     },
+    pixKey: {
+        type: String,
+        default: '84987291269' // Chave PIX padrão
+    },
     lastUpdated: {
         type: Date,
         default: Date.now
@@ -141,7 +149,7 @@ export async function GET() {
 
 export async function PUT(request: Request) {
     try {
-    const { isOpen, deliveryFees, businessHours, allowHalfAndHalf } = await request.json();
+    const { isOpen, deliveryFees, businessHours, allowHalfAndHalf, pixKey } = await request.json();
 
         await connectDB();
 
@@ -153,6 +161,7 @@ export async function PUT(request: Request) {
                 deliveryFees,
                 businessHours,
                 allowHalfAndHalf,
+                pixKey: pixKey || '84987291269',
                 lastUpdated: new Date()
             });
         } else {
@@ -160,6 +169,9 @@ export async function PUT(request: Request) {
             settings.deliveryFees = deliveryFees;
             settings.businessHours = businessHours;
             settings.allowHalfAndHalf = allowHalfAndHalf;
+            if (pixKey !== undefined) {
+                settings.pixKey = pixKey;
+            }
             settings.lastUpdated = new Date();
             await settings.save();
         }
