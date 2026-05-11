@@ -100,7 +100,7 @@ export default function LoginPage() {
                                 Painel Administrativo
                             </h1>
                             <p className="text-gray-400 text-sm">
-                                Acesse o painel de controle do Do'Cheff
+                                Acesse o painel de controle do Do&apos;Cheff
                             </p>
                         </motion.div>
 
@@ -207,7 +207,7 @@ export default function LoginPage() {
                             className="text-center"
                         >
                             <p className="text-xs text-gray-500 tracking-wide">
-                                Sistema de gerenciamento Do'Cheff
+                                Sistema de gerenciamento Do&apos;Cheff
                             </p>
                         </motion.div>
                     </div>

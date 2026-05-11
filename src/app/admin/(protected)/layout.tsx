@@ -41,7 +41,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 			<div className="h-20 px-6 flex items-center gap-3 border-b border-gray-800/60">
 				<Image src="/logo.jpg" alt="Logo" width={48} height={48} className="rounded-full object-cover" />
 				<div>
-					<h1 className="text-lg font-bold text-white">Do'Cheff</h1>
+					<h1 className="text-lg font-bold text-white">Do&apos;Cheff</h1>
 					<p className="text-xs uppercase tracking-wide text-gray-400">Painel Admin</p>
 				</div>
 			</div>
@@ -132,7 +132,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 					>
 						<FaBars />
 					</button>
-					<h1 className="text-lg font-bold text-white">Do'Cheff</h1>
+					<h1 className="text-lg font-bold text-white">Do&apos;Cheff</h1>
 					<div className="w-8" />
 				</header>
 				<main className="p-2 sm:p-4 lg:p-8">

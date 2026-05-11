@@ -27,12 +27,12 @@ export default function Home() {
         <CartProvider>
             <MenuProvider>
                 <main className="min-h-screen bg-[#262525]">
-                    <div className="max-w-7xl mx-auto px-4 py-8">
-                        <div className="flex justify-center mb-8">
-                            <div className="inline-flex rounded-lg border border-gray-800 p-1 bg-[#262525]">
+                    <div className="max-w-7xl mx-auto px-4 py-4 sm:py-8">
+                        <div className="flex justify-center mb-5 sm:mb-8">
+                            <div className="inline-flex rounded-2xl border border-gray-800/70 p-1 bg-[#262525]/40 backdrop-blur-md">
                                 <button
                                     onClick={() => setActiveTab('menu')}
-                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 bg-transparent text-gray-200 hover:text-white ${activeTab === 'menu' ? 'border-b-2 border-red-600' : ''}`}
+                                    className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors duration-200 bg-transparent ${activeTab === 'menu' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-200 hover:text-white'}`}
                                 >
                                     Cardápio
                                 </button>
@@ -41,11 +41,11 @@ export default function Home() {
                                         setActiveTab('orders');
                                         setHasNotification(false);
                                     }}
-                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 bg-transparent text-gray-200 hover:text-white ${activeTab === 'orders' ? 'border-b-2 border-red-600' : ''} flex items-center gap-1`}
+                                    className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors duration-200 bg-transparent flex items-center gap-1 ${activeTab === 'orders' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-200 hover:text-white'}`}
                                 >
                                     Pedidos
                                     {hasNotification && (
-                                        <FaExclamationCircle className="text-red-500 text-[8px]" />
+                                        <FaExclamationCircle className="text-yellow-300 text-[10px]" />
                                     )}
                                 </button>
                             </div>

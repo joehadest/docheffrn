@@ -37,7 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <link rel="icon" href="/favicon/favicon.ico" type="image/x-icon" />
             </head>
             {/* A classe 'overscroll-contain' foi removida daqui */}
-            <body className="bg-[#262525] min-h-screen">
+            <body className={`${inter.className} bg-[#262525] min-h-screen text-gray-100`}>
                 <AppShellClient>{children}</AppShellClient>
             </body>
         </html>

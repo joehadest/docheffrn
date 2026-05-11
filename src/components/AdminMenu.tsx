@@ -7,23 +7,7 @@ import Image from 'next/image';
 import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaListAlt, FaThList, FaInfoCircle, FaPizzaSlice, FaPepperHot, FaSmile } from 'react-icons/fa';
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 
-// --- SIMPLE INPUT COMPONENT (prevents re-render issues) ---
-const StableInput = ({ value, onChange, ...props }: any) => {
-  const [localValue, setLocalValue] = React.useState(value);
-  
-  React.useEffect(() => {
-    setLocalValue(value);
-  }, [value]);
-  
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setLocalValue(e.target.value);
-    onChange(e);
-  };
-  
-  return <input {...props} value={localValue} onChange={handleChange} />;
-};
-
-// --- COMPONENT: ITEM MODAL (TABBED) - REBUILT FROM SCRATCH ---
+// --- COMPONENT: ITEM MODAL (TABBED) ---
 function ItemModal({ item, onClose, onSave, categories }: {
   item: Partial<MenuItem>;
   onClose: () => void;
@@ -36,7 +20,12 @@ function ItemModal({ item, onClose, onSave, categories }: {
   const [price, setPrice] = useState(item.price || 0);
   const [category, setCategory] = useState(item.category || categories[0]?.value || '');
   const [image, setImage] = useState(item.image || '');
+  const [imageError, setImageError] = useState(false);
   const [destaque, setDestaque] = useState(item.destaque || false);
+
+  React.useEffect(() => {
+    setImageError(false);
+  }, [image]);
   
   // Listas dinâmicas como arrays de objetos com IDs únicos
   const [sizes, setSizes] = useState<Array<{ id: string; name: string; price: number }>>(() => {
@@ -187,7 +176,23 @@ function ItemModal({ item, onClose, onSave, categories }: {
                     value={image}
                     onChange={(e) => setImage(e.target.value)}
                     className="form-input"
+                    placeholder="https://... ou /pasta/arquivo.jpg"
                   />
+                  {image && (
+                    <div className="mt-2 h-32 w-full rounded-lg overflow-hidden border border-gray-700 bg-[#1a1a1a] flex items-center justify-center">
+                      {imageError ? (
+                        <span className="text-xs text-red-400">Imagem não encontrada — verifique a URL</span>
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={image}
+                          alt="Prévia"
+                          className="h-full w-full object-cover"
+                          onError={() => setImageError(true)}
+                        />
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               
@@ -779,8 +784,21 @@ export default function AdminMenu() {
                     <span className="bubble-press-overlay" />
                     <span className="bubble-border-gradient" />
                     <div className="bubble-content">
-                      <div className="relative h-32 sm:h-40 w-full">
-                        <Image src={item.image || '/placeholder.jpg'} alt={item.image ? `Imagem do item ${item.name}` : `Sem imagem cadastrada para ${item.name}`} layout="fill" className="object-cover" />
+                      <div className="relative h-32 sm:h-40 w-full bg-[#2a2a2a]">
+                        {item.image ? (
+                          <Image
+                            src={item.image}
+                            alt={`Imagem do item ${item.name}`}
+                            fill
+                            sizes="(max-width: 640px) 100vw, 300px"
+                            className="object-cover"
+                            unoptimized={item.image.startsWith('http')}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs">
+                            Sem imagem
+                          </div>
+                        )}
                       </div>
                       <div className="p-2 sm:p-4">
                         <h3 className="text-base sm:text-lg font-bold text-white truncate">{item.name}</h3>

@@ -1,9 +1,6 @@
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
 import { FaShareAlt } from 'react-icons/fa';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
-import Notification from './Notification';
 import { Pedido } from '../types/cart';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -65,8 +62,7 @@ export default function AdminOrders() {
     const [loading, setLoading] = useState(true);
     const [pedidoSelecionado, setPedidoSelecionado] = useState<Pedido | null>(null);
     const [mensagem, setMensagem] = useState<string | null>(null);
-    const [pixKey, setPixKey] = useState('84987291269'); // Valor padrão
-    const [mensagemCompartilhamento, setMensagemCompartilhamento] = useState<string | null>(null);
+    const [pixKey, setPixKey] = useState('84987291269'); // (84) 98729-1269
     const [phoneFilter, setPhoneFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [dateFilter, setDateFilter] = useState<DateFilter>('today'); // Novo estado para filtro de data
@@ -195,7 +191,8 @@ export default function AdminOrders() {
 
     useEffect(() => {
         fetchPedidos(false);
-        const interval = setInterval(() => fetchPedidos(true), 120000);
+        /* Polling mais frequente: SSE em serverless pode não propagar entre instâncias */
+        const interval = setInterval(() => fetchPedidos(true), 45000);
         return () => clearInterval(interval);
     }, []);
 
@@ -324,7 +321,7 @@ export default function AdminOrders() {
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || 'Erro ao atualizar status do pedido');
             if (data.success) {
-                setPedidos(pedidos.map(order => order._id === orderId ? { ...order, status: newStatus } : order));
+                setPedidos(prev => prev.map(order => order._id === orderId ? { ...order, status: newStatus } : order));
                 setStatusUpdateToast(`Pedido #${orderId.slice(-6)}: ${getStatusText(newStatus)}`);
                 const timestamp = new Date().toLocaleString('pt-BR');
                 const message = `Status do seu pedido #${orderId.slice(-6)} foi atualizado para: ${getStatusText(newStatus)}`;
@@ -403,16 +400,16 @@ export default function AdminOrders() {
     });
 
 
-    if (loading) return <div>Carregando pedidos...</div>;
+    if (loading) return (
+        <div className="flex items-center justify-center py-20 gap-3">
+            <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-red-500" />
+            <span className="text-gray-400">Carregando pedidos...</span>
+        </div>
+    );
 
     return (
         <div className="p-2 sm:p-4 md:p-6">
             <h2 className="text-2xl font-bold mb-4 text-red-600">Painel de Pedidos</h2>
-            {mensagemCompartilhamento && (
-                <div className="mb-4 p-3 bg-green-100 border border-green-300 text-green-800 rounded text-center font-semibold">
-                    {mensagemCompartilhamento}
-                </div>
-            )}
             <AnimatePresence>
                 {newOrderNotification && (
                     <motion.div
@@ -539,7 +536,7 @@ export default function AdminOrders() {
                     <div className="modal-panel slim print-pedido" onClick={e => e.stopPropagation()}>
                         <button className="modal-close-btn no-print focus-outline" onClick={() => setPedidoSelecionado(null)}>&times;</button>
                         <div className="text-center mb-4 border-b border-gray-800 pb-4">
-                            <h3 id="order-modal-title" className="text-2xl font-bold text-red-500">Do'Cheff</h3>
+                            <h3 id="order-modal-title" className="text-2xl font-bold text-red-500">Do&apos;Cheff</h3>
                             <p className="text-sm text-gray-400">Detalhes do Pedido</p>
                         </div>
                         <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-4">

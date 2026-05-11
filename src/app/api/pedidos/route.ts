@@ -1,87 +1,7 @@
 import { NextResponse } from 'next/server';
 import { broadcast } from '@/lib/sse';
 import { connectToDatabase } from '@/lib/mongodb';
-import { Pedido } from '@/types';
 import { ObjectId } from 'mongodb';
-import webpush from 'web-push';
-import mongoose from 'mongoose';
-import { isRestaurantOpen, getRestaurantStatus } from '../../../utils/timeUtils';
-import type { BusinessHoursConfig } from '../../../utils/timeUtils';
-
-interface PedidoDocument extends Omit<Pedido, '_id'> {
-    _id: ObjectId;
-}
-
-// Schema do Settings (copiado da API de settings)
-const settingsSchema = new mongoose.Schema({
-    isOpen: {
-        type: Boolean,
-        default: false
-    },
-    businessHours: {
-        monday: { open: { type: Boolean, default: false }, start: String, end: String },
-        tuesday: { open: { type: Boolean, default: false }, start: String, end: String },
-        wednesday: { open: { type: Boolean, default: false }, start: String, end: String },
-        thursday: { open: { type: Boolean, default: false }, start: String, end: String },
-        friday: { open: { type: Boolean, default: false }, start: String, end: String },
-        saturday: { open: { type: Boolean, default: false }, start: String, end: String },
-        sunday: { open: { type: Boolean, default: false }, start: String, end: String }
-    },
-    deliveryFees: [{
-        neighborhood: {
-            type: String,
-            required: true
-        },
-        fee: {
-            type: Number,
-            required: true,
-            min: 0
-        }
-    }],
-    adminPassword: {
-        type: String,
-        default: 'admin123'
-    },
-    pixKey: {
-        type: String,
-        default: '84987291269'
-    },
-    lastUpdated: {
-        type: Date,
-        default: Date.now
-    }
-});
-
-const Settings = mongoose.models.Settings || mongoose.model('Settings', settingsSchema);
-
-// Função para verificar se o estabelecimento está aberto
-async function checkRestaurantStatus(): Promise<boolean> {
-    try {
-        // Conectar ao MongoDB usando Mongoose
-        const MONGODB_URI = process.env.MONGODB_URI;
-        if (!MONGODB_URI) {
-            throw new Error('Por favor, defina a variável de ambiente MONGODB_URI');
-        }
-
-        // Verificar se já está conectado
-        if (mongoose.connection.readyState !== 1) {
-            await mongoose.connect(MONGODB_URI);
-        }
-
-        const settings = await Settings.findOne() || await Settings.create({});
-        if (!settings) {
-            return false;
-        }
-
-        // Usar a função utilitária para verificar o status
-        const status = getRestaurantStatus(settings.businessHours as BusinessHoursConfig);
-
-        return status.isOpen;
-    } catch (error) {
-        console.error('Erro ao verificar status do estabelecimento:', error);
-        return false;
-    }
-}
 
 export async function GET(request: Request) {
     try {
@@ -140,15 +60,9 @@ export async function POST(request: Request) {
         const pedido = await request.json();
 
         const { db } = await connectToDatabase();
-        
-        // Verificar se o estabelecimento está aberto
-        const isOpen = await checkRestaurantStatus();
-        if (!isOpen) {
-            return NextResponse.json(
-                { success: false, message: 'Estabelecimento fechado. Pedidos não são aceitos no momento.' },
-                { status: 403 }
-            );
-        }
+
+        // Horário de funcionamento é só indicativo no cardápio; não bloquear POST aqui
+        // (evita 403 quando Mongo/settings e o horário do servidor divergem do que o cliente vê).
 
         const collection = db.collection('pedidos');
 
@@ -176,7 +90,7 @@ export async function POST(request: Request) {
         } catch (e) {
             console.error('Falha broadcast novo pedido', e);
         }
-        return NextResponse.json({ success: true, pedidoId: result.insertedId });
+        return NextResponse.json({ success: true, pedidoId: String(result.insertedId) });
     } catch (error) {
         console.error('Erro ao criar pedido:', error);
         return NextResponse.json(

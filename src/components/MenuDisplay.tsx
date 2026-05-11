@@ -34,6 +34,36 @@ const itemVariants = {
     }
 };
 
+function MenuSkeleton() {
+    return (
+        <div className="max-w-7xl mx-auto px-4 py-6">
+            <div className="mb-8 text-center">
+                <div className="h-10 w-52 mx-auto rounded-xl bg-white/10 animate-pulse" />
+                <div className="h-4 w-64 mx-auto rounded-lg bg-white/5 mt-3 animate-pulse" />
+            </div>
+            <div className="sticky top-[72px] z-30 rounded-2xl border border-gray-800/60 bg-[#262525]/70 backdrop-blur-md px-3 py-3">
+                <div className="flex gap-2 overflow-hidden">
+                    {Array.from({ length: 7 }).map((_, i) => (
+                        <div key={i} className="h-9 w-24 rounded-full bg-white/10 animate-pulse" />
+                    ))}
+                </div>
+            </div>
+            <div className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="rounded-2xl border border-gray-800/60 bg-white/5 overflow-hidden">
+                        <div className="aspect-square bg-white/10 animate-pulse" />
+                        <div className="p-3 sm:p-4 space-y-3">
+                            <div className="h-4 w-3/4 bg-white/10 rounded animate-pulse" />
+                            <div className="h-4 w-1/2 bg-white/10 rounded animate-pulse" />
+                            <div className="h-9 w-full bg-white/10 rounded-xl animate-pulse" />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 export default function MenuDisplay() {
     const [allowHalfAndHalf, setAllowHalfAndHalf] = useState(true);
     const [showSuccessMessage, setShowSuccessMessage] = useState(false);
@@ -56,7 +86,11 @@ export default function MenuDisplay() {
     const [deliveryFees, setDeliveryFees] = useState<{ neighborhood: string; fee: number }[]>([]);
     const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
     const [selectedPasta, setSelectedPasta] = useState<MenuItem | null>(null);
-    const [pixKey, setPixKey] = useState('84987291269'); // Valor padrão
+    const [pixKey, setPixKey] = useState('84987291269'); // (84) 98729-1269
+    const [lastWhatsAppUrl, setLastWhatsAppUrl] = useState<string | null>(null);
+    const [lastWhatsAppMessage, setLastWhatsAppMessage] = useState<string | null>(null);
+    const [whatsAppOpenWasBlocked, setWhatsAppOpenWasBlocked] = useState(false);
+    const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
     const categoryElementsRef = useRef<{ [key: string]: HTMLElement | null }>({});
 
     const isClickScrolling = useRef(false);
@@ -221,11 +255,25 @@ export default function MenuDisplay() {
         setIsCartOpen(false);
     };
 
+    const handleCopyWhatsAppMessage = async () => {
+        if (!lastWhatsAppMessage) return;
+        try {
+            await navigator.clipboard.writeText(lastWhatsAppMessage);
+            setCopyStatus('copied');
+            setTimeout(() => setCopyStatus('idle'), 2500);
+        } catch {
+            setCopyStatus('error');
+            setTimeout(() => setCopyStatus('idle'), 2500);
+        }
+    };
+
     const handleSendToWhatsappAndSave = async () => {
         if (!finalOrderData || isSubmitting) return;
         setIsSubmitting(true);
+        setWhatsAppOpenWasBlocked(false);
+        setCopyStatus('idle');
+
         try {
-            // Monta a mensagem primeiro e tenta abrir o WhatsApp imediatamente (evita bloqueio de pop-up)
             const { cliente, tipoEntrega, endereco, formaPagamento, troco, itens, total, observacoes } = finalOrderData;
             const deliveryFee = tipoEntrega === 'entrega' ? endereco.deliveryFee : 0;
             const subtotal = total - deliveryFee;
@@ -248,6 +296,8 @@ export default function MenuDisplay() {
             // Extrai apenas os números da chave PIX para o número do WhatsApp (remove formatação)
             const whatsappNumber = pixKey.replace(/\D/g, '');
             const whatsappUrl = `https://wa.me/55${whatsappNumber}?text=${encodeURIComponent(message)}`;
+            setLastWhatsAppUrl(whatsappUrl);
+            setLastWhatsAppMessage(message);
 
             // IMPORTANTE: Salvar o pedido ANTES de abrir o WhatsApp
             // Isso garante que o pedido seja registrado mesmo se o WhatsApp falhar
@@ -257,16 +307,19 @@ export default function MenuDisplay() {
                 body: JSON.stringify(finalOrderData),
             });
 
-            const saveData = await saveResponse.json();
+            let saveData: { success?: boolean; message?: string; pedidoId?: string };
+            try {
+                saveData = await saveResponse.json();
+            } catch {
+                saveData = { success: false, message: 'Resposta inválida do servidor.' };
+            }
 
-            if (!saveData.success) {
-                // Se houver erro ao salvar, mostra mensagem de erro visual
+            if (!saveResponse.ok || !saveData.success) {
                 setSuccessMessage(saveData.message || 'Erro ao salvar pedido. Por favor, tente novamente.');
                 setShowSuccessMessage(true);
                 setTimeout(() => {
                     setShowSuccessMessage(false);
                 }, 5000);
-                setIsSubmitting(false);
                 return;
             }
 
@@ -289,36 +342,34 @@ export default function MenuDisplay() {
                 }, 5000);
             }
 
-            // Agora tenta abrir o WhatsApp
-            try {
-                // Primeiro, tenta abrir em nova aba
-                const popup = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-                
-                // Se pop-up foi bloqueado, tenta redirecionar diretamente
-                if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-                    // Verifica se está em dispositivo móvel
-                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                    
-                    if (isMobile) {
-                        // Em mobile, tenta abrir diretamente
-                        window.location.href = whatsappUrl;
-                    } else {
-                        // Em desktop, tenta copiar a mensagem e abrir WhatsApp silenciosamente
-                        // Sem mostrar alerts desnecessários
-                        navigator.clipboard.writeText(message).catch(() => {
-                            // Se falhar ao copiar, apenas abre o WhatsApp
-                        });
-                        const whatsappNumber = pixKey.replace(/\D/g, '');
-                        window.open(`https://wa.me/55${whatsappNumber}`, '_blank');
-                    }
+            /* Após salvar: abrir WhatsApp (sem aba placeholder antes — evita abrir/fechar em falha e 403). */
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            let openedWhatsApp = false;
+
+            if (isMobile) {
+                const w = window.open(whatsappUrl, '_blank');
+                if (w) {
+                    openedWhatsApp = true;
+                } else {
+                    window.location.assign(whatsappUrl);
+                    openedWhatsApp = true;
                 }
-            } catch (error) {
-                // Pedido já foi salvo, então apenas informa o usuário
-                // Erro silencioso - não precisa logar
+            } else {
+                try {
+                    const w = window.open(whatsappUrl, '_blank');
+                    if (w && !w.closed) openedWhatsApp = true;
+                } catch {
+                    /* ignore */
+                }
+                if (!openedWhatsApp) {
+                    setWhatsAppOpenWasBlocked(true);
+                }
             }
 
             clearCart();
-            setShowWhatsAppModal(false);
+            if (openedWhatsApp) {
+                setShowWhatsAppModal(false);
+            }
         } catch (error) {
             // Mostra erro visual em vez de alert
             setSuccessMessage(error instanceof Error ? error.message : 'Ocorreu um erro. Por favor, tente novamente.');
@@ -332,11 +383,22 @@ export default function MenuDisplay() {
     };
 
     useEffect(() => {
-        const anyOpen = !!selectedItem || isCartOpen || !!selectedPasta;
+        const anyOpen = !!selectedItem || isCartOpen || !!selectedPasta || showWhatsAppModal;
         if (anyOpen) document.body.classList.add('modal-open');
         else document.body.classList.remove('modal-open');
         return () => { document.body.classList.remove('modal-open'); };
-    }, [selectedItem, isCartOpen, selectedPasta]);
+    }, [selectedItem, isCartOpen, selectedPasta, showWhatsAppModal]);
+
+    useEffect(() => {
+        if (showWhatsAppModal) {
+            document.body.classList.add('whatsapp-checkout-open');
+        } else {
+            document.body.classList.remove('whatsapp-checkout-open');
+        }
+        return () => {
+            document.body.classList.remove('whatsapp-checkout-open');
+        };
+    }, [showWhatsAppModal]);
 
     const allPizzas = menuItems.filter(item => item.category === 'pizzas');
 
@@ -382,19 +444,19 @@ export default function MenuDisplay() {
 
     const featuredItems = menuItems.filter(item => item.destaque);
 
-    if (loading) return <div className="text-center py-10">Carregando cardápio...</div>;
+    if (loading) return <MenuSkeleton />;
     if (error) return <div className="text-center py-10 text-red-500">{error}</div>;
 
     return (
         <div className="min-h-screen bg-[#262525]">
             {/* Barra de categorias sticky com safe-area e z-index elevado */}
-            <div ref={stickyBarRef} className="sticky top-0 z-40 bg-gradient-to-b from-[#262525] via-[#262525] to-transparent pb-4 pt-2" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+            <div ref={stickyBarRef} className="sticky top-0 z-40 bg-gradient-to-b from-[#262525] via-[#262525] to-transparent pb-3 pt-2" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6">
                     <div ref={categoriesContainerRef} className="categories-container flex gap-2 sm:gap-3 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4">
                         <motion.button
                             data-category-value="destaques"
                             onClick={() => handleCategoryClick('destaques')}
-                            className={`relative px-4 py-2 rounded-full whitespace-nowrap flex-shrink-0 text-sm font-semibold transition-colors flex items-center gap-2 ${selectedCategory === 'destaques' ? 'text-white' : 'text-gray-300 bg-[#2a2a2a] hover:bg-gray-700'}`}
+                            className={`relative px-3.5 py-2 rounded-full whitespace-nowrap flex-shrink-0 text-sm font-semibold transition-colors flex items-center gap-2 border ${selectedCategory === 'destaques' ? 'text-white border-red-500/20' : 'text-gray-200 bg-[#2a2a2a]/60 hover:bg-[#2a2a2a] border-gray-800/60'}`}
                         >
                             <span className="relative z-10 flex items-center gap-2"><FaStar className="text-yellow-400" /> Destaques</span>
                             {selectedCategory === 'destaques' && (
@@ -411,7 +473,7 @@ export default function MenuDisplay() {
                                 key={category.value}
                                 data-category-value={category.value}
                                 onClick={() => handleCategoryClick(category.value)}
-                                className={`relative px-4 py-2 rounded-full whitespace-nowrap flex-shrink-0 text-sm font-semibold transition-colors flex items-center gap-2 ${selectedCategory === category.value ? 'text-white' : 'text-gray-300 bg-[#2a2a2a] hover:bg-gray-700'}`}
+                                className={`relative px-3.5 py-2 rounded-full whitespace-nowrap flex-shrink-0 text-sm font-semibold transition-colors flex items-center gap-2 border ${selectedCategory === category.value ? 'text-white border-red-500/20' : 'text-gray-200 bg-[#2a2a2a]/60 hover:bg-[#2a2a2a] border-gray-800/60'}`}
                             >
                                 <span className="relative z-10 flex items-center gap-2">
                                     {category.icon || <FaDotCircle />}
@@ -431,15 +493,14 @@ export default function MenuDisplay() {
             </div>
 
             <div className="max-w-7xl mx-auto px-4 py-4">
-                <motion.div className="text-center mb-8">
-                    <h1 className="text-4xl font-bold text-red-600 mb-2">Do'Cheff</h1>
-                    <p className="text-gray-400">Escolha seus itens favoritos</p>
-                    {!isRestaurantOpen && (
-                        <div className="mt-4 p-3 bg-red-900/20 border border-red-600/50 rounded-lg max-w-md mx-auto text-red-400 text-sm">
-                            Estabelecimento Fechado. Pedidos não serão aceitos.
+                {!isRestaurantOpen && (
+                    <div className="mb-8 sm:mb-10">
+                        <div className="p-4 bg-red-900/20 border border-red-600/40 rounded-2xl max-w-md mx-auto text-red-200 text-sm text-center">
+                            <div className="font-semibold mb-1">Estabelecimento fechado</div>
+                            <div className="text-red-200/80">Pedidos não serão aceitos no momento.</div>
                         </div>
-                    )}
-                </motion.div>
+                    </div>
+                )}
 
                 <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-12">
                     <div
@@ -448,23 +509,36 @@ export default function MenuDisplay() {
                         className="space-y-4 pt-2"
                         style={{ scrollMarginTop: `${stickyOffset + 8}px` }}
                     >
-                        <h2 className="text-2xl font-bold text-red-500 flex items-center gap-2"><FaStar className="text-yellow-400" /> Destaques da Casa</h2>
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                        <div className="flex items-end justify-between gap-4">
+                            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                                <FaStar className="text-yellow-400" /> Destaques
+                            </h2>
+                            <div className="text-xs text-gray-400 hidden sm:block">
+                                Toque no item para ver detalhes
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
                             {featuredItems.map(item => (
                                 <motion.div
                                     key={item._id}
                                     variants={itemVariants}
-                                    className="bg-[#2a2a2a] rounded-2xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden group cursor-pointer"
+                                    className="rounded-2xl border border-gray-800/60 bg-[#2a2a2a]/70 hover:bg-[#2a2a2a] shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer"
                                     onClick={() => isRestaurantOpen && (item.category === 'massas' ? handlePastaClick(item) : setSelectedItem(item))}
                                 >
-                                    <div className="relative aspect-square overflow-hidden">
-                                        <Image src={item.image || '/placeholder.jpg'} alt={item.name} fill sizes="(max-width: 768px) 50vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-300" />
-                                        <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded-lg text-xs sm:text-sm font-bold">R$ {item.price.toFixed(2)}</div>
+                                    <div className="relative aspect-square overflow-hidden bg-[#1a1a1a]">
+                                        {item.image ? (
+                                            <Image src={item.image} alt={item.name} fill sizes="(max-width: 768px) 50vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-300" unoptimized={item.image.startsWith('http')} />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-4xl">🍽️</div>
+                                        )}
+                                        <div className="absolute top-2 left-2 bg-black/55 backdrop-blur-md text-white px-2.5 py-1 rounded-xl text-xs sm:text-sm font-bold border border-white/10">
+                                            R$ {item.price.toFixed(2)}
+                                        </div>
                                         {!isRestaurantOpen && <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-sm font-semibold">Fechado</div>}
                                     </div>
                                     <div className="p-3 sm:p-4">
                                         <h3 className="font-bold text-white text-sm sm:text-base mb-2 sm:mb-3 line-clamp-2 min-h-[2.5rem] sm:min-h-[3rem]">{item.name}</h3>
-                                        <button className={`w-full py-2 px-4 rounded-lg text-xs sm:text-sm font-medium ${isRestaurantOpen ? 'bg-red-500 text-white' : 'bg-gray-700 text-gray-400 cursor-not-allowed'}`}>
+                                        <button className={`w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold ${isRestaurantOpen ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-800 text-gray-400 cursor-not-allowed'} transition-colors`}>
                                             {isRestaurantOpen ? 'Adicionar' : 'Indisponível'}
                                         </button>
                                     </div>
@@ -481,25 +555,31 @@ export default function MenuDisplay() {
                             className="space-y-4 pt-2"
                             style={{ scrollMarginTop: `${stickyOffset + 8}px` }}
                         >
-                            <h2 className="text-2xl font-bold text-red-600 capitalize flex items-center gap-2">
+                            <h2 className="text-2xl font-bold text-white capitalize flex items-center gap-2">
                                 {category.icon || <FaDotCircle />} {category.label}
                             </h2>
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
                                 {menuItems.filter(item => item.category === category.value).map(item => (
                                     <motion.div
                                         key={item._id}
                                         variants={itemVariants}
-                                        className="bg-[#2a2a2a] rounded-2xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden group cursor-pointer"
+                                        className="rounded-2xl border border-gray-800/60 bg-[#2a2a2a]/70 hover:bg-[#2a2a2a] shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer"
                                         onClick={() => isRestaurantOpen && (item.category === 'massas' ? handlePastaClick(item) : setSelectedItem(item))}
                                     >
-                                        <div className="relative aspect-square overflow-hidden">
-                                            <Image src={item.image || '/placeholder.jpg'} alt={item.name} fill sizes="(max-width: 768px) 50vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-300" />
-                                            <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded-lg text-xs sm:text-sm font-bold">R$ {item.price.toFixed(2)}</div>
+                                        <div className="relative aspect-square overflow-hidden bg-[#1a1a1a]">
+                                            {item.image ? (
+                                                <Image src={item.image} alt={item.name} fill sizes="(max-width: 768px) 50vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-300" unoptimized={item.image.startsWith('http')} />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-4xl">🍽️</div>
+                                            )}
+                                            <div className="absolute top-2 left-2 bg-black/55 backdrop-blur-md text-white px-2.5 py-1 rounded-xl text-xs sm:text-sm font-bold border border-white/10">
+                                                R$ {item.price.toFixed(2)}
+                                            </div>
                                             {!isRestaurantOpen && <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-sm font-semibold">Fechado</div>}
                                         </div>
                                         <div className="p-3 sm:p-4">
                                             <h3 className="font-bold text-white text-sm sm:text-base mb-2 sm:mb-3 line-clamp-2 min-h-[2.5rem] sm:min-h-[3rem]">{item.name}</h3>
-                                            <button className={`w-full py-2 px-4 rounded-lg text-xs sm:text-sm font-medium ${isRestaurantOpen ? 'bg-red-500 text-white' : 'bg-gray-700 text-gray-400 cursor-not-allowed'}`}>
+                                            <button className={`w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold ${isRestaurantOpen ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-800 text-gray-400 cursor-not-allowed'} transition-colors`}>
                                                 {isRestaurantOpen ? 'Adicionar' : 'Indisponível'}
                                             </button>
                                         </div>
@@ -518,56 +598,114 @@ export default function MenuDisplay() {
 
                 <AnimatePresence>
                     {showWhatsAppModal && finalOrderData && (
-                        <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                            <motion.div className="bg-[#262525] rounded-2xl shadow-2xl p-8 max-w-lg w-full mx-4 text-center border-2 border-red-500/20" initial={{ scale: 0.8, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.8, y: 20 }} transition={{ type: "spring", damping: 20 }}>
-                                <div className="mb-6">
-                                    <div className="inline-flex items-center justify-center w-20 h-20 bg-red-500/20 rounded-full mb-4">
-                                        <FaWhatsapp className="text-4xl text-green-500" />
+                        <motion.div
+                            className="fixed inset-0 z-[100] flex items-end justify-center bg-black/75 backdrop-blur-md sm:items-center sm:p-4"
+                            style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            role="presentation"
+                            onClick={() => !isSubmitting && setShowWhatsAppModal(false)}
+                        >
+                            <motion.div
+                                role="dialog"
+                                aria-modal="true"
+                                aria-labelledby="whatsapp-checkout-title"
+                                className="flex max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[1.75rem] border border-red-500/25 border-b-0 bg-[#262525] shadow-2xl sm:mx-4 sm:max-h-[min(90dvh,640px)] sm:rounded-2xl sm:border-b"
+                                initial={{ y: 40, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                exit={{ y: 24, opacity: 0 }}
+                                transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+                                onClick={e => e.stopPropagation()}
+                                style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+                            >
+                                <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-white/25 sm:hidden" aria-hidden />
+
+                                <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 pb-2 pt-4 text-center sm:px-8 sm:pb-4 sm:pt-6">
+                                    <div className="mb-4 sm:mb-6">
+                                        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-green-500/15 ring-1 ring-green-500/30 sm:mb-4 sm:h-20 sm:w-20 sm:rounded-full sm:bg-red-500/20 sm:ring-0">
+                                            <FaWhatsapp className="text-3xl text-green-400 sm:text-4xl sm:text-green-500" />
+                                        </div>
+                                        <h2 id="whatsapp-checkout-title" className="text-balance text-xl font-bold leading-tight text-red-500 sm:text-3xl sm:mb-3">
+                                            Quase lá! Finalize seu pedido
+                                        </h2>
+                                        <p className="mt-2 text-pretty text-sm text-gray-300 sm:text-base">
+                                            Seu pedido será enviado ao nosso WhatsApp para confirmação.
+                                        </p>
                                     </div>
-                                    <h2 className="text-3xl font-bold text-red-500 mb-3">Quase lá! Finalize seu Pedido</h2>
-                                    <p className="text-gray-300 mb-6 text-base">Seu pedido será enviado para o nosso WhatsApp para confirmação.</p>
-                                </div>
-                                
-                                <div className="bg-gradient-to-r from-yellow-900/50 to-orange-900/50 border-2 border-yellow-500/60 text-yellow-100 text-base font-semibold p-5 rounded-xl mb-8 shadow-lg animate-pulse">
-                                    <div className="flex items-start gap-3">
-                                        <span className="text-2xl">⚠️</span>
-                                        <div className="text-left">
-                                            <p className="text-lg font-bold mb-1">ATENÇÃO IMPORTANTE!</p>
-                                            <p className="text-sm leading-relaxed">
-                                                Seu pedido <span className="font-bold text-yellow-300">SÓ SERÁ CONFIRMADO</span> e enviado para o estabelecimento <span className="font-bold text-yellow-300">APÓS SER ENVIADO PELO WHATSAPP</span>.
-                                            </p>
+
+                                    <div className="mb-5 rounded-2xl border border-amber-500/35 bg-gradient-to-br from-amber-950/55 to-orange-950/40 p-4 text-left text-amber-50 shadow-lg ring-1 ring-amber-500/20 sm:mb-8 sm:p-5">
+                                        <div className="flex gap-3">
+                                            <span className="shrink-0 text-xl leading-none sm:text-2xl" aria-hidden>⚠️</span>
+                                            <div className="min-w-0 space-y-1.5">
+                                                <p className="text-sm font-bold text-amber-100 sm:text-base">Atenção</p>
+                                                <p className="text-xs leading-relaxed text-amber-100/90 sm:text-sm">
+                                                    O pedido <span className="font-semibold text-amber-200">só é confirmado</span> no estabelecimento <span className="font-semibold text-amber-200">depois de enviar a mensagem pelo WhatsApp</span>.
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
+
+                                    {(whatsAppOpenWasBlocked || copyStatus !== 'idle') && lastWhatsAppUrl && lastWhatsAppMessage && (
+                                        <div className="mb-5 rounded-xl border border-gray-700/80 bg-[#2a2a2a] p-3 text-left sm:mb-6 sm:p-4">
+                                            <p className="mb-3 text-xs text-gray-400 sm:text-sm">
+                                                Se o WhatsApp não abriu sozinho, use uma das opções:
+                                            </p>
+                                            <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-3">
+                                                <motion.button
+                                                    whileHover={{ scale: 1.02 }}
+                                                    whileTap={{ scale: 0.98 }}
+                                                    type="button"
+                                                    onClick={handleCopyWhatsAppMessage}
+                                                    className="w-full rounded-xl border border-gray-600 bg-gray-800 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-gray-700 sm:flex-1"
+                                                >
+                                                    {copyStatus === 'copied' ? 'Mensagem copiada!' : copyStatus === 'error' ? 'Falha ao copiar' : 'Copiar mensagem'}
+                                                </motion.button>
+                                                <a
+                                                    href={lastWhatsAppUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex w-full items-center justify-center rounded-xl bg-green-700 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-800 sm:flex-1"
+                                                >
+                                                    Abrir WhatsApp
+                                                </a>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                                
-                                <div className="flex flex-col sm:flex-row justify-center gap-4">
-                                    <motion.button 
-                                        whileHover={{ scale: 1.05 }} 
-                                        whileTap={{ scale: 0.95 }} 
-                                        onClick={handleSendToWhatsappAndSave} 
-                                        disabled={isSubmitting} 
-                                        className="bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-4 rounded-xl hover:from-green-700 hover:to-green-800 flex items-center justify-center gap-3 font-bold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                    >
-                                        {isSubmitting ? (
-                                            <>
-                                                <span className="animate-spin">⏳</span>
-                                                <span>Enviando...</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <FaWhatsapp className="text-2xl" />
-                                                <span>Enviar para WhatsApp</span>
-                                            </>
-                                        )}
-                                    </motion.button>
-                                    <motion.button 
-                                        whileHover={{ scale: 1.05 }} 
-                                        whileTap={{ scale: 0.95 }} 
-                                        onClick={() => setShowWhatsAppModal(false)} 
-                                        className="bg-gray-700 text-white px-6 py-4 rounded-xl hover:bg-gray-600 font-semibold text-base transition-all"
-                                    >
-                                        Cancelar
-                                    </motion.button>
+
+                                <div className="shrink-0 border-t border-gray-800/90 bg-[#262525]/95 px-4 py-3 backdrop-blur-sm sm:px-8 sm:pb-6 sm:pt-4">
+                                    <div className="mx-auto flex w-full max-w-md flex-col gap-2.5 sm:flex-row sm:justify-center sm:gap-4">
+                                        <motion.button
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
+                                            onClick={handleSendToWhatsappAndSave}
+                                            disabled={isSubmitting}
+                                            className="order-1 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-green-600 to-green-700 px-5 py-3.5 text-base font-bold text-white shadow-lg transition-all hover:from-green-700 hover:to-green-800 disabled:cursor-not-allowed disabled:opacity-50 sm:order-none sm:flex-1 sm:py-4 sm:text-lg"
+                                        >
+                                            {isSubmitting ? (
+                                                <>
+                                                    <span className="inline-block animate-spin">⏳</span>
+                                                    <span>Enviando…</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <FaWhatsapp className="text-xl sm:text-2xl" />
+                                                    <span>Enviar para WhatsApp</span>
+                                                </>
+                                            )}
+                                        </motion.button>
+                                        <motion.button
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
+                                            type="button"
+                                            onClick={() => !isSubmitting && setShowWhatsAppModal(false)}
+                                            disabled={isSubmitting}
+                                            className="order-2 w-full rounded-xl bg-gray-700 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-gray-600 disabled:opacity-50 sm:order-none sm:w-auto sm:min-w-[8rem] sm:py-4 sm:text-base"
+                                        >
+                                            Cancelar
+                                        </motion.button>
+                                    </div>
                                 </div>
                             </motion.div>
                         </motion.div>
@@ -582,7 +720,7 @@ export default function MenuDisplay() {
                              animate={{ opacity: 1, y: 0, scale: 1 }}
                              exit={{ opacity: 0, y: -20, scale: 0.9 }}
                              transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                             className="fixed top-6 left-1/2 transform -translate-x-1/2 z-[60] max-w-md w-full mx-4"
+                             className="fixed top-6 left-1/2 z-[110] mx-4 max-w-md -translate-x-1/2 transform"
                          >
                              <div className={`${successMessage.includes('Erro') || successMessage.includes('erro') ? 'bg-gradient-to-r from-red-600 to-red-700 border-red-400/50' : 'bg-gradient-to-r from-green-600 to-green-700 border-green-400/50'} text-white p-6 rounded-2xl shadow-2xl border-2 backdrop-blur-sm`}>
                                  <div className="flex items-center gap-4">

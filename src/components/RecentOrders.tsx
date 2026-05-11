@@ -114,7 +114,7 @@ export default function RecentOrders() {
   const [newOrderNotification, setNewOrderNotification] = useState<string | null>(null);
   const [showComprovanteModal, setShowComprovanteModal] = useState(false);
   const [pedidoParaComprovante, setPedidoParaComprovante] = useState<Pedido | null>(null);
-  const [pixKey, setPixKey] = useState('84987291269'); // Valor padrão
+  const [pixKey, setPixKey] = useState('84987291269'); // (84) 98729-1269
   const notifiedPedidosRef = useRef<Set<string>>(new Set());
   const [statusUpdateCount, setStatusUpdateCount] = useState<Record<string, number>>(() => {
     if (typeof window !== 'undefined') {
@@ -556,7 +556,6 @@ export default function RecentOrders() {
         </div>
       ) : !localStorage.getItem('customerPhone') ? (
         <div className="text-center py-8">
-          <p className="text-gray-600 mb-4">Você precisa fazer login para ver seus pedidos.</p>
           <p className="text-sm text-gray-500">Faça um pedido para começar a ver seu histórico.</p>
         </div>
       ) : pedidos.length === 0 ? (
@@ -909,7 +908,7 @@ export default function RecentOrders() {
             >
               &times;
             </button>
-            <h3 className="text-xl font-bold mb-2 text-orange-600 text-center">Do'Cheff</h3>
+            <h3 className="text-xl font-bold mb-2 text-orange-600 text-center">Do&apos;Cheff</h3>
             <div className="mb-2 text-xs text-gray-700 text-center">
               <div><b>Pedido:</b> #{pedidoSelecionado._id?.slice(-6) || '-'}</div>
               <div><b>Data:</b> {pedidoSelecionado.data ? formatDate(pedidoSelecionado.data) : '-'}</div>

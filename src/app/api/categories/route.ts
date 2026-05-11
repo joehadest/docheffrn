@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
+import dns from 'dns';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 if (!MONGODB_URI) {
 	throw new Error('Por favor, defina a variável de ambiente MONGODB_URI');
+}
+
+if (process.env.NODE_ENV === 'development' && MONGODB_URI.startsWith('mongodb+srv://')) {
+	dns.setServers(['1.1.1.1', '8.8.8.8']);
 }
 
 let cached = global.mongoose ?? (global.mongoose = { conn: null, promise: null });

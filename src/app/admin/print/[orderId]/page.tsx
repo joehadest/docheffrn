@@ -63,7 +63,7 @@ export default function PrintOrderPage() {
         <>
             <div className="receipt-container">
                 <header>
-                    <h1 className="title">Do'Cheff</h1>
+                    <h1 className="title">Do&apos;Cheff</h1>
                     <p>Pedido #{pedido._id.slice(-6)}</p>
                     <p>{formatDate(pedido.data)}</p>
                 </header>

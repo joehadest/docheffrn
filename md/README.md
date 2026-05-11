@@ -22,21 +22,40 @@ git clone [URL_DO_REPOSITÓRIO]
 cd cardapio-digital
 ```
 
-2. Instale as dependências:
+2. Configure as variáveis de ambiente:
+
+Crie um arquivo `.env.local` na raiz do projeto (`docheffrn/`) com:
+
+```bash
+MONGODB_URI="mongodb://USUARIO:SENHA@HOST1:27017,HOST2:27017,HOST3:27017/?ssl=true&replicaSet=...&authSource=admin&appName=Cluster0"
+MONGODB_DB="do-cheff-pedidos"
+```
+
+> Dica: para evitar problemas de DNS SRV no Windows, prefira a *Standard Connection String* (`mongodb://...`) ao invés de `mongodb+srv://...` durante o desenvolvimento local.
+
+3. Instale as dependências:
 ```bash
 npm install
 # ou
 yarn install
 ```
 
-3. Inicie o servidor de desenvolvimento:
+4. Inicie o servidor de desenvolvimento:
 ```bash
 npm run dev
 # ou
 yarn dev
 ```
 
-4. Acesse a aplicação em `http://localhost:3000`
+5. Acesse a aplicação em `http://localhost:3000`
+
+## Comandos úteis
+
+```bash
+npm run dev
+npm run build
+npm run lint
+```
 
 ## Estrutura do Projeto
 

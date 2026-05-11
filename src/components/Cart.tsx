@@ -217,7 +217,6 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, o
             }
         }
 
-        fetchMenuItems();
         fetchDeliveryFees();
     }, []);
 
