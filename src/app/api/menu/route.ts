@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/menuModel';
 import MenuItem from '@/lib/menuModel';
+import {
+    normalizeMissingAvailability,
+    PUBLIC_AVAILABLE_FILTER,
+    sanitizeMenuItemPayload,
+    noStoreHeaders,
+} from '@/lib/menuAvailability';
+
+export const dynamic = 'force-dynamic';
 
 // Dados iniciais do menu completo
 const initialMenuItems = [
@@ -817,14 +825,15 @@ export async function GET() {
             console.log('GET /api/menu - Dados iniciais inseridos');
         }
 
-        // Busca itens onde 'isAvailable' não seja 'false'. Inclui antigos e novos.
-        const menuItems = await MenuItem.find({ isAvailable: { $ne: false } });
+        await normalizeMissingAvailability();
+
+        const menuItems = await MenuItem.find(PUBLIC_AVAILABLE_FILTER);
         console.log('GET /api/menu - Itens disponíveis encontrados:', menuItems.length);
         
-        return NextResponse.json({
-            success: true,
-            data: menuItems
-        });
+        return NextResponse.json(
+            { success: true, data: menuItems },
+            { headers: noStoreHeaders }
+        );
     } catch (error) {
         console.error('GET /api/menu - Erro:', error);
         return NextResponse.json(
@@ -838,8 +847,12 @@ export async function POST(request: Request) {
     try {
         await connectDB();
         const body = await request.json();
-        
-        const newItem = new MenuItem(body);
+        const payload = sanitizeMenuItemPayload(body as Record<string, unknown>);
+        if (payload.isAvailable === undefined) {
+            payload.isAvailable = true;
+        }
+
+        const newItem = new MenuItem(payload);
         const savedItem = await newItem.save();
         
         return NextResponse.json({
@@ -860,7 +873,8 @@ export async function PUT(request: Request) {
         await connectDB();
         const body = await request.json();
         
-        const { _id, ...updateData } = body;
+        const { _id, ...rest } = body;
+        const updateData = sanitizeMenuItemPayload(rest as Record<string, unknown>);
         const updatedItem = await MenuItem.findByIdAndUpdate(_id, updateData, { new: true });
         
         if (!updatedItem) {

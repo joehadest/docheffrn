@@ -123,9 +123,9 @@ export default function MenuDisplay() {
             setLoading(true);
             try {
                 const [menuRes, catRes, settingsRes] = await Promise.all([
-                    fetch('/api/menu'),
-                    fetch('/api/categories'),
-                    fetch('/api/settings')
+                    fetch('/api/menu', { cache: 'no-store' }),
+                    fetch('/api/categories', { cache: 'no-store' }),
+                    fetch('/api/settings', { cache: 'no-store' })
                 ]);
 
                 const menuData = await menuRes.json();

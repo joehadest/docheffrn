@@ -1,6 +1,10 @@
+/**
+ * @deprecated Use Mongoose/MenuItem (coleção menuitems) via GET /api/menu ou scripts de seed.
+ * Esta rota legada escrevia na coleção nativa `menu`, divergente do cardápio público.
+ */
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
+import { connectDB } from '@/lib/menuModel';
+import MenuItem from '@/lib/menuModel';
 
 const menuItems = [
     {
@@ -31,39 +35,39 @@ const menuItems = [
 
 export async function POST() {
     try {
-        const { db } = await connectToDatabase();
+        await connectDB();
 
-        // Limpa a coleção existente
-        await db.collection('menu').deleteMany({});
+        const count = await MenuItem.countDocuments();
+        if (count > 0) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'O cardápio já possui itens. Use o painel admin ou DELETE manual antes de re-seedar.',
+                },
+                { status: 409 }
+            );
+        }
 
-        // Adiciona IDs para cada item
-        const itemsComIds = menuItems.map(item => ({
+        const itemsWithAvailability = menuItems.map((item) => ({
             ...item,
-            _id: new ObjectId()
+            isAvailable: true,
+            destaque: item.destaque ?? false,
+            sizes: item.sizes ?? {},
+            borderOptions: item.borderOptions ?? {},
+            extraOptions: {},
+            ingredients: [],
         }));
 
-        // Insere os itens no banco de dados
-        const result = await db.collection('menu').insertMany(itemsComIds);
-
-        // Registra diagnóstico
-        await db.collection('diagnosticos').insertOne({
-            tipo: 'info',
-            mensagem: `Itens do menu inseridos: ${result.insertedCount}`,
-            timestamp: new Date().toISOString(),
-            resolvido: false,
-            detalhes: {
-                itemIds: Object.values(result.insertedIds)
-            }
-        });
+        const inserted = await MenuItem.insertMany(itemsWithAvailability);
 
         return NextResponse.json({
             success: true,
-            message: `${result.insertedCount} itens do menu inseridos com sucesso`
+            message: `${inserted.length} itens inseridos na coleção MenuItem (menuitems)`,
         });
     } catch (error) {
         console.error('Erro ao inserir itens do menu:', error);
         return NextResponse.json(
-            { error: 'Erro ao inserir itens do menu' },
+            { success: false, error: 'Erro ao inserir itens do menu' },
             { status: 500 }
         );
     }

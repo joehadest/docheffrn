@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/menuModel';
 import MenuItem from '@/lib/menuModel';
+import { isValidMenuItemId, sanitizeMenuItemPayload } from '@/lib/menuAvailability';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(
     request: Request,
@@ -32,12 +35,37 @@ export async function PUT(
     { params }: { params: { id: string } }
 ) {
     try {
+        if (!isValidMenuItemId(params.id)) {
+            return NextResponse.json(
+                { success: false, error: 'ID do item inválido' },
+                { status: 400 }
+            );
+        }
+
         await connectDB();
         const body = await request.json();
+        const existing = await MenuItem.findById(params.id).select('isAvailable').lean();
+
+        if (!existing) {
+            return NextResponse.json(
+                { success: false, error: 'Item não encontrado' },
+                { status: 404 }
+            );
+        }
+
+        const raw = body as Record<string, unknown>;
+        const hasAvailability = typeof raw.isAvailable === 'boolean';
+        const updateData = sanitizeMenuItemPayload(raw, {
+            includeAvailability: hasAvailability,
+        });
+
+        if (!hasAvailability && existing.isAvailable !== undefined) {
+            updateData.isAvailable = existing.isAvailable;
+        }
 
         const updatedItem = await MenuItem.findByIdAndUpdate(
             params.id,
-            body,
+            updateData,
             { new: true }
         );
 

@@ -655,6 +655,8 @@ export default function AdminMenu() {
   const [activeTab, setActiveTab] = useState<'menu' | 'categories'>('menu');
   const [categories, setCategories] = useState<{ _id?: string; value: string; label: string; icon?: string; order?: number }[]>([]);
   const [deletingItems, setDeletingItems] = useState<Set<string>>(new Set());
+  const [togglingItems, setTogglingItems] = useState<Set<string>>(new Set());
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
 
   useEffect(() => {
     const shouldLock = isModalOpen;
@@ -669,7 +671,10 @@ export default function AdminMenu() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [menuRes, catRes] = await Promise.all([fetch('/api/menu/all'), fetch('/api/categories')]);
+      const [menuRes, catRes] = await Promise.all([
+        fetch('/api/menu/all', { cache: 'no-store' }),
+        fetch('/api/categories', { cache: 'no-store' }),
+      ]);
       const menuData = await menuRes.json();
       if (menuData.success) {
         const sorted = menuData.data
@@ -700,13 +705,41 @@ export default function AdminMenu() {
   useEffect(() => { fetchData(); }, []);
 
   const handleAvailabilityChange = async (item: MenuItem, newStatus: boolean) => {
-    setMenuItems((prev) => prev.map((i) => (i._id === item._id ? { ...i, isAvailable: newStatus } : i)));
+    if (!item._id || togglingItems.has(item._id)) return;
+
+    const previousStatus = item.isAvailable ?? true;
+    setAvailabilityError(null);
+    setTogglingItems((prev) => new Set(prev).add(item._id));
+
     try {
-      const res = await fetch(`/api/menu/availability/${item._id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isAvailable: newStatus }) });
-      if (!res.ok) throw new Error('Falha na API');
+      const res = await fetch(`/api/menu/availability/${item._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({ isAvailable: newStatus }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Falha na API');
+      }
+
+      const updated = data.data as MenuItem;
+      setMenuItems((prev) =>
+        prev.map((i) => (i._id === item._id ? { ...i, ...updated, isAvailable: updated.isAvailable ?? newStatus } : i))
+      );
     } catch (error) {
-      setMenuItems((prev) => prev.map((i) => (i._id === item._id ? { ...i, isAvailable: !newStatus } : i)));
-      alert('Não foi possível atualizar o status.');
+      setMenuItems((prev) =>
+        prev.map((i) => (i._id === item._id ? { ...i, isAvailable: previousStatus } : i))
+      );
+      const message = error instanceof Error ? error.message : 'Não foi possível atualizar o status.';
+      setAvailabilityError(message);
+    } finally {
+      setTogglingItems((prev) => {
+        const next = new Set(prev);
+        next.delete(item._id);
+        return next;
+      });
     }
   };
 
@@ -767,13 +800,16 @@ export default function AdminMenu() {
               </select>
               <motion.button onClick={() => handleOpenModal()} whileHover={{ scale: 1.05 }} className="w-full md:w-auto form-button-primary"><FaPlus /> Adicionar Novo Item</motion.button>
             </div>
+            {availabilityError && (
+              <p className="text-red-400 text-center text-sm mb-4" role="alert">{availabilityError}</p>
+            )}
             {loading ? <p className="text-center py-10">Carregando...</p> : error ? <p className="text-red-500 text-center py-10">{error}</p> : (
               <div className="auto-grid">
                 {filteredItems.map((item) => (
                   <motion.div
                     key={item._id}
                     layout
-                    className={`bubble-card flex flex-col justify-between ${item.isAvailable === false ? 'opacity-50' : ''}`}
+                    className={`bubble-card flex flex-col justify-between ${item.isAvailable === false ? 'opacity-50 ring-1 ring-red-900/40' : ''}`}
                     onMouseMove={(e) => {
                       const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
                       e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - r.left}px`);
@@ -801,7 +837,12 @@ export default function AdminMenu() {
                         )}
                       </div>
                       <div className="p-2 sm:p-4">
-                        <h3 className="text-base sm:text-lg font-bold text-white truncate">{item.name}</h3>
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="text-base sm:text-lg font-bold text-white truncate">{item.name}</h3>
+                          <span className={`shrink-0 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${item.isAvailable === false ? 'bg-red-900/60 text-red-300' : 'bg-green-900/50 text-green-300'}`}>
+                            {item.isAvailable === false ? 'Inativo' : 'Ativo'}
+                          </span>
+                        </div>
                         <p className="text-gray-400 text-sm mt-1">R$ {item.price.toFixed(2)}</p>
                       </div>
                     </div>
@@ -812,6 +853,7 @@ export default function AdminMenu() {
                             type="checkbox"
                             checked={item.isAvailable ?? true}
                             onChange={(e) => handleAvailabilityChange(item, e.target.checked)}
+                            disabled={togglingItems.has(item._id)}
                             className="sr-only peer"
                             aria-label={item.isAvailable ? `Desativar disponibilidade de ${item.name}` : `Ativar disponibilidade de ${item.name}`}
                             role="switch"
@@ -820,7 +862,7 @@ export default function AdminMenu() {
                           <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-focus:ring-2 peer-focus:ring-red-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
                         </label>
                         <span className={`text-xs mt-1 font-medium ${item.isAvailable ?? true ? 'text-green-400' : 'text-gray-400'}`}>
-                          {item.isAvailable ?? true ? 'On' : 'Off'}
+                          {togglingItems.has(item._id) ? '...' : item.isAvailable ?? true ? 'On' : 'Off'}
                         </span>
                       </div>
                       <div className='flex gap-2'>
