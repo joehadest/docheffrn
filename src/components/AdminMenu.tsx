@@ -93,47 +93,136 @@ function ItemModal({ item, onClose, onSave, categories }: {
     <button
       type="button"
       onClick={() => setTab(id)}
-      className={`flex-1 flex items-center justify-center gap-2 px-2 py-2 text-xs sm:text-sm font-medium rounded-lg border transition-colors whitespace-nowrap ${tab === id ? 'bg-red-600 text-white border-red-500' : 'bg-[#2a2a2a] border-gray-700 text-gray-300 hover:bg-gray-700'}`}
+      className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg transition-all duration-150 whitespace-nowrap ${tab === id ? 'bg-red-700/90 text-white shadow-sm shadow-red-900/40' : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]'}`}
     >
-      {icon} <span className="hidden sm:inline">{label}</span>
-      <span className="sm:hidden">{label.substring(0, 4)}</span>
+      <span className="opacity-80">{icon}</span>
+      <span>{label}</span>
     </button>
   );
 
+  const fieldRowBtn = "shrink-0 w-8 h-8 rounded-lg bg-red-950/50 border border-red-900/30 text-red-400 hover:bg-red-900/50 hover:text-red-300 flex items-center justify-center transition-colors";
+  const addRowBtn = "w-full mt-1 py-2.5 rounded-xl border border-dashed border-white/[0.08] text-gray-600 text-xs hover:border-red-700/40 hover:text-red-400 transition-all duration-200 flex items-center justify-center gap-2 hover:bg-red-950/10";
+
+  const rowVariants = {
+    hidden: { opacity: 0, x: -10, scale: 0.97 },
+    visible: (i: number) => ({
+      opacity: 1, x: 0, scale: 1,
+      transition: { delay: i * 0.05, duration: 0.2, ease: 'easeOut' }
+    }),
+    exit: { opacity: 0, x: 10, scale: 0.97, transition: { duration: 0.15 } }
+  };
+
+  const tabContentVariants = {
+    enter: { opacity: 0, y: 8 },
+    center: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.16, 0.77, 0.3, 1] } },
+    exit: { opacity: 0, y: -4, transition: { duration: 0.14 } },
+  };
+
   return (
     <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
       className="modal-overlay"
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.94, y: 18 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.94, y: 18 }}
-        className="modal-panel wide text-white flex flex-col max-h-[90vh]"
+        initial={{ scale: 0.93, y: 28, opacity: 0 }}
+        animate={{ scale: 1, y: 0, opacity: 1 }}
+        exit={{ scale: 0.95, y: 16, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 360, damping: 30, mass: 0.85 }}
+        className="modal-panel wide text-white flex flex-col"
+        style={{ maxHeight: '90vh', padding: 0, overflow: 'hidden' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <button onClick={onClose} className="modal-close-btn focus-outline"><FaTimes /></button>
-        <h2 className="text-2xl font-bold mb-4 text-red-500">{item._id ? 'Editar Item' : 'Adicionar Novo Item'}</h2>
-        
-        <div className="flex flex-wrap gap-2 mb-6">
-          <TabButton id="basic" icon={<FaInfoCircle />} label="Básico" />
-          <TabButton id="options" icon={<FaPizzaSlice />} label="Opções" />
-          <TabButton id="ingredients" icon={<FaPepperHot />} label="Ingredientes" />
-        </div>
+        {/* Cabeçalho */}
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08, duration: 0.2 }}
+          className="flex items-center justify-between px-4 sm:px-6 pt-5 pb-4 border-b border-white/[0.06]"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-red-700/20 border border-red-700/30 flex items-center justify-center text-red-400">
+              {item._id ? <FaEdit size={14} /> : <FaPlus size={14} />}
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white leading-tight">
+                {item._id ? 'Editar Item' : 'Novo Item'}
+              </h2>
+              <p className="text-[11px] text-gray-500 mt-0.5">
+                {item._id ? item.name : 'Preencha os campos abaixo'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.07] flex items-center justify-center text-gray-400 hover:text-white transition-all"
+            aria-label="Fechar"
+          >
+            <FaTimes size={12} />
+          </button>
+        </motion.div>
 
-        <div className="space-y-6 text-sm overflow-y-auto pr-1 custom-scrollbar flex-1">
-          {tab === 'basic' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="form-label">Nome *</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="form-input"
-                    required
-                  />
+        {/* Abas */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.12, duration: 0.2 }}
+          className="px-4 sm:px-6 pt-4 pb-3"
+        >
+          <div className="bg-[#0a0a0a] rounded-xl p-1 flex gap-1 border border-white/[0.04]">
+            <TabButton id="basic" icon={<FaInfoCircle size={11} />} label="Básico" />
+            <TabButton id="options" icon={<FaPizzaSlice size={11} />} label="Opções" />
+            <TabButton id="ingredients" icon={<FaPepperHot size={11} />} label="Ingredientes" />
+          </div>
+        </motion.div>
+
+        {/* Conteúdo scrollável com AnimatePresence para trocar abas */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 pb-2 custom-scrollbar">
+          <AnimatePresence mode="wait">
+            {tab === 'basic' && (
+              <motion.div
+                key="basic"
+                variants={tabContentVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="space-y-4 py-3"
+              >
+                {/* Nome (largo) + Preço (compacto) */}
+                <div className="flex gap-3">
+                  <div className="flex-1 min-w-0">
+                    <label className="form-label">Nome *</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="form-input"
+                      placeholder="Ex: Pizza Calabresa"
+                      required
+                    />
+                  </div>
+                  <div className="w-32 shrink-0">
+                    <label className="form-label">Preço (R$) *</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-3 flex items-center text-gray-500 text-sm pointer-events-none select-none">R$</span>
+                      <input
+                        type="number"
+                        value={price}
+                        onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
+                        step="0.01"
+                        min="0"
+                        className="form-input"
+                        style={{ paddingLeft: '2.25rem' }}
+                        required
+                      />
+                    </div>
+                  </div>
                 </div>
+
+                {/* Categoria (largura total) */}
                 <div>
                   <label className="form-label">Categoria *</label>
                   <select
@@ -145,30 +234,20 @@ function ItemModal({ item, onClose, onSave, categories }: {
                     {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
                 </div>
-              </div>
-              
-              <div>
-                <label className="form-label">Descrição</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={3}
-                  className="form-input"
-                />
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                {/* Descrição */}
                 <div>
-                  <label className="form-label">Preço (R$) *</label>
-                  <input
-                    type="number"
-                    value={price}
-                    onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
-                    step="0.01"
-                    className="form-input"
-                    required
+                  <label className="form-label">Descrição</label>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={3}
+                    className="form-input resize-none"
+                    placeholder="Descrição curta do item..."
                   />
                 </div>
+
+                {/* URL da Imagem (largura total) */}
                 <div>
                   <label className="form-label">URL da Imagem</label>
                   <input
@@ -176,220 +255,155 @@ function ItemModal({ item, onClose, onSave, categories }: {
                     value={image}
                     onChange={(e) => setImage(e.target.value)}
                     className="form-input"
-                    placeholder="https://... ou /pasta/arquivo.jpg"
+                    placeholder="https://..."
                   />
+                </div>
+
+                {/* Prévia da imagem */}
+                <AnimatePresence>
                   {image && (
-                    <div className="mt-2 h-32 w-full rounded-lg overflow-hidden border border-gray-700 bg-[#1a1a1a] flex items-center justify-center">
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className={`rounded-xl overflow-hidden border ${imageError ? 'border-red-800/40 bg-red-950/20' : 'border-white/[0.07] bg-[#0a0a0a]'} h-40 flex items-center justify-center`}
+                    >
                       {imageError ? (
-                        <span className="text-xs text-red-400">Imagem não encontrada — verifique a URL</span>
+                        <p className="text-xs text-red-400 px-4 text-center">Imagem não encontrada — verifique a URL</p>
                       ) : (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={image}
-                          alt="Prévia"
-                          className="h-full w-full object-cover"
-                          onError={() => setImageError(true)}
-                        />
+                        <img src={image} alt="Prévia" className="h-full w-full object-cover" onError={() => setImageError(true)} />
                       )}
-                    </div>
+                    </motion.div>
                   )}
-                </div>
-              </div>
-              
-              <div className="flex items-center pt-2">
-                <input
-                  type="checkbox"
-                  id="destaque"
-                  checked={destaque}
-                  onChange={(e) => setDestaque(e.target.checked)}
-                  className="form-checkbox"
-                />
-                <label htmlFor="destaque" className="ml-2 text-sm text-gray-300">Item em destaque</label>
-              </div>
-            </div>
-          )}
+                </AnimatePresence>
 
-          {tab === 'options' && (
-            <div className="space-y-8">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-300 mb-3">Tamanhos e Preços</h3>
-                {sizes.map((size, idx) => (
-                  <div key={size.id} className="flex items-center gap-2 mb-2">
-                    <input
-                      type="text"
-                      value={size.name}
-                      onChange={(e) => {
-                        const newSizes = [...sizes];
-                        newSizes[idx] = { ...size, name: e.target.value };
-                        setSizes(newSizes);
-                      }}
-                      className="form-input w-1/3"
-                      placeholder="Ex: P, M, G"
-                    />
-                    <span className="text-gray-400">R$</span>
-                    <input
-                      type="number"
-                      value={size.price}
-                      onChange={(e) => {
-                        const newSizes = [...sizes];
-                        newSizes[idx] = { ...size, price: parseFloat(e.target.value) || 0 };
-                        setSizes(newSizes);
-                      }}
-                      step="0.01"
-                      className="form-input flex-grow"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setSizes(sizes.filter((_, i) => i !== idx))}
-                      className="form-button-danger p-2"
-                    >
-                      <FaTrash />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setSizes([...sizes, { id: `new-${Date.now()}`, name: '', price: 0 }])}
-                  className="form-button-secondary text-sm"
-                >
-                  + Adicionar Tamanho
-                </button>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-semibold text-gray-300 mb-3">Opções de Borda</h3>
-                {borders.map((border, idx) => (
-                  <div key={border.id} className="flex items-center gap-2 mb-2">
-                    <input
-                      type="text"
-                      value={border.name}
-                      onChange={(e) => {
-                        const newBorders = [...borders];
-                        newBorders[idx] = { ...border, name: e.target.value };
-                        setBorders(newBorders);
-                      }}
-                      className="form-input w-1/3"
-                      placeholder="Ex: Catupiry"
-                    />
-                    <span className="text-gray-400">+ R$</span>
-                    <input
-                      type="number"
-                      value={border.price}
-                      onChange={(e) => {
-                        const newBorders = [...borders];
-                        newBorders[idx] = { ...border, price: parseFloat(e.target.value) || 0 };
-                        setBorders(newBorders);
-                      }}
-                      step="0.01"
-                      className="form-input flex-grow"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setBorders(borders.filter((_, i) => i !== idx))}
-                      className="form-button-danger p-2"
-                    >
-                      <FaTrash />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setBorders([...borders, { id: `new-${Date.now()}`, name: '', price: 0 }])}
-                  className="form-button-secondary text-sm"
-                >
-                  + Adicionar Borda
-                </button>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-semibold text-gray-300 mb-3">Opções de Extras</h3>
-                {extras.map((extra, idx) => (
-                  <div key={extra.id} className="flex items-center gap-2 mb-2">
-                    <input
-                      type="text"
-                      value={extra.name}
-                      onChange={(e) => {
-                        const newExtras = [...extras];
-                        newExtras[idx] = { ...extra, name: e.target.value };
-                        setExtras(newExtras);
-                      }}
-                      className="form-input w-1/3"
-                      placeholder="Ex: Bacon"
-                    />
-                    <span className="text-gray-400">+ R$</span>
-                    <input
-                      type="number"
-                      value={extra.price}
-                      onChange={(e) => {
-                        const newExtras = [...extras];
-                        newExtras[idx] = { ...extra, price: parseFloat(e.target.value) || 0 };
-                        setExtras(newExtras);
-                      }}
-                      step="0.01"
-                      className="form-input flex-grow"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setExtras(extras.filter((_, i) => i !== idx))}
-                      className="form-button-danger p-2"
-                    >
-                      <FaTrash />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setExtras([...extras, { id: `new-${Date.now()}`, name: '', price: 0 }])}
-                  className="form-button-secondary text-sm"
-                >
-                  + Adicionar Extra
-                </button>
-              </div>
-            </div>
-          )}
-
-          {tab === 'ingredients' && (
-            <div>
-              <h3 className="text-sm font-semibold text-gray-300 mb-3">Ingredientes</h3>
-              {ingredients.map((ing, idx) => (
-                <div key={ing.id} className="flex items-center gap-2 mb-2">
+                {/* Destaque */}
+                <label className="flex items-center gap-3 p-3.5 rounded-xl border border-white/[0.07] bg-white/[0.02] cursor-pointer hover:bg-white/[0.04] transition-colors select-none">
                   <input
-                    type="text"
-                    value={ing.value}
-                    onChange={(e) => {
-                      const newIngredients = [...ingredients];
-                      newIngredients[idx] = { ...ing, value: e.target.value };
-                      setIngredients(newIngredients);
-                    }}
-                    className="form-input flex-grow"
-                    placeholder="Ex: Tomate, Queijo..."
+                    type="checkbox"
+                    checked={destaque}
+                    onChange={(e) => setDestaque(e.target.checked)}
+                    className="form-checkbox"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setIngredients(ingredients.filter((_, i) => i !== idx))}
-                    className="form-button-danger p-2"
-                  >
-                    <FaTrash />
+                  <div>
+                    <p className="text-sm font-medium text-gray-200">Item em destaque</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Aparece na seção de destaques do cardápio</p>
+                  </div>
+                </label>
+              </motion.div>
+            )}
+
+            {tab === 'options' && (
+              <motion.div
+                key="options"
+                variants={tabContentVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="space-y-6 py-3"
+              >
+                {/* Tamanhos */}
+                <div>
+                  <p className="admin-section-title">Tamanhos e Preços</p>
+                  <AnimatePresence initial={false}>
+                    {sizes.map((size, idx) => (
+                      <motion.div key={size.id} custom={idx} variants={rowVariants} initial="hidden" animate="visible" exit="exit" className="admin-field-row admin-field-row-3">
+                        <input type="text" value={size.name} onChange={(e) => { const n = [...sizes]; n[idx] = { ...size, name: e.target.value }; setSizes(n); }} className="form-input w-full" placeholder="Ex: P, M, G" />
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-2 flex items-center text-gray-600 text-[11px] pointer-events-none select-none z-10">R$</span>
+                          <input type="number" value={size.price} onChange={(e) => { const n = [...sizes]; n[idx] = { ...size, price: parseFloat(e.target.value) || 0 }; setSizes(n); }} step="0.01" min="0" className="form-input w-full" style={{ paddingLeft: '1.75rem' }} />
+                        </div>
+                        <button type="button" onClick={() => setSizes(sizes.filter((_, i) => i !== idx))} className={fieldRowBtn}><FaTrash size={11} /></button>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                  <button type="button" onClick={() => setSizes([...sizes, { id: `new-${Date.now()}`, name: '', price: 0 }])} className={addRowBtn}>
+                    <FaPlus size={10} /> Adicionar Tamanho
                   </button>
                 </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => setIngredients([...ingredients, { id: `new-${Date.now()}`, value: '' }])}
-                className="form-button-secondary text-sm"
+
+                {/* Bordas */}
+                <div>
+                  <p className="admin-section-title">Opções de Borda</p>
+                  <AnimatePresence initial={false}>
+                    {borders.map((border, idx) => (
+                      <motion.div key={border.id} custom={idx} variants={rowVariants} initial="hidden" animate="visible" exit="exit" className="admin-field-row admin-field-row-3">
+                        <input type="text" value={border.name} onChange={(e) => { const n = [...borders]; n[idx] = { ...border, name: e.target.value }; setBorders(n); }} className="form-input w-full" placeholder="Ex: Catupiry" />
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-2 flex items-center text-gray-600 text-[11px] pointer-events-none select-none z-10">R$</span>
+                          <input type="number" value={border.price} onChange={(e) => { const n = [...borders]; n[idx] = { ...border, price: parseFloat(e.target.value) || 0 }; setBorders(n); }} step="0.01" min="0" className="form-input w-full" style={{ paddingLeft: '1.75rem' }} />
+                        </div>
+                        <button type="button" onClick={() => setBorders(borders.filter((_, i) => i !== idx))} className={fieldRowBtn}><FaTrash size={11} /></button>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                  <button type="button" onClick={() => setBorders([...borders, { id: `new-${Date.now()}`, name: '', price: 0 }])} className={addRowBtn}>
+                    <FaPlus size={10} /> Adicionar Borda
+                  </button>
+                </div>
+
+                {/* Extras */}
+                <div>
+                  <p className="admin-section-title">Extras</p>
+                  <AnimatePresence initial={false}>
+                    {extras.map((extra, idx) => (
+                      <motion.div key={extra.id} custom={idx} variants={rowVariants} initial="hidden" animate="visible" exit="exit" className="admin-field-row admin-field-row-3">
+                        <input type="text" value={extra.name} onChange={(e) => { const n = [...extras]; n[idx] = { ...extra, name: e.target.value }; setExtras(n); }} className="form-input w-full" placeholder="Ex: Bacon" />
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-2 flex items-center text-gray-600 text-[11px] pointer-events-none select-none z-10">R$</span>
+                          <input type="number" value={extra.price} onChange={(e) => { const n = [...extras]; n[idx] = { ...extra, price: parseFloat(e.target.value) || 0 }; setExtras(n); }} step="0.01" min="0" className="form-input w-full" style={{ paddingLeft: '1.75rem' }} />
+                        </div>
+                        <button type="button" onClick={() => setExtras(extras.filter((_, i) => i !== idx))} className={fieldRowBtn}><FaTrash size={11} /></button>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                  <button type="button" onClick={() => setExtras([...extras, { id: `new-${Date.now()}`, name: '', price: 0 }])} className={addRowBtn}>
+                    <FaPlus size={10} /> Adicionar Extra
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {tab === 'ingredients' && (
+              <motion.div
+                key="ingredients"
+                variants={tabContentVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="py-3"
               >
-                + Adicionar Ingrediente
-              </button>
-            </div>
-          )}
+                <p className="admin-section-title">Ingredientes</p>
+                <AnimatePresence initial={false}>
+                  {ingredients.map((ing, idx) => (
+                    <motion.div key={ing.id} custom={idx} variants={rowVariants} initial="hidden" animate="visible" exit="exit" className="admin-field-row admin-field-row-2">
+                      <input type="text" value={ing.value} onChange={(e) => { const n = [...ingredients]; n[idx] = { ...ing, value: e.target.value }; setIngredients(n); }} className="form-input w-full" placeholder="Ex: Tomate, Queijo..." />
+                      <button type="button" onClick={() => setIngredients(ingredients.filter((_, i) => i !== idx))} className={fieldRowBtn}><FaTrash size={11} /></button>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+                <button type="button" onClick={() => setIngredients([...ingredients, { id: `new-${Date.now()}`, value: '' }])} className={addRowBtn}>
+                  <FaPlus size={10} /> Adicionar Ingrediente
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        <div className="flex justify-end gap-4 pt-4 mt-4 border-t border-gray-800">
+        {/* Rodapé */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15, duration: 0.2 }}
+          className="flex justify-end gap-3 px-4 sm:px-6 py-4 border-t border-white/[0.06] bg-[#0a0a0a]/70"
+        >
           <button type="button" onClick={onClose} className="form-button-secondary">Cancelar</button>
-          <button onClick={handleSave} className="form-button-primary inline-flex items-center gap-2">
-            <FaSave /> {item._id ? 'Atualizar' : 'Salvar'}
+          <button onClick={handleSave} className="form-button-primary gap-2">
+            <FaSave size={13} /> {item._id ? 'Atualizar' : 'Salvar Item'}
           </button>
-        </div>
+        </motion.div>
       </motion.div>
     </motion.div>
   );
@@ -439,51 +453,104 @@ const CategoryModal = ({
     finally { setLoading(false); }
   };
 
+  const fieldVariants = {
+    hidden: { opacity: 0, y: 6 },
+    visible: (i: number) => ({
+      opacity: 1, y: 0,
+      transition: { delay: 0.1 + i * 0.06, duration: 0.2, ease: 'easeOut' }
+    }),
+  };
+
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.18 }}
         className="modal-overlay"
         onClick={onClose}
         role="dialog" aria-modal="true" aria-labelledby="category-modal-title"
       >
         <motion.div
-          initial={{ scale: 0.94, y: 18 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.94, y: 18 }}
-          className="modal-panel slim"
+          initial={{ scale: 0.92, y: 30, opacity: 0 }}
+          animate={{ scale: 1, y: 0, opacity: 1 }}
+          exit={{ scale: 0.95, y: 16, opacity: 0 }}
+          transition={{ type: 'spring', stiffness: 380, damping: 30, mass: 0.8 }}
+          className="modal-panel slim text-white"
+          style={{ padding: 0, overflow: 'hidden' }}
           role="document"
           onClick={e => e.stopPropagation()}
         >
-          <button className="modal-close-btn focus-outline" onClick={onClose} aria-label="Fechar modal de categoria"><FaTimes /></button>
-          <h2 id="category-modal-title" className="text-xl font-bold mb-4 text-red-500">{isEdit ? 'Editar Categoria' : 'Nova Categoria'}</h2>
-          <form onSubmit={handleSubmit} className="space-y-4 text-sm">
-            <div>
-              <label className="form-label">Nome</label>
+          {/* Cabeçalho */}
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: 0.2 }}
+            className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/[0.06]"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-red-700/20 border border-red-700/30 flex items-center justify-center text-red-400">
+                <FaListAlt size={13} />
+              </div>
+              <div>
+                <h2 id="category-modal-title" className="text-base font-bold text-white leading-tight">
+                  {isEdit ? 'Editar Categoria' : 'Nova Categoria'}
+                </h2>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  {isEdit ? `Editando: ${category?.label}` : 'Preencha as informações'}
+                </p>
+              </div>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.07] flex items-center justify-center text-gray-400 hover:text-white transition-all" aria-label="Fechar">
+              <FaTimes size={12} />
+            </button>
+          </motion.div>
+
+          <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+            {/* Nome */}
+            <motion.div custom={0} variants={fieldVariants} initial="hidden" animate="visible">
+              <label className="form-label">Nome da Categoria</label>
               <input
                 type="text"
                 className="form-input"
                 value={form.label}
                 onChange={e => setForm({ ...form, label: e.target.value, value: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                placeholder="Ex: Pizzas"
                 required
               />
-            </div>
-            {/* ========== INÍCIO DA ALTERAÇÃO (CAMPO DE EMOJI) ========== */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
+              <AnimatePresence>
+                {form.value && (
+                  <motion.p
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="text-[11px] text-gray-600 mt-1"
+                  >
+                    slug: <span className="text-gray-500">{form.value}</span>
+                  </motion.p>
+                )}
+              </AnimatePresence>
+            </motion.div>
+
+            {/* Ícone + Ordem */}
+            <motion.div custom={1} variants={fieldVariants} initial="hidden" animate="visible" className="flex gap-3">
+              <div className="flex-1 min-w-0">
                 <label className="form-label">Ícone (Emoji)</label>
                 <div className="relative">
                   <input
                     type="text"
-                    className="form-input pr-10" // Adiciona espaço para o botão
+                    className="form-input pr-10"
                     value={form.icon}
                     onChange={e => setForm({ ...form, icon: e.target.value })}
                     placeholder="Ex: 🍕"
                   />
                   <button
                     type="button"
-                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-300 transition-colors"
                     onClick={() => setShowPicker(val => !val)}
                   >
-                    <FaSmile />
+                    <FaSmile size={14} />
                   </button>
                   {showPicker && (
                     <div className="absolute z-10 mt-2">
@@ -492,32 +559,58 @@ const CategoryModal = ({
                   )}
                 </div>
               </div>
-              {/* ========== FIM DA ALTERAÇÃO (CAMPO DE EMOJI) ========== */}
-              <div>
+              <div className="w-24 shrink-0">
                 <label className="form-label">Ordem</label>
                 <input
                   type="number"
                   className="form-input"
                   value={form.order}
                   onChange={e => setForm({ ...form, order: parseInt(e.target.value) || 0 })}
+                  min={0}
                 />
               </div>
-            </div>
-            <div className="flex items-center gap-2 pt-2">
+            </motion.div>
+
+            {/* Meio a meio */}
+            <motion.label
+              custom={2} variants={fieldVariants} initial="hidden" animate="visible"
+              className="flex items-center gap-3 p-3.5 rounded-xl border border-white/[0.07] bg-white/[0.02] cursor-pointer hover:bg-white/[0.04] transition-colors select-none"
+            >
               <input
-                id="allowHalfAndHalf"
                 type="checkbox"
                 className="form-checkbox"
                 checked={form.allowHalfAndHalf}
                 onChange={e => setForm({ ...form, allowHalfAndHalf: e.target.checked })}
               />
-              <label htmlFor="allowHalfAndHalf" className="text-gray-300">Permitir Meio a Meio?</label>
-            </div>
-            {error && <p className="text-red-500 text-xs">{error}</p>}
-            <div className="flex justify-end gap-3 pt-2">
+              <div>
+                <p className="text-sm font-medium text-gray-200">Permitir Meio a Meio</p>
+                <p className="text-xs text-gray-500 mt-0.5">Clientes poderão dividir o item em dois sabores</p>
+              </div>
+            </motion.label>
+
+            <AnimatePresence>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-red-950/50 border border-red-800/50"
+                >
+                  <span className="text-red-300 text-xs">{error}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <motion.div
+              custom={3} variants={fieldVariants} initial="hidden" animate="visible"
+              className="flex justify-end gap-3 pt-2 border-t border-white/[0.06]"
+            >
               <button type="button" onClick={onClose} className="form-button-secondary">Cancelar</button>
-              <button type="submit" disabled={loading} className="form-button-primary gap-2 inline-flex items-center">{loading ? 'Salvando...' : (isEdit ? 'Atualizar' : 'Salvar')}</button>
-            </div>
+              <button type="submit" disabled={loading} className="form-button-primary gap-2">
+                <FaSave size={13} />
+                {loading ? 'Salvando...' : (isEdit ? 'Atualizar' : 'Criar Categoria')}
+              </button>
+            </motion.div>
           </form>
         </motion.div>
       </motion.div>
@@ -564,74 +657,177 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
   };
 
 
+  const sorted = [...categories].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
   return (
-    <div className="p-0">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-        <h2 className="text-2xl font-bold text-white">Categorias</h2>
-        <button
-          onClick={() => setModalCategory({ value: '', label: '', icon: '', order: 0, allowHalfAndHalf: false })}
-          className="form-button-primary flex items-center gap-2"
+    <div className="space-y-5">
+      {/* Cabeçalho */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-white tracking-tight">Categorias</h2>
+          <p className="text-gray-500 text-sm mt-0.5">{categories.length} {categories.length === 1 ? 'categoria cadastrada' : 'categorias cadastradas'}</p>
+        </div>
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={() => setModalCategory({ value: '', label: '', icon: '', order: categories.length, allowHalfAndHalf: false })}
+          className="form-button-primary gap-2 shrink-0"
         >
-          <FaPlus /> Nova Categoria
-        </button>
+          <FaPlus size={12} /> Nova Categoria
+        </motion.button>
       </div>
-      {catError && <p className="text-red-500 text-sm mb-4">{catError}</p>}
-      <div className="overflow-x-auto rounded-xl border border-gray-800 bg-[#262525] hidden sm:block">
-        <table className="w-full text-left" aria-describedby="categories-table-caption">
-          <caption id="categories-table-caption" className="sr-only">Tabela de categorias do cardápio</caption>
-          <thead>
-            <tr className="border-b border-gray-700 text-gray-400 text-sm">
-              <th className="p-2 w-16">Ícone</th>
-              <th className="p-2 w-20">Ordem</th>
-              <th className="p-2">Nome</th>
-              <th className="p-2">Valor</th>
-              <th className="p-2">Meio a Meio</th>
-              <th className="p-2">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="text-sm">
-            {categories.sort((a, b) => (a.order || 0) - (b.order || 0)).map(cat => (
-              <tr key={cat._id} className="border-b border-gray-800/60 last:border-0">
-                <td className="p-2 text-center text-xl">{cat.icon}</td>
-                <td className="p-2">{cat.order}</td>
-                <td className="p-2">{cat.label}</td>
-                <td className="p-2 text-gray-400">{cat.value}</td>
-                <td className="p-2">
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${cat.allowHalfAndHalf ? 'bg-green-900/30 text-green-400 border border-green-600/50' : 'bg-gray-700/40 text-gray-400 border border-gray-600/40'}`}>{cat.allowHalfAndHalf ? '✅ Sim' : '—'}</span>
-                </td>
-                <td className="p-2 flex gap-2">
-                  <button onClick={() => setModalCategory(cat)} className="form-button-secondary p-2" aria-label={`Editar categoria ${cat.label}`} title={`Editar ${cat.label}`}><FaEdit /></button>
-                  <button onClick={() => handleDeleteCategory(cat._id)} className="form-button-danger p-2" aria-label={`Excluir categoria ${cat.label}`} title={`Excluir ${cat.label}`}><FaTrash /></button>
-                </td>
-              </tr>
-            ))}
-            {categories.length === 0 && (<tr><td colSpan={6} className="p-4 text-center text-gray-400">Nenhuma categoria cadastrada.</td></tr>)}
-          </tbody>
-        </table>
-      </div>
-      <div className="sm:hidden space-y-3">
-        {categories.sort((a, b) => (a.order || 0) - (b.order || 0)).map(cat => (
-          <div key={cat._id} className="bg-[#2a2a2a] rounded-lg p-4 border border-gray-700">
-            <div className="flex justify-between items-start">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{cat.icon}</span>
-                <div>
-                  <h3 className="font-bold text-white">{cat.label}</h3>
-                  <p className="text-xs text-gray-400">Ordem: {cat.order} | Valor: {cat.value}</p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => setModalCategory(cat)} className="form-button-secondary p-2" aria-label={`Editar categoria ${cat.label}`} title={`Editar ${cat.label}`}><FaEdit /></button>
-                <button onClick={() => handleDeleteCategory(cat._id)} className="form-button-danger p-2" aria-label={`Excluir categoria ${cat.label}`} title={`Excluir ${cat.label}`}><FaTrash /></button>
-              </div>
-            </div>
-            <div className="mt-2 pt-2 border-t border-gray-700/50 text-xs">
-              <span className={`inline-flex items-center px-2 py-1 rounded-full font-medium ${cat.allowHalfAndHalf ? 'bg-green-900/30 text-green-400 border border-green-600/50' : 'bg-gray-700/40 text-gray-400 border border-gray-600/40'}`}>Meio a Meio: {cat.allowHalfAndHalf ? '✅ Sim' : '—'}</span>
-            </div>
+
+      {/* Erro */}
+      <AnimatePresence>
+        {catError && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-950/50 border border-red-800/50 text-red-300 text-sm"
+          >
+            {catError}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Lista / grid unificado */}
+      {catLoading && categories.length === 0 ? (
+        <div className="flex items-center justify-center py-16 gap-3 text-gray-600">
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-600" />
+          <span className="text-sm">Carregando categorias...</span>
+        </div>
+      ) : sorted.length === 0 ? (
+        <motion.div
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className="flex flex-col items-center justify-center py-16 gap-3 rounded-2xl border border-dashed border-white/[0.07]"
+        >
+          <span className="text-3xl opacity-30">🗂️</span>
+          <p className="text-sm text-gray-600">Nenhuma categoria cadastrada</p>
+          <button
+            onClick={() => setModalCategory({ value: '', label: '', icon: '', order: 0, allowHalfAndHalf: false })}
+            className="form-button-secondary text-xs gap-1.5 mt-1"
+          >
+            <FaPlus size={10} /> Criar primeira categoria
+          </button>
+        </motion.div>
+      ) : (
+        /* Tabela-like refinada: cabeçalho + linhas animadas */
+        <div className="rounded-2xl border border-white/[0.07] bg-[#111] overflow-hidden shadow-[0_8px_32px_-8px_rgba(0,0,0,0.7)]">
+          {/* Linha de acento */}
+          <div className="absolute left-8 right-8 h-px bg-gradient-to-r from-transparent via-red-700/30 to-transparent" aria-hidden />
+
+          {/* Cabeçalho das colunas — oculto em mobile muito pequeno */}
+          <div className="hidden sm:grid grid-cols-[2.5rem_1fr_5rem_6rem_5.5rem_5rem] gap-4 px-5 py-3 border-b border-white/[0.06]">
+            <span className="text-[10px] uppercase tracking-widest text-gray-600 font-bold text-center">Icon</span>
+            <span className="text-[10px] uppercase tracking-widest text-gray-600 font-bold">Nome</span>
+            <span className="text-[10px] uppercase tracking-widest text-gray-600 font-bold text-center">Ordem</span>
+            <span className="text-[10px] uppercase tracking-widest text-gray-600 font-bold">Slug</span>
+            <span className="text-[10px] uppercase tracking-widest text-gray-600 font-bold text-center">Meio a Meio</span>
+            <span className="text-[10px] uppercase tracking-widest text-gray-600 font-bold text-right">Ações</span>
           </div>
-        ))}
-      </div>
-      {catLoading && <p className="text-xs text-gray-400 mt-2">Carregando...</p>}
+
+          <AnimatePresence initial={false}>
+            {sorted.map((cat, i) => (
+              <motion.div
+                key={cat._id ?? cat.value}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0, transition: { delay: i * 0.04, duration: 0.2 } }}
+                exit={{ opacity: 0, x: 12, transition: { duration: 0.15 } }}
+                className="group border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] transition-colors"
+              >
+                {/* Desktop row */}
+                <div className="hidden sm:grid grid-cols-[2.5rem_1fr_5rem_6rem_5.5rem_5rem] gap-4 items-center px-5 py-3.5">
+                  {/* Ícone */}
+                  <div className="flex items-center justify-center">
+                    <span className="text-xl leading-none">{cat.icon || <span className="text-gray-700 text-sm">—</span>}</span>
+                  </div>
+                  {/* Nome */}
+                  <div>
+                    <p className="text-sm font-semibold text-white">{cat.label}</p>
+                  </div>
+                  {/* Ordem */}
+                  <div className="flex justify-center">
+                    <span className="text-xs font-mono text-gray-500 bg-white/[0.04] border border-white/[0.06] px-2 py-0.5 rounded-md">{cat.order ?? 0}</span>
+                  </div>
+                  {/* Slug */}
+                  <div className="min-w-0">
+                    <span className="text-xs text-gray-600 font-mono truncate block">{cat.value}</span>
+                  </div>
+                  {/* Meio a Meio */}
+                  <div className="flex justify-center">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${cat.allowHalfAndHalf ? 'bg-green-950/60 text-green-400 border-green-800/50' : 'bg-white/[0.03] text-gray-600 border-white/[0.06]'}`}>
+                      {cat.allowHalfAndHalf ? (
+                        <><span className="w-1.5 h-1.5 rounded-full bg-green-500" />Sim</>
+                      ) : '—'}
+                    </span>
+                  </div>
+                  {/* Ações */}
+                  <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => setModalCategory(cat)}
+                      className="w-8 h-8 rounded-lg bg-white/[0.05] hover:bg-blue-900/40 border border-white/[0.07] hover:border-blue-700/40 text-gray-400 hover:text-blue-300 flex items-center justify-center transition-all"
+                      aria-label={`Editar ${cat.label}`}
+                    >
+                      <FaEdit size={12} />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteCategory(cat._id)}
+                      className="w-8 h-8 rounded-lg bg-white/[0.05] hover:bg-red-950/50 border border-white/[0.07] hover:border-red-800/40 text-gray-400 hover:text-red-400 flex items-center justify-center transition-all"
+                      aria-label={`Excluir ${cat.label}`}
+                    >
+                      <FaTrash size={11} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Mobile card */}
+                <div className="sm:hidden flex items-center gap-3 px-4 py-3.5">
+                  {/* Ícone */}
+                  <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-xl shrink-0">
+                    {cat.icon || '?'}
+                  </div>
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">{cat.label}</p>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <span className="text-[10px] font-mono text-gray-600">{cat.value}</span>
+                      <span className="text-gray-700">·</span>
+                      <span className="text-[10px] text-gray-600">ordem {cat.order ?? 0}</span>
+                      {cat.allowHalfAndHalf && (
+                        <span className="text-[10px] bg-green-950/60 text-green-400 border border-green-800/40 px-1.5 py-0.5 rounded-full font-bold">M/M</span>
+                      )}
+                    </div>
+                  </div>
+                  {/* Ações mobile */}
+                  <div className="flex gap-1.5 shrink-0">
+                    <button
+                      onClick={() => setModalCategory(cat)}
+                      className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/[0.07] text-gray-400 hover:text-blue-300 hover:bg-blue-900/30 flex items-center justify-center transition-all"
+                      aria-label={`Editar ${cat.label}`}
+                    >
+                      <FaEdit size={12} />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteCategory(cat._id)}
+                      className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/[0.07] text-gray-400 hover:text-red-400 hover:bg-red-950/40 flex items-center justify-center transition-all"
+                      aria-label={`Excluir ${cat.label}`}
+                    >
+                      <FaTrash size={11} />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+
+          {catLoading && (
+            <div className="flex items-center justify-center py-4 gap-2 text-gray-600 border-t border-white/[0.05]">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600" />
+              <span className="text-xs">Atualizando...</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {modalCategory && (
         <CategoryModal
           category={modalCategory}
@@ -773,32 +969,32 @@ export default function AdminMenu() {
   const filteredItems = menuItems.filter((item) => selectedCategory === 'todas' || item.category === selectedCategory);
 
   return (
-    <div className="p-2 sm:p-6 text-gray-200">
-      <style jsx global>{`
-        .form-input { @apply w-full mt-1 p-2 bg-[#2a2a2a] border border-gray-600 rounded-md text-white focus:ring-red-500 focus:border-red-500 transition-colors; }
-        .form-label { @apply block text-sm font-medium text-gray-300; }
-        .form-checkbox { @apply h-4 w-4 rounded border-gray-600 bg-gray-700 text-red-600 focus:ring-red-500; }
-        .form-button-primary { @apply px-4 py-2 bg-red-600 rounded-md hover:bg-red-700 transition-colors flex items-center justify-center font-semibold; }
-        .form-button-secondary { @apply px-4 py-2 bg-gray-600 rounded-md hover:bg-gray-700 transition-colors; }
-        .form-button-danger { @apply p-2 bg-red-800 rounded-md hover:bg-red-700 transition-colors; }
-      `}</style>
+    <div className="p-4 sm:p-6 text-gray-200">
       <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
-          <div><h1 className="text-3xl font-bold text-white">Admin do Cardápio</h1><p className="text-gray-400 mt-1">Gerencie os itens e categorias.</p></div>
-          <div className="flex gap-2 mt-4 sm:mt-0">
-            <button className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors ${activeTab === 'menu' ? 'bg-red-600 text-white' : 'bg-[#2a2a2a] text-gray-300 hover:bg-gray-700'}`} onClick={() => setActiveTab('menu')}> <FaThList /> Itens</button>
-            <button className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors ${activeTab === 'categories' ? 'bg-red-600 text-white' : 'bg-[#2a2a2a] text-gray-300 hover:bg-gray-700'}`} onClick={() => setActiveTab('categories')}> <FaListAlt /> Categorias</button>
+        {/* Cabeçalho */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Cardápio</h1>
+            <p className="text-gray-500 text-sm mt-0.5">Gerencie os itens e categorias</p>
+          </div>
+          <div className="flex items-center gap-2 bg-[#0f0f0f] rounded-xl p-1 border border-white/[0.06]">
+            <button className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${activeTab === 'menu' ? 'bg-red-700/90 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`} onClick={() => setActiveTab('menu')}><FaThList size={13} /> Itens</button>
+            <button className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${activeTab === 'categories' ? 'bg-red-700/90 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`} onClick={() => setActiveTab('categories')}><FaListAlt size={13} /> Categorias</button>
           </div>
         </div>
 
         {activeTab === 'menu' && (
           <div>
-            <div className="bg-[#262525] rounded-xl p-4 mb-6 flex flex-col md:flex-row justify-between items-center gap-4 border border-gray-800">
-              <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="w-full md:w-auto form-input">
-                <option value="todas">Filtrar por Todas as Categorias</option>
-                {categories.map((cat) => (<option key={cat.value} value={cat.value}>{cat.label}</option>))}
+            {/* Barra de filtro */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6 p-4 rounded-xl border border-white/[0.06] bg-white/[0.02]">
+              <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="form-input flex-1 sm:max-w-xs">
+                <option value="todas">Todas as Categorias</option>
+                {categories.map((cat) => (<option key={cat.value} value={cat.value}>{cat.icon ? `${cat.icon} ` : ''}{cat.label}</option>))}
               </select>
-              <motion.button onClick={() => handleOpenModal()} whileHover={{ scale: 1.05 }} className="w-full md:w-auto form-button-primary"><FaPlus /> Adicionar Novo Item</motion.button>
+              <div className="flex-1 sm:text-right">
+                <span className="text-xs text-gray-600">{filteredItems.length} {filteredItems.length === 1 ? 'item' : 'itens'}</span>
+              </div>
+              <motion.button onClick={() => handleOpenModal()} whileHover={{ scale: 1.02 }} className="form-button-primary shrink-0"><FaPlus size={13} /> Novo Item</motion.button>
             </div>
             {availabilityError && (
               <p className="text-red-400 text-center text-sm mb-4" role="alert">{availabilityError}</p>
