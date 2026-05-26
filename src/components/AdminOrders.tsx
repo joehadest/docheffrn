@@ -287,10 +287,11 @@ export default function AdminOrders() {
         const enderecoFormatado = pedido.tipoEntrega === 'retirada' || !endereco?.address ? 'Retirada no local' : `${endereco.address.street}, ${endereco.address.number}${endereco.address.complement ? ` - ${endereco.address.complement}` : ''}\nBairro: ${endereco.address.neighborhood}\nPonto de Referência: ${endereco.address.referencePoint || 'Nenhum'}`;
         const formaPagamento = pedido.formaPagamento === 'pix' ? 'PIX' : pedido.formaPagamento === 'cartao' ? 'Cartão' : 'Dinheiro';
         const troco = pedido.formaPagamento === 'dinheiro' && pedido.troco ? `\nTroco para: R$ ${pedido.troco}` : '';
-        const taxaEntrega = pedido.tipoEntrega === 'entrega' && endereco?.deliveryFee ? `\nTaxa de Entrega: R$ ${endereco.deliveryFee.toFixed(2)}` : '';
+        const taxaEntregaValor = calcularTaxaEntrega(pedido);
+        const taxaEntrega = taxaEntregaValor > 0 ? `\nTaxa de Entrega: R$ ${taxaEntregaValor.toFixed(2)}` : '';
         const itensFormatados = pedido.itens.map(item => `*${item.quantidade}x ${item.nome}*${item.size ? ` (${item.size})` : ''}${item.border ? `\n  - Borda: ${item.border}` : ''}${item.extras && item.extras.length > 0 ? `\n  - Extras: ${item.extras.join(', ')}` : ''}${item.observacao ? `\n  - _Obs: ${item.observacao}_` : ''}\n  - R$ ${(item.preco * item.quantidade).toFixed(2)}`).join('\n\n');
-        const subtotal = pedido.itens.reduce((total, item) => total + (item.preco * item.quantidade), 0);
-        const total = subtotal + (endereco?.deliveryFee || 0);
+        const subtotal = calcularSubtotal(pedido);
+        const total = calcularTotal(pedido);
         const mensagem = `*Do'Cheff - Pedido #${pedido._id.slice(-6)}*\n\n` +
             `*Data:* ${new Date(pedido.data).toLocaleString('pt-BR')}\n` +
             `*Status:* ${getStatusText(pedido.status)}\n\n` +
@@ -378,7 +379,17 @@ export default function AdminOrders() {
     };
 
     const formatDate = (dateString: string) => new Date(dateString).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    const calcularTotal = (pedido: Pedido) => pedido.total || pedido.itens.reduce((acc, item) => acc + (item.preco * item.quantidade), 0);
+    const calcularSubtotal = (pedido: Pedido) =>
+        pedido.itens.reduce((acc, item) => acc + (item.preco * item.quantidade), 0);
+
+    const calcularTaxaEntrega = (pedido: Pedido) =>
+        pedido.tipoEntrega === 'entrega' ? (pedido.endereco?.deliveryFee ?? 0) : 0;
+
+    // Usa o total gravado se válido (> 0), senão reconstrói a partir dos itens + taxa
+    const calcularTotal = (pedido: Pedido) => {
+        if (pedido.total != null && pedido.total > 0) return pedido.total;
+        return calcularSubtotal(pedido) + calcularTaxaEntrega(pedido);
+    };
 
     const getLocalDateString = (date: Date) => {
         const year = date.getFullYear();
@@ -605,14 +616,23 @@ export default function AdminOrders() {
                                     )}
 
                                     <div className="flex justify-between pt-2 border-t border-gray-700 mt-2">
-                                        <span className="text-gray-400">Subtotal:</span>
-                                        <span>R$ {pedidoSelecionado.itens.reduce((acc, item) => acc + (item.preco * item.quantidade), 0).toFixed(2)}</span>
+                                        <span className="text-gray-400">Subtotal dos itens:</span>
+                                        <span>R$ {calcularSubtotal(pedidoSelecionado).toFixed(2)}</span>
                                     </div>
 
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400">Taxa de Entrega:</span>
-                                        <span>R$ {pedidoSelecionado.endereco?.deliveryFee?.toFixed(2) || '0.00'}</span>
-                                    </div>
+                                    {pedidoSelecionado.tipoEntrega === 'entrega' && (
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-400">Taxa de Entrega:</span>
+                                            <span>R$ {calcularTaxaEntrega(pedidoSelecionado).toFixed(2)}</span>
+                                        </div>
+                                    )}
+
+                                    {pedidoSelecionado.tipoEntrega === 'retirada' && (
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-400">Taxa de Entrega:</span>
+                                            <span className="text-green-400 text-xs font-medium">Grátis (retirada)</span>
+                                        </div>
+                                    )}
 
                                     <div className="flex justify-between font-bold text-red-500 text-lg pt-2 border-t border-gray-700 mt-2">
                                         <span>Total:</span>

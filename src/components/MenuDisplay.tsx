@@ -275,24 +275,71 @@ export default function MenuDisplay() {
 
         try {
             const { cliente, tipoEntrega, endereco, formaPagamento, troco, itens, total, observacoes } = finalOrderData;
-            const deliveryFee = tipoEntrega === 'entrega' ? endereco.deliveryFee : 0;
+            const deliveryFee = tipoEntrega === 'entrega' ? (endereco?.deliveryFee ?? 0) : 0;
             const subtotal = total - deliveryFee;
-            const header = `*Novo Pedido - Do'Cheff*`;
-            const customerInfo = `\n\n*Cliente:*\nNome: ${cliente.nome}\nTelefone: ${cliente.telefone}`;
-            const addressInfo = tipoEntrega === 'entrega'
-                ? `\n\n*Entrega:*\nRua: ${endereco.address.street}, N°: ${endereco.address.number}\nBairro: ${endereco.address.neighborhood}\nReferencia: ${endereco.address.referencePoint || 'N/A'}`
-                : `\n\n*Entrega:*\nRetirada no Local`;
-            const paymentInfo = `\n\n*Pagamento:*\nForma: ${formaPagamento}${formaPagamento === 'dinheiro' && troco ? `\nTroco para: R$ ${troco}` : ''}`;
+
+            const formatPayment = (fp: string) =>
+                fp === 'pix' ? 'PIX' : fp === 'cartao' ? 'Cartão' : fp === 'dinheiro' ? 'Dinheiro' : fp;
+
+            // Cabeçalho
+            const header = `🍕 *Novo Pedido - Do'Cheff*`;
+
+            // Dados do cliente
+            const customerInfo = [
+                `\n\n👤 *Cliente*`,
+                `Nome: ${cliente.nome}`,
+                `Telefone: ${cliente.telefone}`,
+            ].join('\n');
+
+            // Endereço / tipo de entrega
+            const addressLines = tipoEntrega === 'entrega' && endereco?.address
+                ? [
+                    `\n\n📍 *Endereço de Entrega*`,
+                    `${endereco.address.street}, N° ${endereco.address.number}${endereco.address.complement ? ` - ${endereco.address.complement}` : ''}`,
+                    `Bairro: ${endereco.address.neighborhood}`,
+                    ...(endereco.address.referencePoint ? [`Referência: ${endereco.address.referencePoint}`] : []),
+                  ]
+                : [`\n\n📍 *Entrega*`, `Retirada no Local`];
+            const addressInfo = addressLines.join('\n');
+
+            // Itens — inclui tamanho, borda, extras e observação
             const itemsInfo = itens.map((item: any) => {
-                let itemText = `- ${item.quantidade}x ${item.nome}`;
-                if (item.size) itemText += ` (${item.size})`;
-                if (item.observacao) itemText += `\n  Obs: ${item.observacao}`;
-                return itemText;
-            }).join('\n');
-            const generalObs = observacoes ? `\n\n*Observacoes Gerais:*\n${observacoes}` : '';
-            const totals = `\n\n*Valores:*\nSubtotal: R$ ${subtotal.toFixed(2)}\nTaxa de Entrega: R$ ${deliveryFee.toFixed(2)}\n*Total: R$ ${total.toFixed(2)}*`;
-            const footer = formaPagamento === 'pix' ? `\n\n*Chave PIX para pagamento:*\n${pixKey} (Celular)` : '';
-            const message = `${header}\n${customerInfo}\n${addressInfo}\n\n*Itens do Pedido:*\n${itemsInfo}${generalObs}\n${paymentInfo}\n${totals}${footer}`;
+                const lines: string[] = [
+                    `• ${item.quantidade}x *${item.nome}*${item.size ? ` (${item.size})` : ''}`,
+                ];
+                if (item.border) lines.push(`  - Borda: ${item.border}`);
+                if (item.extras && item.extras.length > 0) lines.push(`  - Extras: ${item.extras.join(', ')}`);
+                if (item.observacao) lines.push(`  - Obs: ${item.observacao}`);
+                lines.push(`  R$ ${(item.preco * item.quantidade).toFixed(2)}`);
+                return lines.join('\n');
+            }).join('\n\n');
+
+            // Observações gerais
+            const obsSection = observacoes ? `\n\n📝 *Observações Gerais*\n${observacoes}` : '';
+
+            // Pagamento
+            const paymentLines = [
+                `\n\n💳 *Pagamento*`,
+                `Forma: ${formatPayment(formaPagamento)}`,
+            ];
+            if (formaPagamento === 'dinheiro' && troco) paymentLines.push(`Troco para: R$ ${troco}`);
+            if (formaPagamento === 'pix') paymentLines.push(`Chave PIX: ${pixKey} (Celular)`);
+            const paymentInfo = paymentLines.join('\n');
+
+            // Resumo financeiro
+            const totalsLines = [
+                `\n\n💰 *Resumo do Pedido*`,
+                `Subtotal: R$ ${subtotal.toFixed(2)}`,
+            ];
+            if (tipoEntrega === 'entrega') {
+                totalsLines.push(`Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}`);
+            } else {
+                totalsLines.push(`Taxa de Entrega: Grátis (retirada)`);
+            }
+            totalsLines.push(`*Total: R$ ${total.toFixed(2)}*`);
+            const totals = totalsLines.join('\n');
+
+            const message = [header, customerInfo, addressInfo, `\n\n🛒 *Itens do Pedido*\n${itemsInfo}`, obsSection, paymentInfo, totals].join('');
             // Extrai apenas os números da chave PIX para o número do WhatsApp (remove formatação)
             const whatsappNumber = pixKey.replace(/\D/g, '');
             const whatsappUrl = `https://wa.me/55${whatsappNumber}?text=${encodeURIComponent(message)}`;
