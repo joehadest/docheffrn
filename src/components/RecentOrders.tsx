@@ -1,8 +1,6 @@
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
 import { FaShareAlt } from 'react-icons/fa';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Endereco {
@@ -40,8 +38,6 @@ interface Pedido {
     address?: Endereco;
     deliveryFee?: number;
     estimatedTime?: string;
-    complement?: string;
-    neighborhood?: string;
   };
   cliente?: Cliente;
   observacoes?: string;
@@ -54,127 +50,116 @@ interface Pedido {
   };
 }
 
-const statusColors: Record<PedidoStatus, string> = {
-  pendente: 'bg-yellow-100 text-yellow-800',
-  preparando: 'bg-blue-100 text-blue-800',
-  pronto: 'bg-green-100 text-green-800',
-  em_entrega: 'bg-purple-100 text-purple-800',
-  entregue: 'bg-green-100 text-green-800',
-  cancelado: 'bg-red-100 text-red-800'
+const STATUS_FLOW: PedidoStatus[] = ['pendente', 'preparando', 'pronto', 'em_entrega', 'entregue'];
+
+const statusMeta: Record<PedidoStatus, { label: string; className: string }> = {
+  pendente: { label: 'Pendente', className: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+  preparando: { label: 'Preparando', className: 'bg-sky-500/20 text-sky-300 border-sky-500/30' },
+  pronto: { label: 'Pronto', className: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+  em_entrega: { label: 'Em entrega', className: 'bg-violet-500/20 text-violet-300 border-violet-500/30' },
+  entregue: { label: 'Entregue', className: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+  cancelado: { label: 'Cancelado', className: 'bg-ember-500/20 text-ember-300 border-ember-500/30' },
 };
 
-const statusTexts: Record<PedidoStatus, string> = {
-  pendente: 'Pendente',
-  preparando: 'Preparando',
-  pronto: 'Pronto',
-  em_entrega: 'Em Entrega',
-  entregue: 'Entregue',
-  cancelado: 'Cancelado'
-};
+const money = (n: number) =>
+  Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1
-    }
+function StatusTrack({ status }: { status: PedidoStatus }) {
+  if (status === 'cancelado') {
+    return (
+      <div className="rounded-xl border border-ember-800/40 bg-ember-950/30 px-3 py-2 text-center text-xs font-semibold text-ember-300">
+        Pedido cancelado
+      </div>
+    );
   }
-};
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      type: "spring",
-      stiffness: 100
-    }
-  },
-  exit: {
-    opacity: 0,
-    y: -20,
-    transition: {
-      duration: 0.2
-    }
-  }
-};
+  const currentIdx = STATUS_FLOW.indexOf(status);
+
+  return (
+    <div className="flex items-center gap-1">
+      {STATUS_FLOW.map((step, idx) => {
+        const done = idx <= currentIdx;
+        const current = idx === currentIdx;
+        return (
+          <React.Fragment key={step}>
+            <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
+              <span
+                className={`h-2.5 w-2.5 rounded-full transition ${
+                  done ? 'bg-ember-500 shadow-[0_0_8px_rgba(196,30,30,0.6)]' : 'bg-white/15'
+                } ${current ? 'ring-2 ring-ember-400/50 ring-offset-1 ring-offset-surface-raised' : ''}`}
+              />
+              <span className={`truncate text-[9px] font-medium sm:text-[10px] ${done ? 'text-ink-muted' : 'text-ink-faint'}`}>
+                {statusMeta[step].label.split(' ')[0]}
+              </span>
+            </div>
+            {idx < STATUS_FLOW.length - 1 && (
+              <div className={`mb-4 h-0.5 flex-1 rounded ${idx < currentIdx ? 'bg-ember-600/70' : 'bg-white/10'}`} />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function RecentOrders() {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
-  const [pedidoSelecionado, setPedidoSelecionado] = useState<Pedido | null>(null);
   const [mensagem, setMensagem] = useState<string | null>(null);
   const [mensagemCompartilhamento, setMensagemCompartilhamento] = useState<string | null>(null);
-  const [searchFilter, setSearchFilter] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
   const [uploadingComprovante, setUploadingComprovante] = useState<string | null>(null);
   const [newOrderNotification, setNewOrderNotification] = useState<string | null>(null);
-  const [showComprovanteModal, setShowComprovanteModal] = useState(false);
-  const [pedidoParaComprovante, setPedidoParaComprovante] = useState<Pedido | null>(null);
-  const [pixKey, setPixKey] = useState('84987291269'); // (84) 98729-1269
+  const [pixKey, setPixKey] = useState('84987291269');
+  const [hasPhone, setHasPhone] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const notifiedPedidosRef = useRef<Set<string>>(new Set());
-  const [statusUpdateCount, setStatusUpdateCount] = useState<Record<string, number>>(() => {
-    if (typeof window !== 'undefined') {
-      const savedCounts = localStorage.getItem('statusUpdateCounts');
-      return savedCounts ? JSON.parse(savedCounts) : {};
+  const [statusUpdateCount] = useState<Record<string, number>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      return JSON.parse(localStorage.getItem('statusUpdateCounts') || '{}');
+    } catch {
+      return {};
     }
-    return {};
   });
-  const UPDATE_INTERVAL = 30000; // 30 segundos
+  const UPDATE_INTERVAL = 30000;
 
   const fetchPedidos = async (force = false) => {
     const now = Date.now();
-    if (!force && now - lastUpdate < UPDATE_INTERVAL) {
-      return; // Não atualiza se não passou o intervalo
-    }
+    if (!force && now - lastUpdate < UPDATE_INTERVAL) return;
 
     try {
       setLoading(true);
       setError(null);
 
-      // Buscar o telefone do cliente do localStorage
       const telefone = localStorage.getItem('customerPhone');
-
-      // Se não houver telefone, não buscar pedidos
       if (!telefone || !telefone.trim()) {
+        setHasPhone(false);
         setPedidos([]);
         setLoading(false);
         return;
       }
+      setHasPhone(true);
 
-      // Construir a URL com o parâmetro de telefone (sempre obrigatório)
       const url = `/api/pedidos?telefone=${encodeURIComponent(telefone.trim())}`;
-
       const response = await fetch(url);
       const data = await response.json();
+      if (!data.success) throw new Error(data.message || 'Erro ao carregar pedidos');
 
-      if (!data.success) {
-        throw new Error(data.message || 'Erro ao carregar pedidos');
-      }
-
-      // Filtrar apenas pedidos do cliente atual (segurança extra)
-      const telefoneCliente = telefone.trim();
-      const telefoneClienteNormalizado = telefoneCliente.replace(/\D/g, '');
-      
+      const telefoneClienteNormalizado = telefone.trim().replace(/\D/g, '');
       const pedidosFiltrados = (data.data || []).filter((pedido: any) => {
         const telefonePedido = pedido.cliente?.telefone || '';
         if (!telefonePedido) return false;
-        
-        // Comparar telefones normalizados (apenas dígitos)
         const telefonePedidoNormalizado = telefonePedido.replace(/\D/g, '');
-        
-        // Comparação exata ou se um contém o outro (para casos como "8498729126" vs "8498729126")
-        return telefoneClienteNormalizado === telefonePedidoNormalizado || 
-               (telefoneClienteNormalizado.length >= 8 && telefonePedidoNormalizado.includes(telefoneClienteNormalizado)) ||
-               (telefonePedidoNormalizado.length >= 8 && telefoneClienteNormalizado.includes(telefonePedidoNormalizado));
+        return (
+          telefoneClienteNormalizado === telefonePedidoNormalizado ||
+          (telefoneClienteNormalizado.length >= 8 && telefonePedidoNormalizado.includes(telefoneClienteNormalizado)) ||
+          (telefonePedidoNormalizado.length >= 8 && telefoneClienteNormalizado.includes(telefonePedidoNormalizado))
+        );
       });
 
-
-      // Garantir que os pedidos tenham todos os campos necessários
-      const pedidosFormatados = pedidosFiltrados.map((pedido: any) => ({
+      const pedidosFormatados: Pedido[] = pedidosFiltrados.map((pedido: any) => ({
         ...pedido,
         itens: pedido.itens || [],
         total: pedido.total || 0,
@@ -182,129 +167,32 @@ export default function RecentOrders() {
         data: pedido.data || new Date().toISOString(),
         cliente: pedido.cliente || { nome: '', telefone: '' },
         endereco: pedido.endereco || {
-          address: {
-            street: '',
-            number: '',
-            complement: '',
-            neighborhood: '',
-            referencePoint: ''
-          },
+          address: { street: '', number: '', complement: '', neighborhood: '', referencePoint: '' },
           deliveryFee: 0,
-          estimatedTime: '30-45 minutos'
+          estimatedTime: '30-45 minutos',
         },
         formaPagamento: pedido.formaPagamento || '',
         observacoes: pedido.observacoes || '',
         tipoEntrega: pedido.tipoEntrega || 'entrega',
-        comprovante: pedido.comprovante || undefined
+        comprovante: pedido.comprovante || undefined,
       }));
 
-      // Detectar novos pedidos
-      const previousPedidoIds = new Set(pedidos.map((p: Pedido) => p._id));
-      const novosPedidos = pedidosFormatados.filter((p: Pedido) => !previousPedidoIds.has(p._id));
-      
-      // Se houver novos pedidos e não for o primeiro carregamento
+      const previousPedidoIds = new Set(pedidos.map((p) => p._id));
+      const novosPedidos = pedidosFormatados.filter((p) => !previousPedidoIds.has(p._id));
       if (novosPedidos.length > 0 && pedidos.length > 0) {
-        const novoPedido = novosPedidos[0]; // Pega o mais recente
-        const pedidoId = novoPedido._id;
-        
-        // Verifica se já notificou sobre este pedido
-        if (!notifiedPedidosRef.current.has(pedidoId)) {
-          notifiedPedidosRef.current.add(pedidoId);
-          
-          // Mostra notificação
-          setNewOrderNotification(`Novo pedido #${pedidoId.slice(-6)} recebido!`);
-          
-          // Esconde notificação após 5 segundos
-          setTimeout(() => {
-            setNewOrderNotification(null);
-          }, 5000);
+        const novoPedido = novosPedidos[0];
+        if (!notifiedPedidosRef.current.has(novoPedido._id)) {
+          notifiedPedidosRef.current.add(novoPedido._id);
+          setNewOrderNotification(`Novo pedido #${novoPedido._id.slice(-6)} recebido!`);
+          setTimeout(() => setNewOrderNotification(null), 5000);
         }
       }
 
       setPedidos(pedidosFormatados);
       setLastUpdate(now);
-    } catch (error) {
-      console.error('Erro ao carregar pedidos:', error);
-      setError(error instanceof Error ? error.message : 'Erro ao carregar pedidos');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStatusChange = async (pedidoId: string, newStatus: PedidoStatus) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await fetch(`/api/pedidos/${pedidoId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.message || 'Erro ao atualizar status');
-      }
-
-      // Incrementar o contador de atualizações para este pedido
-      setStatusUpdateCount(prev => {
-        const newCounts = {
-          ...prev,
-          [pedidoId]: (prev[pedidoId] || 0) + 1
-        };
-        // Salvar no localStorage imediatamente
-        localStorage.setItem('statusUpdateCounts', JSON.stringify(newCounts));
-        return newCounts;
-      });
-
-      // Atualizar o pedido localmente
-      setPedidos(pedidos.map(pedido =>
-        pedido._id === pedidoId
-          ? { ...pedido, status: newStatus }
-          : pedido
-      ));
-
-      // Força atualização após mudança de status
-      fetchPedidos(true);
-    } catch (error) {
-      console.error('Erro ao atualizar status:', error);
-      setError(error instanceof Error ? error.message : 'Erro ao atualizar status');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDelete = async (pedidoId: string) => {
-    if (!confirm('Tem certeza que deseja excluir este pedido?')) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await fetch(`/api/pedidos/${pedidoId}`, {
-        method: 'DELETE',
-      });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.message || 'Erro ao excluir pedido');
-      }
-
-      // Remover o pedido localmente
-      setPedidos(pedidos.filter(pedido => pedido._id !== pedidoId));
-
-      // Força atualização após exclusão
-      fetchPedidos(true);
-    } catch (error) {
-      console.error('Erro ao excluir pedido:', error);
-      setError(error instanceof Error ? error.message : 'Erro ao excluir pedido');
+    } catch (err) {
+      console.error('Erro ao carregar pedidos:', err);
+      setError(err instanceof Error ? err.message : 'Erro ao carregar pedidos');
     } finally {
       setLoading(false);
     }
@@ -314,779 +202,405 @@ export default function RecentOrders() {
     try {
       setUploadingComprovante(pedidoId);
       setError(null);
-
       const formData = new FormData();
       formData.append('file', file);
-
-      const response = await fetch(`/api/pedidos/${pedidoId}/comprovante`, {
-        method: 'POST',
-        body: formData,
-      });
-
+      const response = await fetch(`/api/pedidos/${pedidoId}/comprovante`, { method: 'POST', body: formData });
       const data = await response.json();
+      if (!data.success) throw new Error(data.message || 'Erro ao enviar comprovante');
 
-      if (!data.success) {
-        throw new Error(data.message || 'Erro ao enviar comprovante');
-      }
-
-      // Atualizar pedido localmente
-      setPedidos(pedidos.map(pedido =>
-        pedido._id === pedidoId
-          ? { ...pedido, comprovante: data.data }
-          : pedido
-      ));
-
+      setPedidos((prev) =>
+        prev.map((pedido) => (pedido._id === pedidoId ? { ...pedido, comprovante: data.data } : pedido))
+      );
       setMensagem('Comprovante enviado com sucesso!');
       setTimeout(() => setMensagem(null), 3000);
-
-      // Força atualização
       fetchPedidos(true);
-    } catch (error) {
-      console.error('Erro ao enviar comprovante:', error);
-      setError(error instanceof Error ? error.message : 'Erro ao enviar comprovante');
+    } catch (err) {
+      console.error('Erro ao enviar comprovante:', err);
+      setError(err instanceof Error ? err.message : 'Erro ao enviar comprovante');
     } finally {
       setUploadingComprovante(null);
     }
   };
 
-  // Buscar chave PIX das configurações
+  const pickComprovante = (pedidoId: string) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) handleUploadComprovante(pedidoId, file);
+    };
+    input.click();
+  };
+
   useEffect(() => {
     async function fetchPixKey() {
       try {
         const res = await fetch('/api/settings');
         const data = await res.json();
-        if (data.success && data.data?.pixKey) {
-          setPixKey(data.data.pixKey);
-        }
-      } catch (error) {
-        // Mantém o valor padrão em caso de erro
+        if (data.success && data.data?.pixKey) setPixKey(data.data.pixKey);
+      } catch {
+        /* keep default */
       }
     }
     fetchPixKey();
   }, []);
 
   useEffect(() => {
-    fetchPedidos(true); // Carrega inicialmente
-
-    // Configura o intervalo de atualização
-    const interval = setInterval(() => {
-      fetchPedidos();
-    }, UPDATE_INTERVAL);
-
-    // Atualizar quando a página voltar ao foco (útil após voltar do WhatsApp)
-    const handleFocus = () => {
-      fetchPedidos(true);
-    };
+    fetchPedidos(true);
+    const interval = setInterval(() => fetchPedidos(), UPDATE_INTERVAL);
+    const handleFocus = () => fetchPedidos(true);
     window.addEventListener('focus', handleFocus);
     window.addEventListener('visibilitychange', () => {
-      if (!document.hidden) {
-        fetchPedidos(true);
-      }
+      if (!document.hidden) handleFocus();
     });
-
-    // Listener para evento customizado de novo pedido
-    const handleNewOrder = () => {
-      fetchPedidos(true);
-    };
+    const handleNewOrder = () => fetchPedidos(true);
     window.addEventListener('pedido-salvo', handleNewOrder);
-
     return () => {
       clearInterval(interval);
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('visibilitychange', handleFocus);
       window.removeEventListener('pedido-salvo', handleNewOrder);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem('statusUpdateCounts', JSON.stringify(statusUpdateCount));
-  }, [statusUpdateCount]);
 
   const handleCompartilharPedido = async (pedido: Pedido) => {
     try {
-      const pedidoText = `*Do'Cheff - Pedido #${pedido._id}*\n\n` +
-        `*Data:* ${new Date(pedido.data).toLocaleString()}\n` +
-        `*Status:* ${getStatusText(pedido.status)}\n\n` +
-        `*Cliente:*\n` +
-        `Nome: ${pedido.cliente?.nome || 'Não informado'}\n` +
-        `Telefone: ${pedido.cliente?.telefone || 'Não informado'}\n\n` +
-        `*Endereço:*\n` +
-        (pedido.tipoEntrega === 'entrega'
-          ? `Rua: ${pedido.endereco?.address?.street || '-'}, ${pedido.endereco?.address?.number || '-'}\n` +
-          (pedido.endereco?.address?.complement ? `Complemento: ${pedido.endereco.address.complement}\n` : '') +
-          `Bairro: ${pedido.endereco?.address?.neighborhood || '-'}\n` +
-          `Ponto de Referência: ${pedido.endereco?.address?.referencePoint || '-'}\n\n`
-          : `*Tipo de Entrega:* Retirada no Local\n\n`) +
-        `*Itens:*\n` +
-        pedido.itens.map(item =>
-          `${item.quantidade}x ${item.nome}` +
-          (item.size ? ` (${item.size})` : '') +
-          (item.border ? ` - Borda: ${item.border}` : '') +
-          (item.extras && item.extras.length > 0 ? ` - Extras: ${item.extras.join(', ')}` : '') +
-          (item.observacao ? `\nObs: ${item.observacao}` : '') +
-          ` - R$ ${(item.preco * item.quantidade).toFixed(2)}`
-        ).join('\n') + '\n\n' +
-        `*Forma de Pagamento:* ${pedido.formaPagamento?.toLowerCase() === 'pix' ? 'PIX' : 'Dinheiro'}\n` +
-        (pedido.formaPagamento?.toLowerCase() === 'pix' ? `*Chave PIX:* ${pixKey}\n` : '') +
-        `*Total:* R$ ${pedido.total.toFixed(2)}`;
+      const divider = '--------------------';
+      const lines = [
+        `*Do'Cheff - Pedido #${pedido._id.slice(-6)}*`,
+        divider,
+        `Data: ${new Date(pedido.data).toLocaleString('pt-BR')}`,
+        `Status: ${statusMeta[pedido.status].label}`,
+        divider,
+        `*Cliente*`,
+        `Nome: ${pedido.cliente?.nome || 'Nao informado'}`,
+        `Telefone: ${pedido.cliente?.telefone || 'Nao informado'}`,
+        divider,
+      ];
+
+      if (pedido.tipoEntrega === 'entrega') {
+        lines.push(
+          `*Endereco*`,
+          `${pedido.endereco?.address?.street || '-'}, N. ${pedido.endereco?.address?.number || '-'}`,
+          ...(pedido.endereco?.address?.complement ? [`Compl: ${pedido.endereco.address.complement}`] : []),
+          `Bairro: ${pedido.endereco?.address?.neighborhood || '-'}`,
+          `Ref: ${pedido.endereco?.address?.referencePoint || '-'}`,
+          divider
+        );
+      } else {
+        lines.push(`*Entrega*`, `Retirada no Local`, divider);
+      }
+
+      lines.push(`*Itens*`);
+      pedido.itens.forEach((item, i) => {
+        lines.push(
+          `${i + 1}) ${item.quantidade}x ${item.nome}${item.size ? ` (${item.size})` : ''}`,
+          ...(item.border ? [`   Borda: ${item.border}`] : []),
+          ...(item.extras?.length ? [`   Extras: ${item.extras.join(', ')}`] : []),
+          ...(item.observacao ? [`   Obs: ${item.observacao}`] : []),
+          `   R$ ${money(item.preco * item.quantidade)}`
+        );
+      });
+
+      lines.push(
+        divider,
+        `Pagamento: ${pedido.formaPagamento?.toLowerCase() === 'pix' ? 'PIX' : pedido.formaPagamento || '-'}`,
+        ...(pedido.formaPagamento?.toLowerCase() === 'pix' ? [`Chave PIX: ${pixKey}`] : []),
+        `*TOTAL: R$ ${money(pedido.total)}*`
+      );
+
+      const pedidoText = lines.join('\n');
 
       if (navigator.share) {
-        await navigator.share({
-          title: `Pedido Do'Cheff #${pedido._id}`,
-          text: pedidoText
-        });
+        await navigator.share({ title: `Pedido Do'Cheff #${pedido._id.slice(-6)}`, text: pedidoText });
       } else {
-        const textarea = document.createElement('textarea');
-        textarea.value = pedidoText;
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-        setMensagemCompartilhamento('Pedido copiado para a área de transferência!');
-        setTimeout(() => setMensagemCompartilhamento(''), 3000);
+        await navigator.clipboard.writeText(pedidoText);
+        setMensagemCompartilhamento('Pedido copiado!');
+        setTimeout(() => setMensagemCompartilhamento(null), 3000);
       }
-    } catch (error) {
-      console.error('Erro ao compartilhar pedido:', error);
-      setMensagemCompartilhamento('Erro ao compartilhar pedido');
-      setTimeout(() => setMensagemCompartilhamento(''), 3000);
+    } catch (err) {
+      console.error('Erro ao compartilhar pedido:', err);
+      setMensagemCompartilhamento('Erro ao compartilhar');
+      setTimeout(() => setMensagemCompartilhamento(null), 3000);
     }
   };
 
-  const getStatusColor = (status: PedidoStatus) => statusColors[status];
-  const getStatusText = (status: PedidoStatus) => statusTexts[status];
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('pt-BR', {
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
-  };
 
-  const filteredOrders = searchFilter
-    ? pedidos.filter(order =>
-      (order.cliente?.telefone && order.cliente.telefone.includes(searchFilter)) ||
-      (order._id && order._id.includes(searchFilter))
-    )
-    : pedidos;
-
-  const renderOrderDetails = (pedido: Pedido) => {
-    return (
-      <div className="space-y-4">
-        <div className="bg-[#262525] p-4 rounded-lg">
-          <h3 className="text-lg font-semibold text-white mb-2">Informações do Cliente</h3>
-          <p className="text-gray-300 break-words">Nome: {pedido.cliente?.nome || '-'}</p>
-          <p className="text-gray-300 break-words">Telefone: {pedido.cliente?.telefone || '-'}</p>
-        </div>
-
-        <div className="bg-[#262525] p-4 rounded-lg">
-          <h3 className="text-lg font-semibold text-white mb-2">Informações de Entrega</h3>
-          {pedido.tipoEntrega === 'entrega' && pedido.endereco ? (
-            <>
-              <p className="text-gray-300 break-words">Endereço: {pedido.endereco.address?.street || '-'}, {pedido.endereco.address?.number || '-'}</p>
-              {pedido.endereco.address?.complement && (
-                <p className="text-gray-300 break-words">Complemento: {pedido.endereco.address.complement}</p>
-              )}
-              <p className="text-gray-300 break-words">Bairro: {pedido.endereco.address?.neighborhood || '-'}</p>
-              <p className="text-gray-300 break-words">Ponto de Referência: {pedido.endereco.address?.referencePoint || '-'}</p>
-              <p className="text-gray-300">Taxa de Entrega: R$ {pedido.endereco.deliveryFee?.toFixed(2) || '0.00'}</p>
-              <p className="text-gray-300">Tempo Estimado: {pedido.endereco.estimatedTime || '30-45 minutos'}</p>
-            </>
-          ) : (
-            <p className="text-gray-300">Tipo de Entrega: Retirada no Local</p>
-          )}
-        </div>
-
-        <div className="bg-[#262525] p-4 rounded-lg">
-          <h3 className="text-lg font-semibold text-white mb-2">Itens do Pedido</h3>
-          <div className="space-y-2">
-            {pedido.itens.map((item, index) => (
-              <div key={index} className="border-b border-gray-700 pb-2">
-                <p className="text-gray-300 break-words">
-                  {item.quantidade}x {item.nome}
-                  {item.size ? ` (${item.size})` : ''}
-                  {item.border ? ` - Borda: ${item.border}` : ''}
-                  {item.extras && item.extras.length > 0 ? ` - Extras: ${item.extras.join(', ')}` : ''}
-                </p>
-                {item.observacao && (
-                  <p className="text-gray-400 text-sm break-words">Obs: {item.observacao}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-[#262525] p-4 rounded-lg">
-          <h3 className="text-lg font-semibold text-white mb-2">Informações de Pagamento</h3>
-          <p className="text-gray-300">Total: R$ {pedido.total.toFixed(2)}</p>
-          <p className="text-gray-300">Forma de Pagamento: {
-            pedido.formaPagamento?.toLowerCase() === 'pix' ? 'PIX' :
-              pedido.formaPagamento?.toLowerCase() === 'cartao' ? 'Cartão' :
-                'Dinheiro'
-          }</p>
-          {pedido.formaPagamento?.toLowerCase() === 'pix' && (
-            <p className="text-gray-300">Chave PIX: {pixKey}</p>
-          )}
-        </div>
-
-        {pedido.observacoes && (
-          <div className="bg-[#262525] p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-white mb-2">Observações</h3>
-            <p className="text-gray-300 break-words">{pedido.observacoes}</p>
-          </div>
-        )}
-      </div>
-    );
+  const formatPayment = (fp?: string) => {
+    const v = (fp || '').toLowerCase();
+    if (v === 'pix') return 'PIX';
+    if (v === 'cartao') return 'Cartao';
+    if (v === 'dinheiro') return 'Dinheiro';
+    return fp || '-';
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h2 className="text-2xl font-bold mb-6">Meus Pedidos</h2>
-
-      {loading ? (
-        <div className="flex justify-center items-center h-32">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+    <div className="space-y-5">
+      {loading && pedidos.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-3 py-16">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-ember-600/30 border-t-ember-500" />
+          <p className="text-sm text-ink-muted">Carregando seus pedidos…</p>
         </div>
       ) : error ? (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-          <strong className="font-bold">Erro!</strong>
-          <span className="block sm:inline"> {error}</span>
+        <div className="rounded-2xl border border-ember-800/50 bg-ember-950/40 px-4 py-3 text-sm text-ember-200">
+          <strong className="font-bold">Erro:</strong> {error}
         </div>
-      ) : !localStorage.getItem('customerPhone') ? (
-        <div className="text-center py-8">
-          <p className="text-sm text-gray-500">Faça um pedido para começar a ver seu histórico.</p>
+      ) : !hasPhone ? (
+        <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-14 text-center">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.04] text-2xl opacity-60">
+            📋
+          </div>
+          <p className="font-display text-lg font-bold text-ink">Nenhum histórico ainda</p>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-ink-muted">
+            Faça um pedido pelo cardápio para acompanhar o status aqui.
+          </p>
         </div>
       ) : pedidos.length === 0 ? (
-        <div className="text-center py-8">
-          <p className="text-gray-600 mb-4">Você ainda não tem pedidos.</p>
-          <p className="text-sm text-gray-500">Faça seu primeiro pedido para começar a ver seu histórico.</p>
+        <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-14 text-center">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.04] text-2xl opacity-60">
+            🛒
+          </div>
+          <p className="font-display text-lg font-bold text-ink">Sem pedidos neste telefone</p>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-ink-muted">
+            Quando você pedir, os status aparecem aqui em tempo real.
+          </p>
         </div>
       ) : (
         <motion.div
-          variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+          variants={{
+            hidden: { opacity: 0 },
+            visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
+          }}
+          className="grid grid-cols-1 gap-4 lg:grid-cols-2"
         >
-          {pedidos.map((pedido) => (
-            <motion.div
-              key={pedido._id}
-              id={`pedido-${pedido._id}`}
-              variants={itemVariants}
-              exit="exit"
-              className="bg-white rounded-lg shadow-md p-4 transition-all"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="font-semibold text-lg text-gray-800">Pedido <span className="text-red-500">#{pedido._id.slice(-6)}</span></h3>
-                  <p className="text-sm text-gray-500">{formatDate(pedido.data)}</p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold
-                    ${pedido.status === 'entregue' ? 'bg-green-700 text-green-200' : ''}
-                    ${pedido.status === 'pendente' ? 'bg-yellow-700 text-yellow-200' : ''}
-                    ${pedido.status === 'preparando' ? 'bg-blue-700 text-blue-200' : ''}
-                    ${pedido.status === 'pronto' ? 'bg-green-700 text-green-200' : ''}
-                    ${pedido.status === 'em_entrega' ? 'bg-purple-700 text-purple-200' : ''}
-                    ${pedido.status === 'cancelado' ? 'bg-red-700 text-red-200' : ''}
-                  `}>
-                    {getStatusText(pedido.status)}
-                  </span>
-                  {statusUpdateCount[pedido._id] > 0 && (
-                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                      {statusUpdateCount[pedido._id]}
-                    </span>
-                  )}
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => handleCompartilharPedido(pedido)}
-                    className="text-red-500 hover:text-red-400"
-                  >
-                    <FaShareAlt className="w-5 h-5" />
-                  </motion.button>
-                </div>
-              </div>
+          {pedidos.map((pedido) => {
+            const expanded = expandedId === pedido._id || pedidos.length === 1;
+            const meta = statusMeta[pedido.status];
+            const updates = statusUpdateCount[pedido._id] || 0;
 
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm text-gray-500">
-                  <span>Nome:</span>
-                  <span className="text-right break-words">{pedido.cliente?.nome || 'Não informado'}</span>
-                </div>
-                <div className="flex justify-between text-sm text-gray-500">
-                  <span>Telefone:</span>
-                  <span className="text-right break-words">{pedido.cliente?.telefone || 'Não informado'}</span>
-                </div>
-                {pedido.tipoEntrega === 'entrega' && pedido.endereco ? (
-                  <>
-                    <div className="flex justify-between text-sm text-gray-500">
-                      <span>Endereço:</span>
-                      <span className="text-right break-words">{pedido.endereco.address?.street || 'Não informado'}</span>
+            return (
+              <motion.article
+                key={pedido._id}
+                id={`pedido-${pedido._id}`}
+                variants={{
+                  hidden: { opacity: 0, y: 12 },
+                  visible: { opacity: 1, y: 0 },
+                }}
+                className="overflow-hidden rounded-2xl border border-white/[0.08] bg-surface-raised shadow-card transition hover:border-white/15"
+              >
+                {/* Header do card */}
+                <div className="flex items-start justify-between gap-3 border-b border-white/[0.06] px-4 py-3.5 sm:px-5">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-display text-base font-bold text-ink sm:text-lg">
+                        Pedido <span className="text-ember-400">#{pedido._id.slice(-6)}</span>
+                      </h3>
+                      {updates > 0 && (
+                        <span className="rounded-full bg-ember-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                          {updates} novo{updates > 1 ? 's' : ''}
+                        </span>
+                      )}
                     </div>
-                    <div className="flex justify-between text-sm text-gray-500">
-                      <span>Número:</span>
-                      <span className="text-right break-words">{pedido.endereco.address?.number || 'Não informado'}</span>
-                    </div>
-                    <div className="flex justify-between text-sm text-gray-500">
-                      <span>Complemento:</span>
-                      <span className="text-right break-words">{pedido.endereco.address?.complement || 'Não informado'}</span>
-                    </div>
-                    <div className="flex justify-between text-sm text-gray-500">
-                      <span>Bairro:</span>
-                      <span className="text-right break-words">{pedido.endereco.address?.neighborhood || 'Não informado'}</span>
-                    </div>
-                    <div className="flex justify-between text-sm text-gray-500">
-                      <span>Ponto de Referência:</span>
-                      <span className="text-right break-words">{pedido.endereco.address?.referencePoint || 'Não informado'}</span>
-                    </div>
-                    <div className="flex justify-between text-sm text-gray-500">
-                      <span>Taxa de Entrega:</span>
-                      <span>R$ {pedido.endereco.deliveryFee?.toFixed(2) || '0.00'}</span>
-                    </div>
-                    <div className="flex justify-between text-sm text-gray-500">
-                      <span>Tempo Estimado:</span>
-                      <span>{pedido.endereco.estimatedTime || '30-45 minutos'}</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex justify-between text-sm text-gray-500">
-                    <span>Tipo de Entrega:</span>
-                    <span>Retirada no Local</span>
+                    <p className="mt-0.5 text-xs text-ink-faint">{formatDate(pedido.data)}</p>
                   </div>
-                )}
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${meta.className}`}>
+                      {meta.label}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCompartilharPedido(pedido)}
+                      className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-ink-muted transition hover:bg-white/[0.08] hover:text-ink"
+                      aria-label="Compartilhar pedido"
+                    >
+                      <FaShareAlt className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
 
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <h4 className="font-medium text-sm text-gray-500 mb-2">Itens do Pedido:</h4>
-                  {pedido.itens.map((item, index) => (
-                    <div key={index} className="flex justify-between text-sm text-gray-500">
-                      <span className="break-words">
-                        {item.quantidade}x {item.nome}
-                        {item.size && ` (${item.size})`}
-                        {item.border ? ` - Borda: ${item.border}` : ''}
-                        {item.extras && item.extras.length > 0 && (
-                          ` - Extras: ${item.extras.join(', ')}`
-                        )}
-                        {item.observacao && (
-                          <span className="block text-xs text-gray-400 mt-1 break-words">{item.observacao}</span>
-                        )}
+                <div className="space-y-4 px-4 py-4 sm:px-5">
+                  <StatusTrack status={pedido.status} />
+
+                  {/* Resumo compacto */}
+                  <div className="grid grid-cols-2 gap-2 text-xs sm:text-sm">
+                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-ink-faint">Cliente</p>
+                      <p className="mt-0.5 truncate font-medium text-ink">{pedido.cliente?.nome || '-'}</p>
+                    </div>
+                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-ink-faint">Pagamento</p>
+                      <p className="mt-0.5 font-medium text-ink">{formatPayment(pedido.formaPagamento)}</p>
+                    </div>
+                    <div className="col-span-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-ink-faint">
+                        {pedido.tipoEntrega === 'retirada' ? 'Retirada' : 'Entrega'}
+                      </p>
+                      <p className="mt-0.5 text-ink">
+                        {pedido.tipoEntrega === 'retirada'
+                          ? 'Retirada no local'
+                          : `${pedido.endereco?.address?.street || '-'}, ${pedido.endereco?.address?.number || '-'}${
+                              pedido.endereco?.address?.neighborhood
+                                ? ` · ${pedido.endereco.address.neighborhood}`
+                                : ''
+                            }`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Itens */}
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedId(expanded ? null : pedido._id)}
+                      className="mb-2 flex w-full items-center justify-between text-left"
+                    >
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-ink-faint">
+                        Itens ({pedido.itens.length})
                       </span>
-                      <span>R$ {(item.preco * item.quantidade).toFixed(2)}</span>
-                    </div>
-                  ))}
-                  {pedido.itens.some(item => item.observacao) && (
-                    <div className="mt-2 pt-2 border-t border-gray-200">
-                      <h4 className="font-medium text-sm text-gray-500">Observações:</h4>
-                      {pedido.itens.map((item, index) => (
-                        item.observacao && (
-                          <p key={index} className="text-sm text-gray-500 break-words">
-                            {item.nome}: {item.observacao}
-                          </p>
-                        )
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+                      <span className="text-xs text-ink-muted">{expanded ? 'Ocultar' : 'Ver detalhes'}</span>
+                    </button>
 
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <div className="flex justify-between font-semibold text-gray-800">
-                  <span>Total</span>
-                  <span>R$ {pedido.total.toFixed(2)}</span>
-                </div>
-              </div>
-
-              {/* Seção de Comprovante para pagamentos PIX */}
-              {pedido.formaPagamento?.toLowerCase() === 'pix' && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <h4 className="font-medium text-sm text-gray-700 mb-2">Comprovante de Pagamento</h4>
-                  {pedido.comprovante ? (
-                    <div className="space-y-2">
-                      <div className="text-sm text-green-600 font-semibold">
-                        ✓ Comprovante enviado
-                      </div>
-                      <a
-                        href={pedido.comprovante.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block text-sm text-blue-600 hover:text-blue-800 underline"
-                      >
-                        Ver comprovante
-                      </a>
-                      <p className="text-xs text-gray-500">
-                        Enviado em: {new Date(pedido.comprovante.uploadedAt).toLocaleString('pt-BR')}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="text-sm text-gray-600">
-                        Envie o comprovante do pagamento PIX
-                      </p>
-                      <label className="block">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              handleUploadComprovante(pedido._id, file);
-                            }
-                          }}
-                          disabled={uploadingComprovante === pedido._id}
-                        />
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          disabled={uploadingComprovante === pedido._id}
-                          className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
-                          onClick={() => {
-                            const input = document.createElement('input');
-                            input.type = 'file';
-                            input.accept = 'image/*';
-                            input.onchange = (e) => {
-                              const file = (e.target as HTMLInputElement).files?.[0];
-                              if (file) {
-                                handleUploadComprovante(pedido._id, file);
-                              }
-                            };
-                            input.click();
-                          }}
+                    <ul className="space-y-2">
+                      {(expanded ? pedido.itens : pedido.itens.slice(0, 2)).map((item, index) => (
+                        <li
+                          key={index}
+                          className="flex items-start justify-between gap-3 rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-2.5"
                         >
-                          {uploadingComprovante === pedido._id ? 'Enviando...' : 'Enviar Comprovante'}
-                        </motion.button>
-                      </label>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-ink">
+                              {item.quantidade}x {item.nome}
+                              {item.size ? ` (${item.size})` : ''}
+                            </p>
+                            {expanded && (
+                              <p className="mt-0.5 text-xs text-ink-muted">
+                                {[
+                                  item.border && `Borda: ${item.border}`,
+                                  item.extras?.length ? `Extras: ${item.extras.join(', ')}` : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </p>
+                            )}
+                            {expanded && item.observacao && (
+                              <p className="mt-1 text-xs text-ink-faint">Obs: {item.observacao}</p>
+                            )}
+                          </div>
+                          <span className="shrink-0 text-sm font-semibold text-ember-300">
+                            R$ {money(item.preco * item.quantidade)}
+                          </span>
+                        </li>
+                      ))}
+                      {!expanded && pedido.itens.length > 2 && (
+                        <p className="text-center text-xs text-ink-faint">+ {pedido.itens.length - 2} item(s)</p>
+                      )}
+                    </ul>
+                  </div>
+
+                  {expanded && pedido.tipoEntrega === 'entrega' && pedido.endereco?.address && (
+                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-3 text-xs text-ink-muted space-y-1">
+                      {pedido.endereco.address.complement && (
+                        <p>Compl: {pedido.endereco.address.complement}</p>
+                      )}
+                      {pedido.endereco.address.referencePoint && (
+                        <p>Ref: {pedido.endereco.address.referencePoint}</p>
+                      )}
+                      <p>Taxa: R$ {money(pedido.endereco.deliveryFee || 0)}</p>
+                      <p>Tempo: {pedido.endereco.estimatedTime || '30-45 minutos'}</p>
                     </div>
                   )}
+
+                  {/* PIX comprovante */}
+                  {pedido.formaPagamento?.toLowerCase() === 'pix' && (
+                    <div className="rounded-xl border border-[#25D366]/25 bg-[#25D366]/[0.06] p-3.5">
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[#25D366]/80">
+                        Comprovante PIX
+                      </p>
+                      {pedido.comprovante ? (
+                        <div className="space-y-1.5">
+                          <p className="text-sm font-semibold text-emerald-300">Comprovante enviado</p>
+                          <a
+                            href={pedido.comprovante.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-sky-300 underline underline-offset-2 hover:text-sky-200"
+                          >
+                            Ver comprovante
+                          </a>
+                          <p className="text-[11px] text-ink-faint">
+                            {new Date(pedido.comprovante.uploadedAt).toLocaleString('pt-BR')}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-xs text-ink-muted">Envie o comprovante para confirmar o pagamento.</p>
+                          <button
+                            type="button"
+                            disabled={uploadingComprovante === pedido._id}
+                            onClick={() => pickComprovante(pedido._id)}
+                            className="w-full rounded-xl bg-[#25D366] py-2.5 text-sm font-bold text-white transition hover:bg-[#20bd5a] disabled:opacity-50"
+                          >
+                            {uploadingComprovante === pedido._id ? 'Enviando…' : 'Enviar comprovante'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Total */}
+                  <div className="flex items-center justify-between border-t border-white/[0.06] pt-3">
+                    <span className="text-sm text-ink-muted">Total</span>
+                    <span className="font-display text-xl font-bold text-ember-400">R$ {money(pedido.total)}</span>
+                  </div>
                 </div>
-              )}
-            </motion.div>
-          ))}
+              </motion.article>
+            );
+          })}
         </motion.div>
       )}
 
-      {mensagemCompartilhamento && (
-        <div className="mt-4 p-3 bg-green-900 border border-green-700 text-green-200 rounded text-center font-semibold">
-          {mensagemCompartilhamento}
-        </div>
-      )}
+      <AnimatePresence>
+        {(mensagem || mensagemCompartilhamento) && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="fixed bottom-6 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-emerald-500/30 bg-emerald-950/90 px-5 py-2.5 text-sm font-semibold text-emerald-200 shadow-lg backdrop-blur-md"
+          >
+            {mensagem || mensagemCompartilhamento}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {mensagem && (
-        <div className="mt-4 p-3 bg-green-900 border border-green-700 text-green-200 rounded text-center font-semibold">
-          {mensagem}
-        </div>
-      )}
-
-      {/* Notificação de Novo Pedido */}
       <AnimatePresence>
         {newOrderNotification && (
           <motion.div
-            initial={{ opacity: 0, y: -50, scale: 0.8 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.9 }}
-            transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="fixed top-6 left-1/2 transform -translate-x-1/2 z-[60] max-w-md w-full mx-4"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="fixed left-4 right-4 top-20 z-[70] mx-auto max-w-md sm:left-auto sm:right-6"
           >
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 rounded-2xl shadow-2xl border-2 border-blue-400/50 backdrop-blur-sm">
-              <div className="flex items-center gap-3">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <p className="text-white font-semibold text-sm">{newOrderNotification}</p>
-                </div>
-                <button
-                  onClick={() => setNewOrderNotification(null)}
-                  className="flex-shrink-0 text-white/80 hover:text-white transition-colors"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+            <div className="flex items-center gap-3 rounded-2xl border border-sky-500/30 bg-sky-950/90 px-4 py-3 text-sky-100 shadow-xl backdrop-blur-md">
+              <span className="text-lg">🔔</span>
+              <p className="flex-1 text-sm font-semibold">{newOrderNotification}</p>
+              <button type="button" onClick={() => setNewOrderNotification(null)} className="text-sky-200/70 hover:text-white">
+                ×
+              </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Modal de Lembrete de Comprovante */}
-      <AnimatePresence>
-        {showComprovanteModal && pedidoParaComprovante && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm"
-            onClick={() => setShowComprovanteModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.8, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.8, y: 20 }}
-              transition={{ type: "spring", damping: 20 }}
-              className="bg-[#262525] rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 text-center border-2 border-yellow-500/30"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="mb-6">
-                <div className="inline-flex items-center justify-center w-20 h-20 bg-yellow-500/20 rounded-full mb-4">
-                  <svg className="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <h2 className="text-2xl font-bold text-yellow-400 mb-3">Novo Pedido Recebido!</h2>
-                <p className="text-gray-300 mb-4 text-base">
-                  Pedido #{pedidoParaComprovante._id.slice(-6)} foi registrado com sucesso.
-                </p>
-              </div>
-              
-              <div className="bg-gradient-to-r from-yellow-900/50 to-orange-900/50 border-2 border-yellow-500/60 text-yellow-100 text-base font-semibold p-5 rounded-xl mb-6 shadow-lg">
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl">📸</span>
-                  <div className="text-left">
-                    <p className="text-lg font-bold mb-2">Envie o Comprovante de Pagamento</p>
-                    <p className="text-sm leading-relaxed">
-                      Para confirmar seu pedido, por favor <span className="font-bold text-yellow-300">envie o comprovante do pagamento PIX</span> na seção do pedido abaixo.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex flex-col sm:flex-row justify-center gap-4">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    setShowComprovanteModal(false);
-                    // Scroll para o pedido
-                    const pedidoElement = document.getElementById(`pedido-${pedidoParaComprovante._id}`);
-                    if (pedidoElement) {
-                      pedidoElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      // Destacar o pedido
-                      pedidoElement.classList.add('ring-4', 'ring-yellow-500', 'ring-offset-2');
-                      setTimeout(() => {
-                        pedidoElement.classList.remove('ring-4', 'ring-yellow-500', 'ring-offset-2');
-                      }, 3000);
-                    }
-                  }}
-                  className="bg-gradient-to-r from-yellow-600 to-yellow-700 text-white px-8 py-4 rounded-xl hover:from-yellow-700 hover:to-yellow-800 flex items-center justify-center gap-3 font-bold text-lg shadow-lg transition-all"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13l-3-3m0 0l-3 3m3-3v8" />
-                  </svg>
-                  <span>Ver Pedido</span>
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowComprovanteModal(false)}
-                  className="bg-gray-700 text-white px-6 py-4 rounded-xl hover:bg-gray-600 font-semibold text-base transition-all"
-                >
-                  Fechar
-                </motion.button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Modal de detalhes */}
-      {pedidoSelecionado && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40" onClick={() => setPedidoSelecionado(null)}>
-          <div
-            className="bg-[#262525] rounded-xl shadow-xl p-6 max-w-md w-full relative print-pedido border border-gray-800"
-            onClick={e => e.stopPropagation()}
-          >
-            <button
-              className="absolute top-2 right-2 text-orange-500 hover:text-orange-700 text-2xl focus:outline-none no-print"
-              onClick={() => setPedidoSelecionado(null)}
-              aria-label="Fechar modal de pedido"
-            >
-              &times;
-            </button>
-            <h3 className="text-xl font-bold mb-2 text-orange-600 text-center">Do&apos;Cheff</h3>
-            <div className="mb-2 text-xs text-gray-700 text-center">
-              <div><b>Pedido:</b> #{pedidoSelecionado._id?.slice(-6) || '-'}</div>
-              <div><b>Data:</b> {pedidoSelecionado.data ? formatDate(pedidoSelecionado.data) : '-'}</div>
-              <div><b>Status:</b> {getStatusText(pedidoSelecionado.status as Pedido['status'])}</div>
-            </div>
-            <div className="mb-2 text-xs">
-              <h4 className="font-semibold mb-1">Cliente:</h4>
-              <div className="break-words">Nome: {pedidoSelecionado.cliente?.nome || '-'}</div>
-              <div className="break-words">Telefone: {pedidoSelecionado.cliente?.telefone || '-'}</div>
-            </div>
-            {pedidoSelecionado.tipoEntrega === 'entrega' ? (
-              <>
-                <div className="mb-2 text-xs">
-                  <h4 className="font-semibold mb-1">Endereço de Entrega:</h4>
-                  <div className="break-words">{pedidoSelecionado.endereco?.address?.street || '-'}, {pedidoSelecionado.endereco?.address?.number || '-'}</div>
-                  {pedidoSelecionado.endereco?.address?.complement && <div className="break-words">Compl: {pedidoSelecionado.endereco.address.complement}</div>}
-                  <div className="break-words">{pedidoSelecionado.endereco?.address?.neighborhood || '-'}</div>
-                  <div className="break-words">Ponto de Referência: {pedidoSelecionado.endereco?.address?.referencePoint || '-'}</div>
-                </div>
-                <div className="mb-2 text-xs">
-                  <div><b>Tempo estimado de entrega:</b> {pedidoSelecionado.endereco?.estimatedTime || '-'}</div>
-                </div>
-              </>
-            ) : (
-              <div className="mb-2 text-xs">
-                <h4 className="font-semibold mb-1">Tipo de Pedido:</h4>
-                <div>Retirada no Local</div>
-              </div>
-            )}
-            <div className="mb-2">
-              <h4 className="font-semibold mb-1">Itens:</h4>
-              <ul>
-                {pedidoSelecionado.itens.map((item, idx) => (
-                  <li key={idx} className="flex justify-between text-xs">
-                    <span className="break-words">
-                      {item.quantidade}x {item.nome}
-                      {item.size && ` (${item.size})`}
-                      {item.border && ` - Borda: ${item.border}`}
-                      {item.extras && item.extras.length > 0 && (
-                        ` - Extras: ${item.extras.join(', ')}`
-                      )}
-                      {item.observacao && (
-                        <span className="block text-xs text-gray-400 mt-1 break-words">{item.observacao}</span>
-                      )}
-                    </span>
-                    <span>R$ {item.preco.toFixed(2)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            {pedidoSelecionado.observacoes && (
-              <div className="mb-2 text-xs">
-                <h4 className="font-semibold mb-1">Observações:</h4>
-                <div className="break-words">{pedidoSelecionado.observacoes}</div>
-              </div>
-            )}
-            <div className="flex justify-between text-xs">
-              <span>Taxa de Entrega:</span>
-              <span>R$ {pedidoSelecionado.endereco?.deliveryFee?.toFixed(2) || '0,00'}</span>
-            </div>
-            <div className="mb-2 text-xs">
-              <h4 className="font-semibold mb-1">Forma de Pagamento:</h4>
-              <div>{pedidoSelecionado.formaPagamento?.toLowerCase() === 'pix' ? 'PIX' : 'Dinheiro'}</div>
-            </div>
-            {pedidoSelecionado.formaPagamento?.toLowerCase() === 'dinheiro' && (
-              <div className="flex justify-between text-sm text-gray-300">
-                <span>Troco para:</span>
-                <span>R$ {pedidoSelecionado.troco || '-'}</span>
-              </div>
-            )}
-            {pedidoSelecionado.formaPagamento?.toLowerCase() === 'pix' && (
-              <div className="mb-2 text-xs">
-                <h4 className="font-semibold mb-1">Comprovante de Pagamento:</h4>
-                {pedidoSelecionado.comprovante ? (
-                  <div className="space-y-1">
-                    <div className="text-green-400 font-semibold">✓ Comprovante enviado</div>
-                    <a
-                      href={pedidoSelecionado.comprovante.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block text-blue-400 hover:text-blue-300 underline"
-                    >
-                      Ver comprovante
-                    </a>
-                    <p className="text-gray-400 text-xs">
-                      Enviado em: {new Date(pedidoSelecionado.comprovante.uploadedAt).toLocaleString('pt-BR')}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-gray-300">Envie o comprovante do pagamento PIX</p>
-                    <label className="block">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            handleUploadComprovante(pedidoSelecionado._id, file);
-                          }
-                        }}
-                        disabled={uploadingComprovante === pedidoSelecionado._id}
-                      />
-                      <button
-                        disabled={uploadingComprovante === pedidoSelecionado._id}
-                        className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-xs"
-                        onClick={() => {
-                          const input = document.createElement('input');
-                          input.type = 'file';
-                          input.accept = 'image/*';
-                          input.onchange = (e) => {
-                            const file = (e.target as HTMLInputElement).files?.[0];
-                            if (file) {
-                              handleUploadComprovante(pedidoSelecionado._id, file);
-                            }
-                          };
-                          input.click();
-                        }}
-                      >
-                        {uploadingComprovante === pedidoSelecionado._id ? 'Enviando...' : 'Enviar Comprovante'}
-                      </button>
-                    </label>
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="font-bold text-orange-600 mt-2 text-lg flex justify-between">
-              <span>Total:</span>
-              <span>R$ {pedidoSelecionado.total?.toFixed(2) || '-'}</span>
-            </div>
-            <button
-              className="w-full mt-4 bg-yellow-400 hover:bg-yellow-500 text-orange-900 font-bold py-2 rounded-lg transition-colors no-print"
-              onClick={() => window.print()}
-            >
-              Imprimir
-            </button>
-          </div>
-          <style jsx global>{`
-            @media print {
-              body * {
-                visibility: hidden !important;
-              }
-              .print-pedido, .print-pedido * {
-                visibility: visible !important;
-              }
-              .print-pedido {
-                position: absolute !important;
-                left: 0; top: 0; width: 80mm; min-width: 0; max-width: 100vw;
-                background: white !important;
-                color: #111 !important;
-                font-size: 10px !important;
-                box-shadow: none !important;
-                border: none !important;
-                margin: 0 !important;
-                padding: 4px !important;
-              }
-              .print-pedido h3 {
-                font-size: 12px !important;
-                margin-bottom: 4px !important;
-                text-align: center !important;
-              }
-              .print-pedido h4 {
-                font-size: 11px !important;
-                margin-bottom: 2px !important;
-              }
-              .print-pedido div, .print-pedido span {
-                font-size: 10px !important;
-                margin: 0 !important;
-                padding: 0 !important;
-              }
-              .print-pedido button, .print-pedido .no-print {
-                display: none !important;
-              }
-            }
-          `}</style>
-        </div>
-      )}
     </div>
   );
 }

@@ -4,10 +4,19 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ==== Tema Base ==== */
+/* ==== Tema Base — Ember Charcoal ==== */
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-rgb: 38, 37, 37;
+  --foreground-rgb: 244, 240, 234;
+  --background-rgb: 20, 18, 16;
+  --surface: #141210;
+  --surface-raised: #1c1916;
+  --surface-overlay: #24201c;
+  --ink: #f4f0ea;
+  --ink-muted: #a39a8f;
+  --ink-faint: #6e665c;
+  --ember: #c41e1e;
+  --ember-bright: #e23d28;
+  --line: rgba(255, 255, 255, 0.08);
 }
 
 /* Adicionado para corrigir o overscroll no iOS */
@@ -17,23 +26,32 @@ html, body {
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-rgb));
+  background: var(--surface);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
 
-/* Fundo com profundidade (sem brigar com Tailwind) */
+/* Atmosfera: mesh + grain sutil */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(900px 500px at 20% -10%, rgba(239, 68, 68, 0.18), transparent 60%),
-    radial-gradient(700px 400px at 110% 20%, rgba(234, 88, 12, 0.14), transparent 55%),
-    radial-gradient(800px 500px at 50% 120%, rgba(255, 255, 255, 0.06), transparent 60%);
-  opacity: 1;
+    radial-gradient(900px 520px at 50% -8%, rgba(196, 30, 30, 0.22), transparent 58%),
+    radial-gradient(700px 420px at 100% 18%, rgba(234, 88, 12, 0.1), transparent 55%),
+    radial-gradient(600px 400px at 0% 90%, rgba(255, 244, 230, 0.04), transparent 55%);
   z-index: 0;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 /* Conteúdo acima do overlay */
@@ -42,17 +60,133 @@ body > * {
   z-index: 1;
 }
 
+/* Utilitários do cardápio público */
+.menu-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.menu-item-card {
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: 1.25rem;
+  overflow: hidden;
+  transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.menu-item-card:hover {
+  border-color: rgba(226, 61, 40, 0.35);
+  box-shadow: 0 16px 40px -18px rgba(0, 0, 0, 0.7);
+}
+
+.menu-section-title {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.category-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.5rem;
+  padding: 0.625rem 1.125rem;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e8e2d9;
+  transition: color 0.2s, border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  scroll-snap-align: start;
+}
+
+.category-pill > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  line-height: 1;
+}
+
+.category-pill .pill-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  line-height: 1;
+  flex-shrink: 0;
+  translate: 0 0.5px;
+}
+
+.category-pill:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.category-pill.is-active {
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 6px 18px -8px rgba(196, 30, 30, 0.55);
+}
+
+/* Faixa de categorias com fade nas bordas (indica scroll) */
+.categories-rail {
+  position: relative;
+}
+
+.categories-rail::before,
+.categories-rail::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2rem;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.categories-rail::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--surface) 0%, transparent 100%);
+}
+
+.categories-rail::after {
+  right: 0;
+  background: linear-gradient(270deg, var(--surface) 0%, transparent 100%);
+}
+
+.categories-rail.show-left-fade::before,
+.categories-rail.show-right-fade::after {
+  opacity: 1;
+}
+
+@media (min-width: 640px) {
+  .categories-rail::before,
+  .categories-rail::after {
+    width: 2.75rem;
+  }
+}
+
 /* Bloqueio de rolagem quando modal aberto */
 body.modal-open {
   overflow: hidden;
   touch-action: none;
 }
 
-/* Checkout WhatsApp: no mobile o header do site some para o modal ocupar a tela com clareza */
-@media (max-width: 767px) {
-  body.whatsapp-checkout-open header {
-    display: none !important;
-  }
+/* Checkout WhatsApp / modal de item / carrinho: header some para liberar espaço */
+body.whatsapp-checkout-open header,
+body.item-modal-open header {
+  display: none !important;
 }
 
 /* ==== Form / Botões (CSS puro) ==== */
@@ -110,6 +244,17 @@ select.form-input {
 select.form-input option {
   background: #1a1a1a;
   color: #f3f4f6;
+}
+
+/* Selects do tema escuro — evita texto claro em fundo branco do picker nativo */
+select {
+  color-scheme: dark;
+}
+
+select option,
+select optgroup {
+  background-color: #1c1916;
+  color: #f4f0ea;
 }
 
 .form-checkbox {
@@ -414,6 +559,11 @@ select.form-input option {
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x proximity;
   overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.categories-container::-webkit-scrollbar {
+  display: none;
 }
 
 .category-button {

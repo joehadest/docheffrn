@@ -12,8 +12,9 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     <MenuProvider>
       <StoreProvider>
         {!isAdmin && <Header />}
-        <main className="min-h-screen">{children}</main>
+        {children}
       </StoreProvider>
     </MenuProvider>
   );
 }
+

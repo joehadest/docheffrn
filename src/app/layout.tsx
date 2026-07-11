@@ -2,14 +2,24 @@
 
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Bricolage_Grotesque, DM_Sans } from 'next/font/google';
 import React from 'react';
 import AppShellClient from '@/components/AppShellClient';
 
-const inter = Inter({ subsets: ['latin'] });
+const display = Bricolage_Grotesque({
+    subsets: ['latin'],
+    variable: '--font-display',
+    display: 'swap',
+});
+
+const sans = DM_Sans({
+    subsets: ['latin'],
+    variable: '--font-sans',
+    display: 'swap',
+});
 
 export const viewport: Viewport = {
-    themeColor: '#ea580c',
+    themeColor: '#c41e1e',
     width: 'device-width',
     initialScale: 1,
     maximumScale: 1,
@@ -18,26 +28,25 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
     title: "Do'Cheff - Cardápio Digital",
-    description: "Cardápio digital do Do'Cheff",
+    description: "Cardápio digital do Do'Cheff — pizzas, massas e muito mais em Alto Rodrigues.",
     manifest: '/manifest.json',
     appleWebApp: {
         capable: true,
-        statusBarStyle: 'default',
-        title: "Do'Cheff"
-    }
+        statusBarStyle: 'black-translucent',
+        title: "Do'Cheff",
+    },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
-        <html lang="pt-BR">
+        <html lang="pt-BR" className={`${display.variable} ${sans.variable}`}>
             <head>
                 <link rel="manifest" href="/manifest.json" />
-                <meta name="theme-color" content="#ea580c" />
+                <meta name="theme-color" content="#c41e1e" />
                 <link rel="apple-touch-icon" href="/icon-192x192.png" />
                 <link rel="icon" href="/favicon/favicon.ico" type="image/x-icon" />
             </head>
-            {/* A classe 'overscroll-contain' foi removida daqui */}
-            <body className={`${inter.className} bg-[#262525] min-h-screen text-gray-100`}>
+            <body className="font-sans bg-surface min-h-screen text-ink antialiased">
                 <AppShellClient>{children}</AppShellClient>
             </body>
         </html>

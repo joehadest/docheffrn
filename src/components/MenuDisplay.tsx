@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useMenu } from '@/contexts/MenuContext';
 import ItemModal from './ItemModal';
 import Cart from './Cart';
+import MenuHero from './MenuHero';
 import { MenuItem, Category } from '@/types/menu';
 import Image from 'next/image';
 import { FaWhatsapp, FaStar, FaDotCircle } from 'react-icons/fa';
@@ -17,59 +18,126 @@ const containerVariants = {
     visible: {
         opacity: 1,
         transition: {
-            staggerChildren: 0.1
+            staggerChildren: 0.06
         }
     }
 };
 
 const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
+    hidden: { opacity: 0, y: 16 },
     visible: {
         opacity: 1,
         y: 0,
         transition: {
             type: "spring",
-            stiffness: 100
+            stiffness: 120,
+            damping: 18
         }
     }
 };
 
-function MenuSkeleton() {
+function MenuItemCard({
+    item,
+    isOpen,
+    onClick,
+}: {
+    item: MenuItem;
+    isOpen: boolean;
+    onClick: () => void;
+}) {
     return (
-        <div className="max-w-7xl mx-auto px-4 py-6">
-            <div className="mb-8 text-center">
-                <div className="h-10 w-52 mx-auto rounded-xl bg-white/10 animate-pulse" />
-                <div className="h-4 w-64 mx-auto rounded-lg bg-white/5 mt-3 animate-pulse" />
+        <motion.article
+            variants={itemVariants}
+            className="menu-item-card group cursor-pointer"
+            onClick={() => isOpen && onClick()}
+        >
+            <div className="relative aspect-[4/3] overflow-hidden bg-surface-overlay sm:aspect-square">
+                {item.image ? (
+                    <Image
+                        src={item.image}
+                        alt={item.name}
+                        fill
+                        sizes="(max-width: 768px) 50vw, 25vw"
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        unoptimized={item.image.startsWith('http')}
+                    />
+                ) : (
+                    <div className="flex h-full w-full items-center justify-center text-4xl opacity-40">🍽️</div>
+                )}
+                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent" />
+                <div className="absolute bottom-2.5 left-2.5 rounded-lg bg-black/55 px-2.5 py-1 text-xs font-bold text-white backdrop-blur-md sm:text-sm">
+                    R$ {item.price.toFixed(2)}
+                </div>
+                {item.destaque && (
+                    <div className="absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-amber-400/90 text-surface shadow">
+                        <FaStar className="text-[10px]" />
+                    </div>
+                )}
+                {!isOpen && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/55 text-sm font-semibold text-white">
+                        Fechado
+                    </div>
+                )}
             </div>
-            <div className="sticky top-[72px] z-30 rounded-2xl border border-gray-800/60 bg-[#262525]/70 backdrop-blur-md px-3 py-3">
-                <div className="flex gap-2 overflow-hidden">
-                    {Array.from({ length: 7 }).map((_, i) => (
-                        <div key={i} className="h-9 w-24 rounded-full bg-white/10 animate-pulse" />
+            <div className="flex flex-col gap-2.5 p-3 sm:p-4">
+                <h3 className="line-clamp-2 min-h-[2.5rem] font-display text-sm font-bold leading-snug text-ink sm:min-h-[3rem] sm:text-base">
+                    {item.name}
+                </h3>
+                <button
+                    type="button"
+                    className={`w-full rounded-xl py-2.5 text-xs font-bold transition sm:text-sm ${
+                        isOpen
+                            ? 'bg-ember-600 text-white hover:bg-ember-500'
+                            : 'cursor-not-allowed bg-white/5 text-ink-faint'
+                    }`}
+                >
+                    {isOpen ? 'Adicionar' : 'Indisponível'}
+                </button>
+            </div>
+        </motion.article>
+    );
+}
+
+function MenuSkeleton({ showHero }: { showHero?: boolean }) {
+    return (
+        <div>
+            {showHero && (
+                <div className="flex min-h-[60vh] flex-col items-center justify-end px-5 pb-12">
+                    <div className="h-3 w-28 animate-pulse rounded-full bg-white/10" />
+                    <div className="mt-5 h-14 w-56 animate-pulse rounded-2xl bg-white/10 sm:h-20 sm:w-80" />
+                    <div className="mt-4 h-4 w-64 animate-pulse rounded-lg bg-white/5" />
+                    <div className="mt-8 h-12 w-48 animate-pulse rounded-full bg-white/10" />
+                </div>
+            )}
+            <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+                <div className="flex gap-2 overflow-hidden pb-4">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="h-9 w-24 shrink-0 animate-pulse rounded-full bg-white/10" />
                     ))}
                 </div>
-            </div>
-            <div className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-                {Array.from({ length: 8 }).map((_, i) => (
-                    <div key={i} className="rounded-2xl border border-gray-800/60 bg-white/5 overflow-hidden">
-                        <div className="aspect-square bg-white/10 animate-pulse" />
-                        <div className="p-3 sm:p-4 space-y-3">
-                            <div className="h-4 w-3/4 bg-white/10 rounded animate-pulse" />
-                            <div className="h-4 w-1/2 bg-white/10 rounded animate-pulse" />
-                            <div className="h-9 w-full bg-white/10 rounded-xl animate-pulse" />
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                        <div key={i} className="overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.03]">
+                            <div className="aspect-[4/3] animate-pulse bg-white/10 sm:aspect-square" />
+                            <div className="space-y-3 p-3 sm:p-4">
+                                <div className="h-4 w-3/4 animate-pulse rounded bg-white/10" />
+                                <div className="h-9 w-full animate-pulse rounded-xl bg-white/10" />
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
         </div>
     );
 }
 
-export default function MenuDisplay() {
+export default function MenuDisplay({ showHero = false }: { showHero?: boolean }) {
     const [allowHalfAndHalf, setAllowHalfAndHalf] = useState(true);
     const [showSuccessMessage, setShowSuccessMessage] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const categoriesContainerRef = useRef<HTMLDivElement>(null);
     const stickyBarRef = useRef<HTMLDivElement>(null);
+    const [catFade, setCatFade] = useState({ left: false, right: true });
     const { isOpen } = useMenu();
     const { items: cartItems, addToCart, removeFromCart, updateQuantity, clearCart } = useCart();
     const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
@@ -95,6 +163,31 @@ export default function MenuDisplay() {
 
     const isClickScrolling = useRef(false);
     const [stickyOffset, setStickyOffset] = useState<number>(0);
+
+    // Fade nas bordas da barra de categorias (indica scroll horizontal)
+    useEffect(() => {
+        const el = categoriesContainerRef.current;
+        if (!el) return;
+
+        const updateFade = () => {
+            const maxScroll = el.scrollWidth - el.clientWidth;
+            const left = el.scrollLeft > 8;
+            const right = maxScroll > 8 && el.scrollLeft < maxScroll - 8;
+            setCatFade({ left, right });
+        };
+
+        updateFade();
+        el.addEventListener('scroll', updateFade, { passive: true });
+        window.addEventListener('resize', updateFade);
+        const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateFade) : null;
+        ro?.observe(el);
+
+        return () => {
+            el.removeEventListener('scroll', updateFade);
+            window.removeEventListener('resize', updateFade);
+            ro?.disconnect();
+        };
+    }, [categories, loading]);
 
     // Calcula dinamicamente a altura/offset da barra de categorias sticky,
     // considerando safe-area/topo e variações de toolbar móvel
@@ -143,11 +236,7 @@ export default function MenuDisplay() {
                     setDeliveryFees(settingsData.data.deliveryFees || []);
                     setAllowHalfAndHalf(settingsData.data.allowHalfAndHalf === true);
                     setPixKey(settingsData.data.pixKey || '84987291269');
-                    if (settingsData.data.businessHours) {
-                        setIsRestaurantOpen(checkRestaurantOpen(settingsData.data.businessHours as BusinessHoursConfig));
-                    } else {
-                        setIsRestaurantOpen(false);
-                    }
+                    setIsRestaurantOpen(checkRestaurantOpen(settingsData.data.businessHours as BusinessHoursConfig));
                 }
 
             } catch (error) {
@@ -279,67 +368,77 @@ export default function MenuDisplay() {
             const subtotal = total - deliveryFee;
 
             const formatPayment = (fp: string) =>
-                fp === 'pix' ? 'PIX' : fp === 'cartao' ? 'Cartão' : fp === 'dinheiro' ? 'Dinheiro' : fp;
+                fp === 'pix' ? 'PIX' : fp === 'cartao' ? 'Cartao' : fp === 'dinheiro' ? 'Dinheiro' : fp;
 
-            // Cabeçalho
-            const header = `🍕 *Novo Pedido - Do'Cheff*`;
+            const money = (n: number) =>
+                Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-            // Dados do cliente
-            const customerInfo = [
-                `\n\n👤 *Cliente*`,
+            const divider = '--------------------';
+
+            // Sem emojis: alguns aparelhos quebram o encoding no wa.me
+            const lines: string[] = [
+                `*NOVO PEDIDO - Do'Cheff*`,
+                divider,
+                `*Cliente*`,
                 `Nome: ${cliente.nome}`,
                 `Telefone: ${cliente.telefone}`,
-            ].join('\n');
+                divider,
+            ];
 
-            // Endereço / tipo de entrega
-            const addressLines = tipoEntrega === 'entrega' && endereco?.address
-                ? [
-                    `\n\n📍 *Endereço de Entrega*`,
-                    `${endereco.address.street}, N° ${endereco.address.number}${endereco.address.complement ? ` - ${endereco.address.complement}` : ''}`,
+            if (tipoEntrega === 'entrega' && endereco?.address) {
+                lines.push(
+                    `*Endereco de Entrega*`,
+                    `${endereco.address.street}, N. ${endereco.address.number}${endereco.address.complement ? ` - ${endereco.address.complement}` : ''}`,
                     `Bairro: ${endereco.address.neighborhood}`,
-                    ...(endereco.address.referencePoint ? [`Referência: ${endereco.address.referencePoint}`] : []),
-                  ]
-                : [`\n\n📍 *Entrega*`, `Retirada no Local`];
-            const addressInfo = addressLines.join('\n');
-
-            // Itens — inclui tamanho, borda, extras e observação
-            const itemsInfo = itens.map((item: any) => {
-                const lines: string[] = [
-                    `• ${item.quantidade}x *${item.nome}*${item.size ? ` (${item.size})` : ''}`,
-                ];
-                if (item.border) lines.push(`  - Borda: ${item.border}`);
-                if (item.extras && item.extras.length > 0) lines.push(`  - Extras: ${item.extras.join(', ')}`);
-                if (item.observacao) lines.push(`  - Obs: ${item.observacao}`);
-                lines.push(`  R$ ${(item.preco * item.quantidade).toFixed(2)}`);
-                return lines.join('\n');
-            }).join('\n\n');
-
-            // Observações gerais
-            const obsSection = observacoes ? `\n\n📝 *Observações Gerais*\n${observacoes}` : '';
-
-            // Pagamento
-            const paymentLines = [
-                `\n\n💳 *Pagamento*`,
-                `Forma: ${formatPayment(formaPagamento)}`,
-            ];
-            if (formaPagamento === 'dinheiro' && troco) paymentLines.push(`Troco para: R$ ${troco}`);
-            if (formaPagamento === 'pix') paymentLines.push(`Chave PIX: ${pixKey} (Celular)`);
-            const paymentInfo = paymentLines.join('\n');
-
-            // Resumo financeiro
-            const totalsLines = [
-                `\n\n💰 *Resumo do Pedido*`,
-                `Subtotal: R$ ${subtotal.toFixed(2)}`,
-            ];
-            if (tipoEntrega === 'entrega') {
-                totalsLines.push(`Taxa de Entrega: R$ ${deliveryFee.toFixed(2)}`);
+                );
+                if (endereco.address.referencePoint) {
+                    lines.push(`Referencia: ${endereco.address.referencePoint}`);
+                }
             } else {
-                totalsLines.push(`Taxa de Entrega: Grátis (retirada)`);
+                lines.push(`*Entrega*`, `Retirada no Local`);
             }
-            totalsLines.push(`*Total: R$ ${total.toFixed(2)}*`);
-            const totals = totalsLines.join('\n');
 
-            const message = [header, customerInfo, addressInfo, `\n\n🛒 *Itens do Pedido*\n${itemsInfo}`, obsSection, paymentInfo, totals].join('');
+            lines.push(divider, `*Itens do Pedido*`, '');
+
+            itens.forEach((item: any, index: number) => {
+                lines.push(
+                    `${index + 1}) ${item.quantidade}x *${item.nome}*${item.size ? ` (${item.size})` : ''}`
+                );
+                if (item.border) lines.push(`   Borda: ${item.border}`);
+                if (item.extras && item.extras.length > 0) lines.push(`   Extras: ${item.extras.join(', ')}`);
+                if (item.observacao) lines.push(`   Obs: ${item.observacao}`);
+                lines.push(`   Valor: R$ ${money(item.preco * item.quantidade)}`, '');
+            });
+
+            if (observacoes) {
+                lines.push(divider, `*Observacoes Gerais*`, observacoes, '');
+            }
+
+            lines.push(
+                divider,
+                `*Pagamento*`,
+                `Forma: ${formatPayment(formaPagamento)}`,
+            );
+            if (formaPagamento === 'dinheiro' && troco) {
+                lines.push(`Troco para: R$ ${troco}`);
+            }
+            if (formaPagamento === 'pix') {
+                lines.push(`Chave PIX: ${pixKey}`);
+            }
+
+            lines.push(
+                divider,
+                `*Resumo*`,
+                `Subtotal: R$ ${money(subtotal)}`,
+            );
+            if (tipoEntrega === 'entrega') {
+                lines.push(`Taxa de Entrega: R$ ${money(deliveryFee)}`);
+            } else {
+                lines.push(`Taxa de Entrega: Gratis (retirada)`);
+            }
+            lines.push(`*TOTAL: R$ ${money(total)}*`);
+
+            const message = lines.join('\n');
             // Extrai apenas os números da chave PIX para o número do WhatsApp (remove formatação)
             const whatsappNumber = pixKey.replace(/\D/g, '');
             const whatsappUrl = `https://wa.me/55${whatsappNumber}?text=${encodeURIComponent(message)}`;
@@ -433,7 +532,15 @@ export default function MenuDisplay() {
         const anyOpen = !!selectedItem || isCartOpen || !!selectedPasta || showWhatsAppModal;
         if (anyOpen) document.body.classList.add('modal-open');
         else document.body.classList.remove('modal-open');
-        return () => { document.body.classList.remove('modal-open'); };
+
+        const hideChrome = !!selectedItem || !!selectedPasta || isCartOpen;
+        if (hideChrome) document.body.classList.add('item-modal-open');
+        else document.body.classList.remove('item-modal-open');
+
+        return () => {
+            document.body.classList.remove('modal-open');
+            document.body.classList.remove('item-modal-open');
+        };
     }, [selectedItem, isCartOpen, selectedPasta, showWhatsAppModal]);
 
     useEffect(() => {
@@ -491,149 +598,141 @@ export default function MenuDisplay() {
 
     const featuredItems = menuItems.filter(item => item.destaque);
 
-    if (loading) return <MenuSkeleton />;
-    if (error) return <div className="text-center py-10 text-red-500">{error}</div>;
+    if (loading) return <MenuSkeleton showHero={showHero} />;
+    if (error) return <div className="px-4 py-16 text-center text-ember-400">{error}</div>;
+
+    const openItem = (item: MenuItem) => {
+        if (item.category === 'massas') handlePastaClick(item);
+        else setSelectedItem(item);
+    };
 
     return (
-        <div className="min-h-screen bg-[#262525]">
-            {/* Barra de categorias sticky com safe-area e z-index elevado */}
-            <div ref={stickyBarRef} className="sticky top-0 z-40 bg-gradient-to-b from-[#262525] via-[#262525] to-transparent pb-3 pt-2" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6">
-                    <div ref={categoriesContainerRef} className="categories-container flex gap-2 sm:gap-3 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4">
-                        <motion.button
-                            data-category-value="destaques"
-                            onClick={() => handleCategoryClick('destaques')}
-                            className={`relative px-3.5 py-2 rounded-full whitespace-nowrap flex-shrink-0 text-sm font-semibold transition-colors flex items-center gap-2 border ${selectedCategory === 'destaques' ? 'text-white border-red-500/20' : 'text-gray-200 bg-[#2a2a2a]/60 hover:bg-[#2a2a2a] border-gray-800/60'}`}
-                        >
-                            <span className="relative z-10 flex items-center gap-2"><FaStar className="text-yellow-400" /> Destaques</span>
-                            {selectedCategory === 'destaques' && (
-                                <motion.div
-                                    layoutId="activeCategoryHighlight"
-                                    className="absolute inset-0 bg-red-600 rounded-full"
-                                    transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                                />
-                            )}
-                        </motion.button>
+        <div className="pb-28">
+            {showHero && (
+                <MenuHero
+                    isOpen={isRestaurantOpen}
+                    loading={false}
+                    onExplore={() => handleCategoryClick('destaques')}
+                    onInfo={() => window.dispatchEvent(new Event('docheff-open-info'))}
+                />
+            )}
 
-                        {categories.map(category => (
+            {/* Barra de categorias sticky */}
+            <div
+                ref={stickyBarRef}
+                className="sticky top-[52px] z-30 border-b border-white/[0.06] bg-surface pt-3.5 pb-3.5 sm:top-[56px] sm:pt-4 sm:pb-4"
+            >
+                <div className="mx-auto max-w-7xl px-4 sm:px-6">
+                    <div
+                        className={`categories-rail ${catFade.left ? 'show-left-fade' : ''} ${catFade.right ? 'show-right-fade' : ''}`}
+                    >
+                        <div
+                            ref={categoriesContainerRef}
+                            className="categories-container flex gap-2.5 overflow-x-auto px-0.5 py-0.5 no-scrollbar sm:gap-3"
+                        >
                             <motion.button
-                                key={category.value}
-                                data-category-value={category.value}
-                                onClick={() => handleCategoryClick(category.value)}
-                                className={`relative px-3.5 py-2 rounded-full whitespace-nowrap flex-shrink-0 text-sm font-semibold transition-colors flex items-center gap-2 border ${selectedCategory === category.value ? 'text-white border-red-500/20' : 'text-gray-200 bg-[#2a2a2a]/60 hover:bg-[#2a2a2a] border-gray-800/60'}`}
+                                data-category-value="destaques"
+                                onClick={() => handleCategoryClick('destaques')}
+                                className={`category-pill ${selectedCategory === 'destaques' ? 'is-active' : ''}`}
                             >
-                                <span className="relative z-10 flex items-center gap-2">
-                                    {category.icon || <FaDotCircle />}
-                                    {category.label}
+                                <span className="relative z-10">
+                                    <span className="pill-icon"><FaStar className="text-amber-400 text-[12px]" /></span>
+                                    Destaques
                                 </span>
-                                {selectedCategory === category.value && (
+                                {selectedCategory === 'destaques' && (
                                     <motion.div
                                         layoutId="activeCategoryHighlight"
-                                        className="absolute inset-0 bg-red-600 rounded-full"
-                                        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                                        className="absolute inset-0 rounded-full bg-ember-600"
+                                        transition={{ type: 'spring', stiffness: 320, damping: 28 }}
                                     />
                                 )}
                             </motion.button>
-                        ))}
+
+                            {categories.map((category) => (
+                                <motion.button
+                                    key={category.value}
+                                    data-category-value={category.value}
+                                    onClick={() => handleCategoryClick(category.value)}
+                                    className={`category-pill ${selectedCategory === category.value ? 'is-active' : ''}`}
+                                >
+                                    <span className="relative z-10">
+                                        <span className="pill-icon">
+                                            {category.icon || <FaDotCircle className="text-[10px]" />}
+                                        </span>
+                                        {category.label}
+                                    </span>
+                                    {selectedCategory === category.value && (
+                                        <motion.div
+                                            layoutId="activeCategoryHighlight"
+                                            className="absolute inset-0 rounded-full bg-ember-600"
+                                            transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+                                        />
+                                    )}
+                                </motion.button>
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto px-4 py-4">
+            <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
                 {!isRestaurantOpen && (
-                    <div className="mb-8 sm:mb-10">
-                        <div className="p-4 bg-red-900/20 border border-red-600/40 rounded-2xl max-w-md mx-auto text-red-200 text-sm text-center">
-                            <div className="font-semibold mb-1">Estabelecimento fechado</div>
-                            <div className="text-red-200/80">Pedidos não serão aceitos no momento.</div>
-                        </div>
+                    <div className="mb-8 rounded-2xl border border-ember-600/30 bg-ember-950/40 px-4 py-3.5 text-center text-sm text-ember-200">
+                        <span className="font-semibold">Estabelecimento fechado.</span>{' '}
+                        <span className="text-ember-200/80">Pedidos não serão aceitos no momento.</span>
                     </div>
                 )}
 
-                <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-12">
-                    <div
+                <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-12 sm:space-y-14">
+                    <section
                         id="category-destaques"
                         ref={(el) => { categoryElementsRef.current['destaques'] = el; }}
-                        className="space-y-4 pt-2"
+                        className="space-y-5"
                         style={{ scrollMarginTop: `${stickyOffset + 8}px` }}
                     >
                         <div className="flex items-end justify-between gap-4">
-                            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                                <FaStar className="text-yellow-400" /> Destaques
+                            <h2 className="menu-section-title flex items-center gap-2 text-2xl sm:text-3xl">
+                                <FaStar className="text-amber-400 text-lg" /> Destaques
                             </h2>
-                            <div className="text-xs text-gray-400 hidden sm:block">
-                                Toque no item para ver detalhes
-                            </div>
+                            <p className="hidden text-xs text-ink-faint sm:block">Toque para ver detalhes</p>
                         </div>
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-                            {featuredItems.map(item => (
-                                <motion.div
+                        <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+                            {featuredItems.map((item) => (
+                                <MenuItemCard
                                     key={item._id}
-                                    variants={itemVariants}
-                                    className="rounded-2xl border border-gray-800/60 bg-[#2a2a2a]/70 hover:bg-[#2a2a2a] shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer"
-                                    onClick={() => isRestaurantOpen && (item.category === 'massas' ? handlePastaClick(item) : setSelectedItem(item))}
-                                >
-                                    <div className="relative aspect-square overflow-hidden bg-[#1a1a1a]">
-                                        {item.image ? (
-                                            <Image src={item.image} alt={item.name} fill sizes="(max-width: 768px) 50vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-300" unoptimized={item.image.startsWith('http')} />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-4xl">🍽️</div>
-                                        )}
-                                        <div className="absolute top-2 left-2 bg-black/55 backdrop-blur-md text-white px-2.5 py-1 rounded-xl text-xs sm:text-sm font-bold border border-white/10">
-                                            R$ {item.price.toFixed(2)}
-                                        </div>
-                                        {!isRestaurantOpen && <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-sm font-semibold">Fechado</div>}
-                                    </div>
-                                    <div className="p-3 sm:p-4">
-                                        <h3 className="font-bold text-white text-sm sm:text-base mb-2 sm:mb-3 line-clamp-2 min-h-[2.5rem] sm:min-h-[3rem]">{item.name}</h3>
-                                        <button className={`w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold ${isRestaurantOpen ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-800 text-gray-400 cursor-not-allowed'} transition-colors`}>
-                                            {isRestaurantOpen ? 'Adicionar' : 'Indisponível'}
-                                        </button>
-                                    </div>
-                                </motion.div>
+                                    item={item}
+                                    isOpen={isRestaurantOpen}
+                                    onClick={() => openItem(item)}
+                                />
                             ))}
                         </div>
-                    </div>
+                    </section>
 
                     {categories.map((category) => (
-                        <div
+                        <section
                             key={category.value}
                             id={`category-${category.value}`}
                             ref={(el) => { categoryElementsRef.current[category.value] = el; }}
-                            className="space-y-4 pt-2"
+                            className="space-y-5"
                             style={{ scrollMarginTop: `${stickyOffset + 8}px` }}
                         >
-                            <h2 className="text-2xl font-bold text-white capitalize flex items-center gap-2">
-                                {category.icon || <FaDotCircle />} {category.label}
+                            <h2 className="menu-section-title flex items-center gap-2 text-2xl capitalize sm:text-3xl">
+                                <span className="text-lg opacity-80">{category.icon || <FaDotCircle />}</span>
+                                {category.label}
                             </h2>
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-                                {menuItems.filter(item => item.category === category.value).map(item => (
-                                    <motion.div
-                                        key={item._id}
-                                        variants={itemVariants}
-                                        className="rounded-2xl border border-gray-800/60 bg-[#2a2a2a]/70 hover:bg-[#2a2a2a] shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer"
-                                        onClick={() => isRestaurantOpen && (item.category === 'massas' ? handlePastaClick(item) : setSelectedItem(item))}
-                                    >
-                                        <div className="relative aspect-square overflow-hidden bg-[#1a1a1a]">
-                                            {item.image ? (
-                                                <Image src={item.image} alt={item.name} fill sizes="(max-width: 768px) 50vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-300" unoptimized={item.image.startsWith('http')} />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-4xl">🍽️</div>
-                                            )}
-                                            <div className="absolute top-2 left-2 bg-black/55 backdrop-blur-md text-white px-2.5 py-1 rounded-xl text-xs sm:text-sm font-bold border border-white/10">
-                                                R$ {item.price.toFixed(2)}
-                                            </div>
-                                            {!isRestaurantOpen && <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-sm font-semibold">Fechado</div>}
-                                        </div>
-                                        <div className="p-3 sm:p-4">
-                                            <h3 className="font-bold text-white text-sm sm:text-base mb-2 sm:mb-3 line-clamp-2 min-h-[2.5rem] sm:min-h-[3rem]">{item.name}</h3>
-                                            <button className={`w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold ${isRestaurantOpen ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-800 text-gray-400 cursor-not-allowed'} transition-colors`}>
-                                                {isRestaurantOpen ? 'Adicionar' : 'Indisponível'}
-                                            </button>
-                                        </div>
-                                    </motion.div>
-                                ))}
+                            <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+                                {menuItems
+                                    .filter((item) => item.category === category.value)
+                                    .map((item) => (
+                                        <MenuItemCard
+                                            key={item._id}
+                                            item={item}
+                                            isOpen={isRestaurantOpen}
+                                            onClick={() => openItem(item)}
+                                        />
+                                    ))}
                             </div>
-                        </div>
+                        </section>
                     ))}
                 </motion.div>
 
@@ -658,100 +757,200 @@ export default function MenuDisplay() {
                                 role="dialog"
                                 aria-modal="true"
                                 aria-labelledby="whatsapp-checkout-title"
-                                className="flex max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[1.75rem] border border-red-500/25 border-b-0 bg-[#262525] shadow-2xl sm:mx-4 sm:max-h-[min(90dvh,640px)] sm:rounded-2xl sm:border-b"
-                                initial={{ y: 40, opacity: 0 }}
+                                className="relative flex max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-surface-raised shadow-2xl sm:max-h-[min(92dvh,680px)] sm:rounded-3xl"
+                                initial={{ y: '100%', opacity: 0.9 }}
                                 animate={{ y: 0, opacity: 1 }}
-                                exit={{ y: 24, opacity: 0 }}
+                                exit={{ y: '40%', opacity: 0 }}
                                 transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-                                onClick={e => e.stopPropagation()}
-                                style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+                                onClick={(e) => e.stopPropagation()}
                             >
-                                <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-white/25 sm:hidden" aria-hidden />
+                                <div className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-white/20 sm:hidden" aria-hidden />
 
-                                <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 pb-2 pt-4 text-center sm:px-8 sm:pb-4 sm:pt-6">
-                                    <div className="mb-4 sm:mb-6">
-                                        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-green-500/15 ring-1 ring-green-500/30 sm:mb-4 sm:h-20 sm:w-20 sm:rounded-full sm:bg-red-500/20 sm:ring-0">
-                                            <FaWhatsapp className="text-3xl text-green-400 sm:text-4xl sm:text-green-500" />
+                                {/* Top bar */}
+                                <div className="flex shrink-0 items-center justify-between gap-3 px-4 pt-2 sm:px-6 sm:pt-5">
+                                    <div className="flex items-center gap-2.5">
+                                        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#25D366]/15 text-[#25D366] ring-1 ring-[#25D366]/30">
+                                            <FaWhatsapp className="text-lg" />
+                                        </span>
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-ink-faint">Passo final</p>
+                                            <p className="text-xs text-ink-muted">Confirmação via WhatsApp</p>
                                         </div>
-                                        <h2 id="whatsapp-checkout-title" className="text-balance text-xl font-bold leading-tight text-red-500 sm:text-3xl sm:mb-3">
-                                            Quase lá! Finalize seu pedido
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => !isSubmitting && setShowWhatsAppModal(false)}
+                                        disabled={isSubmitting}
+                                        className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 text-ink-muted transition hover:bg-white/10 hover:text-ink disabled:opacity-40"
+                                        aria-label="Fechar"
+                                    >
+                                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+
+                                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
+                                    {/* Hero copy */}
+                                    <div className="mb-5 text-center sm:mb-6">
+                                        <motion.div
+                                            initial={{ scale: 0.85, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            transition={{ type: 'spring', stiffness: 280, damping: 20, delay: 0.05 }}
+                                            className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#25D366]/25 to-[#128C7E]/15 shadow-[0_0_40px_-8px_rgba(37,211,102,0.45)] ring-1 ring-[#25D366]/35 sm:h-20 sm:w-20 sm:rounded-3xl"
+                                        >
+                                            <FaWhatsapp className="text-4xl text-[#25D366] sm:text-5xl" />
+                                        </motion.div>
+                                        <h2
+                                            id="whatsapp-checkout-title"
+                                            className="font-display text-balance text-2xl font-bold leading-tight tracking-tight text-ink sm:text-3xl"
+                                        >
+                                            Quase lá!
                                         </h2>
-                                        <p className="mt-2 text-pretty text-sm text-gray-300 sm:text-base">
-                                            Seu pedido será enviado ao nosso WhatsApp para confirmação.
+                                        <p className="mx-auto mt-2 max-w-sm text-pretty text-sm text-ink-muted sm:text-base">
+                                            Envie o pedido no WhatsApp para confirmarmos no estabelecimento.
                                         </p>
                                     </div>
 
-                                    <div className="mb-5 rounded-2xl border border-amber-500/35 bg-gradient-to-br from-amber-950/55 to-orange-950/40 p-4 text-left text-amber-50 shadow-lg ring-1 ring-amber-500/20 sm:mb-8 sm:p-5">
+                                    {/* Mini resumo do pedido */}
+                                    {finalOrderData?.itens && (
+                                        <div className="mb-4 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3.5 sm:p-4">
+                                            <div className="mb-2.5 flex items-center justify-between gap-2">
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-ink-faint">
+                                                    Seu pedido
+                                                </p>
+                                                <p className="font-display text-sm font-bold text-ember-400">
+                                                    R$ {Number(finalOrderData.total || 0).toFixed(2)}
+                                                </p>
+                                            </div>
+                                            <ul className="space-y-1.5">
+                                                {finalOrderData.itens.slice(0, 3).map((item: any, idx: number) => (
+                                                    <li key={idx} className="flex justify-between gap-3 text-sm">
+                                                        <span className="truncate text-ink-muted">
+                                                            {item.quantidade}× {item.nome}
+                                                            {item.size ? ` (${item.size})` : ''}
+                                                        </span>
+                                                        <span className="shrink-0 text-ink">
+                                                            R$ {(item.preco * item.quantidade).toFixed(2)}
+                                                        </span>
+                                                    </li>
+                                                ))}
+                                                {finalOrderData.itens.length > 3 && (
+                                                    <li className="text-xs text-ink-faint">
+                                                        + {finalOrderData.itens.length - 3} item(s)
+                                                    </li>
+                                                )}
+                                            </ul>
+                                            <div className="mt-3 flex flex-wrap gap-2 border-t border-white/[0.06] pt-3 text-[11px] text-ink-muted">
+                                                <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1">
+                                                    {finalOrderData.tipoEntrega === 'retirada' ? 'Retirada' : 'Entrega'}
+                                                </span>
+                                                <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 capitalize">
+                                                    {finalOrderData.formaPagamento === 'pix'
+                                                        ? 'PIX'
+                                                        : finalOrderData.formaPagamento === 'cartao'
+                                                          ? 'Cartão'
+                                                          : finalOrderData.formaPagamento === 'dinheiro'
+                                                            ? 'Dinheiro'
+                                                            : finalOrderData.formaPagamento}
+                                                </span>
+                                                {finalOrderData.cliente?.nome && (
+                                                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 truncate max-w-[10rem]">
+                                                        {finalOrderData.cliente.nome}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Aviso suave */}
+                                    <div className="mb-4 rounded-2xl border border-[#25D366]/25 bg-[#25D366]/[0.07] p-3.5 text-left sm:p-4">
                                         <div className="flex gap-3">
-                                            <span className="shrink-0 text-xl leading-none sm:text-2xl" aria-hidden>⚠️</span>
-                                            <div className="min-w-0 space-y-1.5">
-                                                <p className="text-sm font-bold text-amber-100 sm:text-base">Atenção</p>
-                                                <p className="text-xs leading-relaxed text-amber-100/90 sm:text-sm">
-                                                    O pedido <span className="font-semibold text-amber-200">só é confirmado</span> no estabelecimento <span className="font-semibold text-amber-200">depois de enviar a mensagem pelo WhatsApp</span>.
+                                            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#25D366]/20 text-sm text-[#25D366]">
+                                                1
+                                            </span>
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-semibold text-ink">Como funciona</p>
+                                                <p className="mt-1 text-xs leading-relaxed text-ink-muted sm:text-sm">
+                                                    O pedido é salvo aqui e a confirmação no balcão acontece
+                                                    <span className="font-semibold text-[#25D366]"> após você enviar a mensagem no WhatsApp</span>.
                                                 </p>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {(whatsAppOpenWasBlocked || copyStatus !== 'idle') && lastWhatsAppUrl && lastWhatsAppMessage && (
-                                        <div className="mb-5 rounded-xl border border-gray-700/80 bg-[#2a2a2a] p-3 text-left sm:mb-6 sm:p-4">
-                                            <p className="mb-3 text-xs text-gray-400 sm:text-sm">
-                                                Se o WhatsApp não abriu sozinho, use uma das opções:
-                                            </p>
-                                            <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-3">
-                                                <motion.button
-                                                    whileHover={{ scale: 1.02 }}
-                                                    whileTap={{ scale: 0.98 }}
-                                                    type="button"
-                                                    onClick={handleCopyWhatsAppMessage}
-                                                    className="w-full rounded-xl border border-gray-600 bg-gray-800 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-gray-700 sm:flex-1"
-                                                >
-                                                    {copyStatus === 'copied' ? 'Mensagem copiada!' : copyStatus === 'error' ? 'Falha ao copiar' : 'Copiar mensagem'}
-                                                </motion.button>
-                                                <a
-                                                    href={lastWhatsAppUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="flex w-full items-center justify-center rounded-xl bg-green-700 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-800 sm:flex-1"
-                                                >
-                                                    Abrir WhatsApp
-                                                </a>
-                                            </div>
-                                        </div>
-                                    )}
+                                    {/* Fallback se popup bloqueado */}
+                                    <AnimatePresence>
+                                        {(whatsAppOpenWasBlocked || copyStatus !== 'idle') && lastWhatsAppUrl && lastWhatsAppMessage && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 8 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0 }}
+                                                className="mb-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3.5 text-left sm:p-4"
+                                            >
+                                                <p className="mb-3 text-xs text-ink-muted sm:text-sm">
+                                                    O WhatsApp não abriu sozinho. Use uma das opções:
+                                                </p>
+                                                <div className="flex flex-col gap-2.5 sm:flex-row">
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleCopyWhatsAppMessage}
+                                                        className="w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-ink transition hover:bg-white/[0.1] sm:flex-1"
+                                                    >
+                                                        {copyStatus === 'copied'
+                                                            ? 'Mensagem copiada!'
+                                                            : copyStatus === 'error'
+                                                              ? 'Falha ao copiar'
+                                                              : 'Copiar mensagem'}
+                                                    </button>
+                                                    <a
+                                                        href={lastWhatsAppUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#20bd5a] sm:flex-1"
+                                                    >
+                                                        <FaWhatsapp />
+                                                        Abrir WhatsApp
+                                                    </a>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </div>
 
-                                <div className="shrink-0 border-t border-gray-800/90 bg-[#262525]/95 px-4 py-3 backdrop-blur-sm sm:px-8 sm:pb-6 sm:pt-4">
-                                    <div className="mx-auto flex w-full max-w-md flex-col gap-2.5 sm:flex-row sm:justify-center sm:gap-4">
+                                {/* Footer sticky */}
+                                <div
+                                    className="shrink-0 border-t border-white/[0.08] bg-surface-raised/95 px-4 py-3 backdrop-blur-md sm:px-6 sm:py-4"
+                                    style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
+                                >
+                                    <div className="flex flex-col gap-2.5 sm:flex-row-reverse">
                                         <motion.button
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
+                                            whileTap={!isSubmitting ? { scale: 0.98 } : {}}
+                                            type="button"
                                             onClick={handleSendToWhatsappAndSave}
                                             disabled={isSubmitting}
-                                            className="order-1 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-green-600 to-green-700 px-5 py-3.5 text-base font-bold text-white shadow-lg transition-all hover:from-green-700 hover:to-green-800 disabled:cursor-not-allowed disabled:opacity-50 sm:order-none sm:flex-1 sm:py-4 sm:text-lg"
+                                            className="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-[#25D366] px-5 py-3.5 text-sm font-bold text-white shadow-[0_12px_32px_-10px_rgba(37,211,102,0.55)] transition hover:bg-[#20bd5a] disabled:cursor-not-allowed disabled:opacity-50 sm:flex-[1.5] sm:text-base"
                                         >
                                             {isSubmitting ? (
                                                 <>
-                                                    <span className="inline-block animate-spin">⏳</span>
-                                                    <span>Enviando…</span>
+                                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                                    Salvando e abrindo…
                                                 </>
                                             ) : (
                                                 <>
-                                                    <FaWhatsapp className="text-xl sm:text-2xl" />
-                                                    <span>Enviar para WhatsApp</span>
+                                                    <FaWhatsapp className="text-xl" />
+                                                    Enviar para WhatsApp
                                                 </>
                                             )}
                                         </motion.button>
-                                        <motion.button
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
+                                        <button
                                             type="button"
                                             onClick={() => !isSubmitting && setShowWhatsAppModal(false)}
                                             disabled={isSubmitting}
-                                            className="order-2 w-full rounded-xl bg-gray-700 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-gray-600 disabled:opacity-50 sm:order-none sm:w-auto sm:min-w-[8rem] sm:py-4 sm:text-base"
+                                            className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3.5 text-sm font-semibold text-ink transition hover:bg-white/[0.08] disabled:opacity-50 sm:flex-1"
                                         >
-                                            Cancelar
-                                        </motion.button>
+                                            Voltar
+                                        </button>
                                     </div>
                                 </div>
                             </motion.div>
@@ -806,9 +1005,22 @@ export default function MenuDisplay() {
 
                 <AnimatePresence>
                     {cartItems.length > 0 && (
-                        <motion.button initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} onClick={() => setIsCartOpen(true)} className="fixed bottom-4 right-4 bg-red-600 text-white p-4 rounded-full shadow-lg flex items-center justify-center gap-2">
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                            <span className="font-bold text-lg">{cartItems.reduce((total, item) => total + item.quantity, 0)}</span>
+                        <motion.button
+                            initial={{ opacity: 0, y: 24, scale: 0.9 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 16, scale: 0.9 }}
+                            whileTap={{ scale: 0.96 }}
+                            onClick={() => setIsCartOpen(true)}
+                            className="fixed bottom-5 right-4 z-50 flex items-center gap-2.5 rounded-full bg-ember-600 px-5 py-3.5 text-white shadow-glow sm:bottom-6 sm:right-6"
+                            style={{ marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
+                        >
+                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            <span className="text-sm font-bold">
+                                {cartItems.reduce((total, item) => total + item.quantity, 0)}
+                            </span>
+                            <span className="hidden text-sm font-semibold sm:inline">Ver sacola</span>
                         </motion.button>
                     )}
                 </AnimatePresence>

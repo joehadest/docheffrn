@@ -8,12 +8,8 @@ export default function MenuPage() {
     return (
         <CartProvider>
             <MenuProvider>
-                <main className="min-h-screen bg-[#262525]">
-                    <div className="max-w-7xl mx-auto px-4 py-4 sm:py-8">
-                        <MenuDisplay />
-                    </div>
-                </main>
+                <MenuDisplay showHero />
             </MenuProvider>
         </CartProvider>
     );
-} 
+}
