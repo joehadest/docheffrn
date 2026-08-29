@@ -22,7 +22,7 @@ export interface MenuItem {
         'Única'?: number;
     };
     borderOptions?: {
-        [key: string]: number;
+        [border: string]: { [size: string]: number } | number;
     };
     extraOptions?: {
         [key: string]: number;

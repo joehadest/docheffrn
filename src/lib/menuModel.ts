@@ -45,7 +45,7 @@ const menuItemSchema = new mongoose.Schema(
         destaque: { type: Boolean, default: false },
         sizes: { type: Map, of: Number, default: {} },
         ingredients: { type: [String], default: [] },
-        borderOptions: { type: Map, of: Number, default: {} },
+        borderOptions: { type: mongoose.Schema.Types.Mixed, default: {} },
         extraOptions: { type: Map, of: Number, default: {} },
         isAvailable: { type: Boolean, default: true },
     },

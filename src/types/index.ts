@@ -13,7 +13,7 @@ export interface MenuItem {
         G: number;
     };
     borderOptions?: {
-        [key: string]: number;
+        [border: string]: { [size: string]: number } | number;
     };
 }
 

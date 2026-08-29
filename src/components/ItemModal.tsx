@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MenuItem } from '../types/menu';
-import { calculatePizzaPrice } from '../utils/priceCalculator';
+import { calculatePizzaPrice, getBorderPrice } from '../utils/priceCalculator';
 
 interface ItemModalProps {
     item: MenuItem;
@@ -373,12 +373,12 @@ export default function ItemModal({
                                                 subtitle="R$ 0,00"
                                                 onClick={() => setSelectedBorder('')}
                                             />
-                                            {Object.entries(item.borderOptions).map(([borderKey, price]) => (
+                                            {Object.keys(item.borderOptions).map((borderKey) => (
                                                 <OptionChip
                                                     key={borderKey}
                                                     selected={selectedBorder === borderKey}
                                                     title={borderKey}
-                                                    subtitle={`+ R$ ${price.toFixed(2)}`}
+                                                    subtitle={`+ R$ ${getBorderPrice(item, borderKey, selectedSize).toFixed(2)}`}
                                                     onClick={() => setSelectedBorder(borderKey)}
                                                 />
                                             ))}

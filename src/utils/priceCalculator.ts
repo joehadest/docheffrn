@@ -1,5 +1,12 @@
 import { MenuItem } from '../types/menu';
 
+export function getBorderPrice(item: MenuItem, border: string | undefined, sizeKey: string): number {
+    if (!border || !item.borderOptions) return 0;
+    const value = item.borderOptions[border];
+    if (typeof value === 'number') return value; // formato antigo (preço único), ainda não migrado
+    return value?.[sizeKey] ?? 0;
+}
+
 export const calculatePizzaPrice = (
     item: MenuItem,
     size?: string,
@@ -27,10 +34,7 @@ export const calculatePizzaPrice = (
                 price = Math.max(price1, price2);
 
                 // Adiciona o preço da borda se houver
-                if (border && item.borderOptions) {
-                    const borderPrice = sizeKey === 'G' ? 8.00 : 4.00;
-                    price += borderPrice;
-                }
+                price += getBorderPrice(item, border, sizeKey);
 
                 // Adiciona o preço dos extras se houver
                 if (extras && item.extraOptions) {
@@ -48,9 +52,7 @@ export const calculatePizzaPrice = (
 
         price = item.sizes[sizeKey] || price;
 
-        if (border && item.borderOptions && item.borderOptions[border] !== undefined) {
-            price += item.borderOptions[border];
-        }
+        price += getBorderPrice(item, border, sizeKey);
         if (extras && item.extraOptions) {
             extras.forEach(extra => {
                 const extraPrice = item.extraOptions![extra];

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MenuItem } from '../types/menu';
 import { CartItem } from '../types/cart';
 import { isRestaurantOpen as checkRestaurantOpen } from '../utils/timeUtils';
+import { getBorderPrice } from '../utils/priceCalculator';
 import type { BusinessHoursConfig } from '../utils/timeUtils';
 
 interface CartProps {
@@ -194,9 +195,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, o
             }
 
             if (item.item.category === 'pizzas' || item.item.category === 'calzone') {
-                if (item.border && item.item.borderOptions) {
-                    price += sizeKey === 'G' ? 8.0 : 4.0;
-                }
+                price += getBorderPrice(item.item, item.border, sizeKey);
                 if (item.extras && item.item.extraOptions) {
                     item.extras.forEach((extra) => {
                         const extraPrice = item.item.extraOptions![extra];
@@ -234,7 +233,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, o
                 } else {
                     price = item.item.sizes[sizeKey] || item.item.price;
                 }
-                if (item.border && item.item.borderOptions) price += sizeKey === 'G' ? 8.0 : 4.0;
+                price += getBorderPrice(item.item, item.border, sizeKey);
                 if (item.extras && item.item.extraOptions) {
                     item.extras.forEach((extra) => {
                         const extraPrice = item.item.extraOptions![extra];
@@ -582,9 +581,32 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, o
                                         <div className="space-y-1.5">
                                             {items.slice(0, 3).map((item) => (
                                                 <div key={item._id} className="flex justify-between gap-2 text-sm">
-                                                    <span className="truncate text-ink-muted">
-                                                        {item.quantity}× {item.item.name}
-                                                    </span>
+                                                    <div className="min-w-0">
+                                                        <div className="truncate text-ink-muted">
+                                                            {item.quantity}× {item.item.name}
+                                                        </div>
+                                                        {[
+                                                            item.size && `Tam. ${item.size}`,
+                                                            item.border && `Borda ${item.border}`,
+                                                            item.extras?.length
+                                                                ? `Extras: ${item.extras.join(', ')}`
+                                                                : null,
+                                                            item.observation,
+                                                        ].filter(Boolean).length > 0 && (
+                                                            <div className="truncate text-[11px] text-ink-faint">
+                                                                {[
+                                                                    item.size && `Tam. ${item.size}`,
+                                                                    item.border && `Borda ${item.border}`,
+                                                                    item.extras?.length
+                                                                        ? `Extras: ${item.extras.join(', ')}`
+                                                                        : null,
+                                                                    item.observation,
+                                                                ]
+                                                                    .filter(Boolean)
+                                                                    .join(' · ')}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                     <span className="shrink-0 text-ink">
                                                         R$ {calculateItemPrice(item).toFixed(2)}
                                                     </span>

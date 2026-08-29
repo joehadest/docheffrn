@@ -22,7 +22,12 @@ const initialMenuItems = [
         destaque: true,
         sizes: { P: 27.00, G: 45.00 },
         ingredients: ['Molho', 'Mussarela', 'Calabresa', 'Cebola', 'Orégano'],
-        borderOptions: { 'Sem Borda': 0, 'Chocolate': 4, 'Catupiry': 4, 'Cheddar': 4 },
+        borderOptions: {
+            'Sem Borda': { P: 0, G: 0 },
+            'Chocolate': { P: 4, G: 8 },
+            'Catupiry': { P: 4, G: 8 },
+            'Cheddar': { P: 4, G: 8 },
+        },
         extraOptions: { 'Cheddar Extra': 3, 'Catupiry Extra': 3 }
     },
     {
@@ -34,7 +39,12 @@ const initialMenuItems = [
         destaque: false,
         sizes: { P: 27.00, G: 45.00 },
         ingredients: ['Molho', 'Mussarela', 'Frango', 'Tomate', 'Orégano'],
-        borderOptions: { 'Sem Borda': 0, 'Chocolate': 4, 'Catupiry': 4, 'Cheddar': 4 },
+        borderOptions: {
+            'Sem Borda': { P: 0, G: 0 },
+            'Chocolate': { P: 4, G: 8 },
+            'Catupiry': { P: 4, G: 8 },
+            'Cheddar': { P: 4, G: 8 },
+        },
         extraOptions: { 'Cheddar Extra': 3, 'Catupiry Extra': 3 }
     },
     {
@@ -46,7 +56,12 @@ const initialMenuItems = [
         destaque: false,
         sizes: { P: 27.00, G: 45.00 },
         ingredients: ['Molho', 'Mussarela', 'Tomate', 'Orégano'],
-        borderOptions: { 'Sem Borda': 0, 'Chocolate': 4, 'Catupiry': 4, 'Cheddar': 4 },
+        borderOptions: {
+            'Sem Borda': { P: 0, G: 0 },
+            'Chocolate': { P: 4, G: 8 },
+            'Catupiry': { P: 4, G: 8 },
+            'Cheddar': { P: 4, G: 8 },
+        },
         extraOptions: { 'Cheddar Extra': 3, 'Catupiry Extra': 3 }
     },
     {
@@ -58,7 +73,12 @@ const initialMenuItems = [
         destaque: false,
         sizes: { P: 30.00, G: 48.00 },
         ingredients: ['Molho', 'Mussarela', 'Frango', 'Catupiry', 'Orégano'],
-        borderOptions: { 'Sem Borda': 0, 'Chocolate': 4, 'Catupiry': 4, 'Cheddar': 4 },
+        borderOptions: {
+            'Sem Borda': { P: 0, G: 0 },
+            'Chocolate': { P: 4, G: 8 },
+            'Catupiry': { P: 4, G: 8 },
+            'Cheddar': { P: 4, G: 8 },
+        },
         extraOptions: { 'Cheddar Extra': 3, 'Catupiry Extra': 3 }
     },
     {
@@ -70,7 +90,12 @@ const initialMenuItems = [
         destaque: false,
         sizes: { P: 35.00, G: 53.00 },
         ingredients: ['Molho', 'Mussarela', 'Carne de Sol', 'Cebola', 'Orégano'],
-        borderOptions: { 'Sem Borda': 0, 'Chocolate': 4, 'Catupiry': 4, 'Cheddar': 4 },
+        borderOptions: {
+            'Sem Borda': { P: 0, G: 0 },
+            'Chocolate': { P: 4, G: 8 },
+            'Catupiry': { P: 4, G: 8 },
+            'Cheddar': { P: 4, G: 8 },
+        },
         extraOptions: { 'Cheddar Extra': 3, 'Catupiry Extra': 3 }
     },
     {
@@ -82,7 +107,12 @@ const initialMenuItems = [
         destaque: false,
         sizes: { P: 36.00, G: 54.00 },
         ingredients: ['Molho', 'Mussarela', 'Carne Moída', 'Azeitona', 'Cebola', 'Orégano'],
-        borderOptions: { 'Sem Borda': 0, 'Chocolate': 4, 'Catupiry': 4, 'Cheddar': 4 },
+        borderOptions: {
+            'Sem Borda': { P: 0, G: 0 },
+            'Chocolate': { P: 4, G: 8 },
+            'Catupiry': { P: 4, G: 8 },
+            'Cheddar': { P: 4, G: 8 },
+        },
         extraOptions: { 'Cheddar Extra': 3, 'Catupiry Extra': 3 }
     },
     {
@@ -94,7 +124,12 @@ const initialMenuItems = [
         destaque: false,
         sizes: { P: 38.00, G: 56.00 },
         ingredients: ['Molho', 'Mussarela', 'Carne', 'Catupiry', 'Cebola', 'Orégano'],
-        borderOptions: { 'Sem Borda': 0, 'Chocolate': 4, 'Catupiry': 4, 'Cheddar': 4 },
+        borderOptions: {
+            'Sem Borda': { P: 0, G: 0 },
+            'Chocolate': { P: 4, G: 8 },
+            'Catupiry': { P: 4, G: 8 },
+            'Cheddar': { P: 4, G: 8 },
+        },
         extraOptions: { 'Cheddar Extra': 3, 'Catupiry Extra': 3 }
     },
     {
@@ -106,7 +141,12 @@ const initialMenuItems = [
         destaque: false,
         sizes: { P: 52.00, G: 70.00 },
         ingredients: ['Molho', 'Mussarela', 'Camarão', 'Azeitona', 'Cebola', 'Orégano'],
-        borderOptions: { 'Sem Borda': 0, 'Chocolate': 4, 'Catupiry': 4, 'Cheddar': 4 },
+        borderOptions: {
+            'Sem Borda': { P: 0, G: 0 },
+            'Chocolate': { P: 4, G: 8 },
+            'Catupiry': { P: 4, G: 8 },
+            'Cheddar': { P: 4, G: 8 },
+        },
         extraOptions: { 'Cheddar Extra': 3, 'Catupiry Extra': 3 }
     },
     {
@@ -118,7 +158,12 @@ const initialMenuItems = [
         destaque: false,
         sizes: { P: 30.00, G: 48.00 },
         ingredients: ['Mussarela', 'Chocolate', 'Disquete'],
-        borderOptions: { 'Sem Borda': 0, 'Chocolate': 4, 'Catupiry': 4, 'Cheddar': 4 },
+        borderOptions: {
+            'Sem Borda': { P: 0, G: 0 },
+            'Chocolate': { P: 4, G: 8 },
+            'Catupiry': { P: 4, G: 8 },
+            'Cheddar': { P: 4, G: 8 },
+        },
         extraOptions: { 'Cheddar Extra': 3, 'Catupiry Extra': 3 }
     },
 

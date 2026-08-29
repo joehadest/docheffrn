@@ -36,12 +36,18 @@ function ItemModal({ item, onClose, onSave, categories }: {
     }));
   });
   
-  const [borders, setBorders] = useState<Array<{ id: string; name: string; price: number }>>(() => {
-    return Object.entries(item.borderOptions || {}).map(([name, price]) => ({
-      id: `${name}-${Math.random()}`,
-      name,
-      price: price as number
-    }));
+  const [borders, setBorders] = useState<Array<{ id: string; name: string; prices: Record<string, number> }>>(() => {
+    return Object.entries(item.borderOptions || {}).map(([name, value]) => {
+      let prices: Record<string, number>;
+      if (typeof value === 'number') {
+        // Formato antigo (preço único, ainda não migrado): pré-preenche todos os tamanhos com o valor atual.
+        prices = {};
+        sizes.forEach(s => { if (s.name) prices[s.name] = value; });
+      } else {
+        prices = { ...(value as Record<string, number>) };
+      }
+      return { id: `${name}-${Math.random()}`, name, prices };
+    });
   });
   
   const [extras, setExtras] = useState<Array<{ id: string; name: string; price: number }>>(() => {
@@ -66,8 +72,8 @@ function ItemModal({ item, onClose, onSave, categories }: {
     const sizesObj: Record<string, number> = {};
     sizes.forEach(s => { if (s.name) sizesObj[s.name] = s.price; });
     
-    const bordersObj: Record<string, number> = {};
-    borders.forEach(b => { if (b.name) bordersObj[b.name] = b.price; });
+    const bordersObj: Record<string, Record<string, number>> = {};
+    borders.forEach(b => { if (b.name) bordersObj[b.name] = { ...b.prices }; });
     
     const extrasObj: Record<string, number> = {};
     extras.forEach(e => { if (e.name) extrasObj[e.name] = e.price; });
@@ -327,19 +333,45 @@ function ItemModal({ item, onClose, onSave, categories }: {
                 {/* Bordas */}
                 <div>
                   <p className="admin-section-title">Opções de Borda</p>
+                  <p className="text-[11px] text-gray-500 mb-2 -mt-1">O preço da borda pode variar por tamanho.</p>
                   <AnimatePresence initial={false}>
                     {borders.map((border, idx) => (
-                      <motion.div key={border.id} custom={idx} variants={rowVariants} initial="hidden" animate="visible" exit="exit" className="admin-field-row admin-field-row-3">
-                        <input type="text" value={border.name} onChange={(e) => { const n = [...borders]; n[idx] = { ...border, name: e.target.value }; setBorders(n); }} className="form-input w-full" placeholder="Ex: Catupiry" />
-                        <div className="relative">
-                          <span className="absolute inset-y-0 left-2 flex items-center text-gray-600 text-[11px] pointer-events-none select-none z-10">R$</span>
-                          <input type="number" value={border.price} onChange={(e) => { const n = [...borders]; n[idx] = { ...border, price: parseFloat(e.target.value) || 0 }; setBorders(n); }} step="0.01" min="0" className="form-input w-full" style={{ paddingLeft: '1.75rem' }} />
+                      <motion.div key={border.id} custom={idx} variants={rowVariants} initial="hidden" animate="visible" exit="exit" className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-2.5 mb-2 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <input type="text" value={border.name} onChange={(e) => { const n = [...borders]; n[idx] = { ...border, name: e.target.value }; setBorders(n); }} className="form-input w-full" placeholder="Ex: Catupiry" />
+                          <button type="button" onClick={() => setBorders(borders.filter((_, i) => i !== idx))} className={fieldRowBtn}><FaTrash size={11} /></button>
                         </div>
-                        <button type="button" onClick={() => setBorders(borders.filter((_, i) => i !== idx))} className={fieldRowBtn}><FaTrash size={11} /></button>
+                        {sizes.filter(s => s.name).length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {sizes.filter(s => s.name).map((size) => (
+                              <div key={size.name} className="flex items-center gap-1.5 bg-white/[0.03] border border-white/[0.06] rounded-lg pl-2 pr-1 py-1">
+                                <span className="text-[10px] font-bold text-gray-500 uppercase">{size.name}</span>
+                                <div className="relative">
+                                  <span className="absolute inset-y-0 left-1.5 flex items-center text-gray-600 text-[10px] pointer-events-none select-none z-10">R$</span>
+                                  <input
+                                    type="number"
+                                    value={border.prices[size.name] ?? 0}
+                                    onChange={(e) => {
+                                      const n = [...borders];
+                                      n[idx] = { ...border, prices: { ...border.prices, [size.name]: parseFloat(e.target.value) || 0 } };
+                                      setBorders(n);
+                                    }}
+                                    step="0.01"
+                                    min="0"
+                                    className="form-input w-20 text-sm"
+                                    style={{ paddingLeft: '1.5rem' }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-gray-600">Cadastre os tamanhos acima para definir o preço da borda.</p>
+                        )}
                       </motion.div>
                     ))}
                   </AnimatePresence>
-                  <button type="button" onClick={() => setBorders([...borders, { id: `new-${Date.now()}`, name: '', price: 0 }])} className={addRowBtn}>
+                  <button type="button" onClick={() => setBorders([...borders, { id: `new-${Date.now()}`, name: '', prices: {} }])} className={addRowBtn}>
                     <FaPlus size={10} /> Adicionar Borda
                   </button>
                 </div>
