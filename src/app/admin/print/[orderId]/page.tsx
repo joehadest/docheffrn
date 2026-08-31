@@ -79,7 +79,7 @@ export default function PrintOrderPage() {
                 <hr />
 
                 <section>
-                    <h2>{pedido.tipoEntrega === 'entrega' ? 'Entrega' : 'Retirada'}</h2>
+                    <h2>{pedido.tipoEntrega === 'entrega' ? 'Entrega' : pedido.tipoEntrega === 'local' ? 'Mesa' : 'Retirada'}</h2>
                     {pedido.tipoEntrega === 'entrega' && pedido.endereco ? (
                         <>
                             <p>{pedido.endereco.address.street}, {pedido.endereco.address.number}</p>
@@ -87,6 +87,8 @@ export default function PrintOrderPage() {
                             <p>Bairro: {pedido.endereco.address.neighborhood}</p>
                             {pedido.endereco.address.referencePoint && <p>Ref: {pedido.endereco.address.referencePoint}</p>}
                         </>
+                    ) : pedido.tipoEntrega === 'local' ? (
+                        <p><strong>{pedido.mesa || '-'}</strong></p>
                     ) : (
                         <p><strong>Retirada no Balcão</strong></p>
                     )}

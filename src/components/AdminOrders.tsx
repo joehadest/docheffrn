@@ -284,7 +284,11 @@ export default function AdminOrders() {
 
     const handleCompartilharPedido = (pedido: Pedido) => {
         const endereco = pedido.endereco;
-        const enderecoFormatado = pedido.tipoEntrega === 'retirada' || !endereco?.address ? 'Retirada no local' : `${endereco.address.street}, ${endereco.address.number}${endereco.address.complement ? ` - ${endereco.address.complement}` : ''}\nBairro: ${endereco.address.neighborhood}\nPonto de Referência: ${endereco.address.referencePoint || 'Nenhum'}`;
+        const enderecoFormatado = pedido.tipoEntrega === 'local'
+            ? `Mesa: ${pedido.mesa || '-'}`
+            : pedido.tipoEntrega === 'retirada' || !endereco?.address
+                ? 'Retirada no local'
+                : `${endereco.address.street}, ${endereco.address.number}${endereco.address.complement ? ` - ${endereco.address.complement}` : ''}\nBairro: ${endereco.address.neighborhood}\nPonto de Referência: ${endereco.address.referencePoint || 'Nenhum'}`;
         const formaPagamento = pedido.formaPagamento === 'pix' ? 'PIX' : pedido.formaPagamento === 'cartao' ? 'Cartão' : 'Dinheiro';
         const troco = pedido.formaPagamento === 'dinheiro' && pedido.troco ? `\nTroco para: R$ ${pedido.troco}` : '';
         const taxaEntregaValor = calcularTaxaEntrega(pedido);
@@ -563,7 +567,9 @@ export default function AdminOrders() {
                             </div>
                             <div className="bg-[#1F1F1F] p-3 rounded-lg border border-gray-800/50">
                                 <h4 className="font-semibold text-gray-300 mb-2">Entrega</h4>
-                                {pedidoSelecionado.tipoEntrega === 'retirada' ? (
+                                {pedidoSelecionado.tipoEntrega === 'local' ? (
+                                    <p className="text-white">Mesa: {pedidoSelecionado.mesa || '-'}</p>
+                                ) : pedidoSelecionado.tipoEntrega === 'retirada' ? (
                                     <p className="text-white">Retirada no Local</p>
                                 ) : (
                                     <>
@@ -631,6 +637,13 @@ export default function AdminOrders() {
                                         <div className="flex justify-between">
                                             <span className="text-gray-400">Taxa de Entrega:</span>
                                             <span className="text-green-400 text-xs font-medium">Grátis (retirada)</span>
+                                        </div>
+                                    )}
+
+                                    {pedidoSelecionado.tipoEntrega === 'local' && (
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-400">Taxa de Entrega:</span>
+                                            <span className="text-green-400 text-xs font-medium">Consumo no Local</span>
                                         </div>
                                     )}
 

@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation';
 import AdminMenu from '@/components/AdminMenu';
 import AdminOrders from '@/components/AdminOrders';
 import AdminSettings from '@/components/AdminSettings';
-import { FaUtensils, FaClipboardList, FaCog, FaSignOutAlt } from 'react-icons/fa';
+import AdminFinanceiro from '@/components/AdminFinanceiro';
+import AdminMesas from '@/components/AdminMesas';
+import { FaUtensils, FaClipboardList, FaCog, FaSignOutAlt, FaMoneyBillWave, FaChair } from 'react-icons/fa';
 
-type AdminTab = 'menu' | 'orders' | 'settings';
+type AdminTab = 'menu' | 'orders' | 'mesas' | 'financeiro' | 'settings';
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -20,6 +22,8 @@ export default function AdminDashboardPage() {
   const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
     { id: 'menu', label: 'Cardápio', icon: <FaUtensils /> },
     { id: 'orders', label: 'Pedidos', icon: <FaClipboardList /> },
+    { id: 'mesas', label: 'Mesas', icon: <FaChair /> },
+    { id: 'financeiro', label: 'Financeiro', icon: <FaMoneyBillWave /> },
     { id: 'settings', label: 'Configurações', icon: <FaCog /> },
   ];
 
@@ -76,6 +80,8 @@ export default function AdminDashboardPage() {
       <main className="flex-1">
         {activeTab === 'menu' && <AdminMenu />}
         {activeTab === 'orders' && <AdminOrders />}
+        {activeTab === 'mesas' && <AdminMesas />}
+        {activeTab === 'financeiro' && <AdminFinanceiro />}
         {activeTab === 'settings' && <AdminSettings />}
       </main>
     </div>

@@ -8,6 +8,7 @@ interface PastaModalProps {
     item: MenuItem;
     onClose: () => void;
     onAddToCart: (quantity: number, observation: string, size?: 'P' | 'G') => void;
+    submitLabel?: string;
 }
 
 const overlayVariants = {
@@ -37,7 +38,7 @@ const panelVariantsDesktop = {
     exit: { opacity: 0, scale: 0.97, y: 10, transition: { duration: 0.18 } },
 };
 
-export default function PastaModal({ item, onClose, onAddToCart }: PastaModalProps) {
+export default function PastaModal({ item, onClose, onAddToCart, submitLabel = 'Adicionar ao carrinho' }: PastaModalProps) {
     const [quantity, setQuantity] = useState(1);
     const [observation, setObservation] = useState('');
     const [selectedSize, setSelectedSize] = useState<'P' | 'G'>('P');
@@ -230,7 +231,7 @@ export default function PastaModal({ item, onClose, onAddToCart }: PastaModalPro
                                 type="submit"
                                 className="w-full rounded-2xl bg-ember-600 py-3.5 text-sm font-bold text-white shadow-glow transition hover:bg-ember-500"
                             >
-                                Adicionar ao carrinho
+                                {submitLabel}
                             </motion.button>
                         </div>
                     </form>

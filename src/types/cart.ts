@@ -39,6 +39,7 @@ export interface Cliente {
 
 export interface Pedido {
     _id: string;
+    mesa?: string;
     itens: {
         nome: string;
         quantidade: number;
@@ -54,7 +55,7 @@ export interface Pedido {
         flavorsTitle?: string; // Campo adicionado
     }[];
     total: number;
-    tipoEntrega: 'entrega' | 'retirada';
+    tipoEntrega: 'entrega' | 'retirada' | 'local';
     endereco?: {
         address: Address;
         deliveryFee: number;

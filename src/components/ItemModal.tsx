@@ -21,6 +21,7 @@ interface ItemModalProps {
     allPizzas?: MenuItem[];
     categories?: { value?: string; name?: string; allowHalfAndHalf?: boolean }[];
     allowHalfAndHalf?: boolean;
+    submitLabel?: string;
 }
 
 const overlayVariants = {
@@ -90,6 +91,7 @@ export default function ItemModal({
     onAddToCart,
     allPizzas,
     categories = [],
+    submitLabel = 'Adicionar ao carrinho',
 }: ItemModalProps) {
     const [quantity, setQuantity] = useState(1);
     const [observation, setObservation] = useState('');
@@ -479,7 +481,7 @@ export default function ItemModal({
                                         : 'bg-ember-600 text-white shadow-glow hover:bg-ember-500'
                                 }`}
                             >
-                                {halfIncomplete ? 'Selecione os dois sabores' : 'Adicionar ao carrinho'}
+                                {halfIncomplete ? 'Selecione os dois sabores' : submitLabel}
                             </motion.button>
                         </div>
                     </form>

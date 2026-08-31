@@ -48,6 +48,7 @@ export interface Cart {
 
 export interface Pedido {
     _id: string;
+    mesa?: string;
     itens: {
         nome: string;
         quantidade: number;
@@ -58,7 +59,7 @@ export interface Pedido {
         extras?: string[];
     }[];
     total: number;
-    tipoEntrega: 'entrega' | 'retirada';
+    tipoEntrega: 'entrega' | 'retirada' | 'local';
     endereco?: {
         address: string;
         complement?: string;
