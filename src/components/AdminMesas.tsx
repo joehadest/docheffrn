@@ -1,5 +1,7 @@
 'use client';
-import React, { useEffect, useMemo, useState } from 'react';
+import { PageHeading, EmptyState, useAdminDialog } from './admin/AdminUI';
+import { useAdminConfirm } from './admin/useAdminConfirm';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FaPlus, FaTrash, FaArrowLeft, FaChair } from 'react-icons/fa';
 import { MenuItem } from '../types/menu';
 import { Pedido } from '../types/cart';
@@ -17,6 +19,7 @@ const calcularTotalItens = (itens: ItemPedido[]) =>
     itens.reduce((acc, item) => acc + item.preco * item.quantidade, 0);
 
 export default function AdminMesas() {
+  const { confirm, confirmationDialog } = useAdminConfirm();
     const [pedidos, setPedidos] = useState<Pedido[]>([]);
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [categorias, setCategorias] = useState<Categoria[]>([]);
@@ -33,6 +36,8 @@ export default function AdminMesas() {
     const [mostrarFechamento, setMostrarFechamento] = useState(false);
     const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>('dinheiro');
     const [fechandoConta, setFechandoConta] = useState(false);
+    const closeItemDialog = useCallback(() => { setItemSelecionado(null); setPastaSelecionada(null); }, []);
+    const itemDialogRef = useAdminDialog(!!itemSelecionado || !!pastaSelecionada, closeItemDialog);
 
     useEffect(() => {
         async function fetchAll() {
@@ -195,7 +200,7 @@ export default function AdminMesas() {
 
     const cancelarMesa = async () => {
         if (!mesaAtiva) return;
-        if (!window.confirm(`Cancelar "${mesaAtiva.mesa}"? Isso remove a mesa e não pode ser desfeito.`)) return;
+        if (!await confirm({ title: 'Cancelar mesa?', message: `Cancelar "${mesaAtiva.mesa}"? Isso remove a mesa e não pode ser desfeito.`, confirmLabel: 'Cancelar mesa', destructive: true })) return;
         setError(null);
         try {
             const res = await fetch(`/api/pedidos?id=${mesaAtiva._id}`, { method: 'DELETE' });
@@ -250,7 +255,7 @@ export default function AdminMesas() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center py-20 gap-3">
+            <div role="status" className="flex items-center justify-center py-20 gap-3">
                 <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-red-500" />
                 <span className="text-gray-400">Carregando mesas...</span>
             </div>
@@ -258,28 +263,24 @@ export default function AdminMesas() {
     }
 
     return (
-        <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                    <h1 className="text-2xl font-bold text-white tracking-tight">Mesas</h1>
-                    <p className="text-gray-500 text-sm mt-0.5">Atendimento presencial — abra uma mesa e lance os itens do pedido</p>
-                </div>
-            </div>
+        <div className="admin-page space-y-6">
+      {confirmationDialog}
+            <PageHeading title="Mesas" description="Organize o atendimento presencial, lance itens e acompanhe as contas abertas." />
 
             {error && (
-                <div className="p-3 bg-red-900/30 border border-red-800/50 text-red-300 rounded-lg text-sm">{error}</div>
+                <div role="alert" className="p-3 bg-red-900/30 border border-red-800/50 text-red-300 rounded-lg text-sm">{error}</div>
             )}
 
             {!mesaAtiva ? (
                 <>
                     {/* Abrir nova mesa */}
-                    <div className="flex flex-col sm:flex-row gap-2 bg-[#141414] border border-white/[0.07] rounded-xl p-3.5">
+                    <div className="admin-toolbar flex flex-col sm:flex-row gap-3">
                         <input
                             type="text"
                             value={novoRotulo}
                             onChange={(e) => setNovoRotulo(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && criarMesa()}
-                            placeholder="Ex: Mesa 5, Balcão 2..."
+                            aria-label="Nome ou número da mesa" placeholder="Ex: Mesa 5, Balcão 2..."
                             className="form-input flex-1"
                         />
                         <button
@@ -294,13 +295,15 @@ export default function AdminMesas() {
 
                     {/* Grid de mesas abertas */}
                     {mesasAbertas.length === 0 ? (
-                        <div className="text-center text-gray-500 py-10">Nenhuma mesa aberta no momento.</div>
+                        <EmptyState>Nenhuma mesa aberta. Informe o nome ou número acima para iniciar o atendimento.</EmptyState>
                     ) : (
                         <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             {mesasAbertas.map((mesa) => (
                                 <li
                                     key={mesa._id}
                                     className="bubble-card p-4 cursor-pointer"
+                                    role="button" tabIndex={0} aria-label={`Abrir ${mesa.mesa || 'mesa'}`}
+                                    onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setMesaAtivaId(mesa._id); } }}
                                     onClick={() => setMesaAtivaId(mesa._id)}
                                     onMouseMove={(e) => {
                                         const r = e.currentTarget.getBoundingClientRect();
@@ -421,7 +424,7 @@ export default function AdminMesas() {
                             type="text"
                             value={busca}
                             onChange={(e) => setBusca(e.target.value)}
-                            placeholder="Buscar item por nome..."
+                            aria-label="Buscar item para a mesa" placeholder="Buscar item por nome..."
                             className="form-input"
                         />
 
@@ -454,6 +457,7 @@ export default function AdminMesas() {
                 </>
             )}
 
+            <div ref={itemDialogRef} tabIndex={-1}>
             {itemSelecionado && (
                 <ItemModal
                     item={itemSelecionado}
@@ -472,6 +476,7 @@ export default function AdminMesas() {
                     submitLabel="Adicionar à Mesa"
                 />
             )}
+            </div>
         </div>
     );
 }
@@ -489,7 +494,7 @@ function ItemCard({ item, onClick }: { item: MenuItem; onClick: () => void }) {
                     : 'border-white/[0.08] bg-[#111] hover:border-red-700/40 hover:bg-white/[0.03]'
             }`}
         >
-            <p className="text-sm font-semibold text-white truncate">{item.name}</p>
+            <p className="text-sm font-semibold text-white break-words">{item.name}</p>
             <p className="text-xs text-gray-500 mt-0.5">R$ {item.price.toFixed(2)}</p>
             {indisponivel && <p className="text-[10px] text-red-400 mt-1">Indisponível</p>}
         </button>

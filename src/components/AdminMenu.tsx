@@ -1,20 +1,25 @@
 'use client';
 
+import { useAdminConfirm } from './admin/useAdminConfirm';
 import React, { useState, useEffect, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MenuItem } from '@/types/menu';
 import Image from 'next/image';
-import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaListAlt, FaThList, FaInfoCircle, FaPizzaSlice, FaPepperHot, FaSmile } from 'react-icons/fa';
-import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
+import { FaPlus, FaEdit, FaTrash, FaSave, FaListAlt, FaThList, FaInfoCircle, FaPizzaSlice, FaPepperHot, FaSmile } from 'react-icons/fa';
+import { PageHeading, EmptyState } from './admin/AdminUI';
+import AdminDialog from './admin/AdminDialog';
+import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 
 // --- COMPONENT: ITEM MODAL (TABBED) ---
 function ItemModal({ item, onClose, onSave, categories }: {
   item: Partial<MenuItem>;
   onClose: () => void;
-  onSave: (itemData: Partial<MenuItem>) => void;
+  onSave: (itemData: Partial<MenuItem>) => Promise<void>;
   categories: { value: string; label: string }[];
 }) {
   // Estado do formulário
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [name, setName] = useState(item.name || '');
   const [description, setDescription] = useState(item.description || '');
   const [price, setPrice] = useState(item.price || 0);
@@ -67,7 +72,10 @@ function ItemModal({ item, onClose, onSave, categories }: {
   
   const [tab, setTab] = useState<'basic' | 'options' | 'ingredients'>('basic');
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (saving) return;
+    if (!name.trim() || !category || !Number.isFinite(price) || price < 0) { setSaveError('Informe o nome, a categoria e um preço válido.'); setTab('basic'); return; }
+    setSaving(true); setSaveError('');
     // Converte arrays de volta para objetos
     const sizesObj: Record<string, number> = {};
     sizes.forEach(s => { if (s.name) sizesObj[s.name] = s.price; });
@@ -80,7 +88,7 @@ function ItemModal({ item, onClose, onSave, categories }: {
     
     const ingredientsArr = ingredients.map(i => i.value).filter(v => v);
     
-    onSave({
+    try { await onSave({
       ...item,
       name,
       description,
@@ -92,21 +100,22 @@ function ItemModal({ item, onClose, onSave, categories }: {
       borderOptions: bordersObj,
       extraOptions: extrasObj,
       ingredients: ingredientsArr
-    });
+    }); } catch (error) { setSaveError(error instanceof Error ? error.message : 'Erro ao salvar o item.'); } finally { setSaving(false); }
   };
 
   const TabButton = ({ id, icon, label }: { id: 'basic' | 'options' | 'ingredients'; icon: React.ReactNode; label: string }) => (
     <button
       type="button"
+      aria-pressed={tab === id}
       onClick={() => setTab(id)}
-      className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg transition-all duration-150 whitespace-nowrap ${tab === id ? 'bg-red-700/90 text-white shadow-sm shadow-red-900/40' : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]'}`}
+      className="admin-dialog-tab"
     >
       <span className="opacity-80">{icon}</span>
       <span>{label}</span>
     </button>
   );
 
-  const fieldRowBtn = "shrink-0 w-8 h-8 rounded-lg bg-red-950/50 border border-red-900/30 text-red-400 hover:bg-red-900/50 hover:text-red-300 flex items-center justify-center transition-colors";
+  const fieldRowBtn = "shrink-0 w-11 h-11 rounded-lg bg-red-950/50 border border-red-900/30 text-red-400 hover:bg-red-900/50 hover:text-red-300 flex items-center justify-center transition-colors";
   const addRowBtn = "w-full mt-1 py-2.5 rounded-xl border border-dashed border-white/[0.08] text-gray-600 text-xs hover:border-red-700/40 hover:text-red-400 transition-all duration-200 flex items-center justify-center gap-2 hover:bg-red-950/10";
 
   const rowVariants = {
@@ -125,68 +134,28 @@ function ItemModal({ item, onClose, onSave, categories }: {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.18 }}
-      className="modal-overlay"
-      onClick={onClose}
+    <AdminDialog
+      id="item-modal-title"
+      title={item._id ? 'Editar item' : 'Novo item'}
+      description={item._id ? `Atualize as informações de ${item.name}.` : 'Organize as informações e opções do produto.'}
+      icon={item._id ? <FaEdit /> : <FaPlus />}
+      onClose={onClose}
+      size="wide"
+      navigation={<div className="admin-dialog-tabs" aria-label="Seções do item">
+        <TabButton id="basic" icon={<FaInfoCircle />} label="Básico" />
+        <TabButton id="options" icon={<FaPizzaSlice />} label="Opções" />
+        <TabButton id="ingredients" icon={<FaPepperHot />} label="Ingredientes" />
+      </div>}
+      footer={<>
+        {saveError && <p role="alert" className="admin-dialog-error">{saveError}</p>}
+        <button type="button" onClick={onClose} className="form-button-secondary">Cancelar</button>
+        <button type="button" disabled={saving} aria-busy={saving} onClick={handleSave} className="form-button-primary gap-2">
+          <FaSave size={13} /> {saving ? 'Salvando…' : item._id ? 'Salvar alterações' : 'Salvar item'}
+        </button>
+      </>}
     >
-      <motion.div
-        initial={{ scale: 0.93, y: 28, opacity: 0 }}
-        animate={{ scale: 1, y: 0, opacity: 1 }}
-        exit={{ scale: 0.95, y: 16, opacity: 0 }}
-        transition={{ type: 'spring', stiffness: 360, damping: 30, mass: 0.85 }}
-        className="modal-panel wide text-white flex flex-col"
-        style={{ maxHeight: '90vh', padding: 0, overflow: 'hidden' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Cabeçalho */}
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.08, duration: 0.2 }}
-          className="flex items-center justify-between px-4 sm:px-6 pt-5 pb-4 border-b border-white/[0.06]"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-red-700/20 border border-red-700/30 flex items-center justify-center text-red-400">
-              {item._id ? <FaEdit size={14} /> : <FaPlus size={14} />}
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-white leading-tight">
-                {item._id ? 'Editar Item' : 'Novo Item'}
-              </h2>
-              <p className="text-[11px] text-gray-500 mt-0.5">
-                {item._id ? item.name : 'Preencha os campos abaixo'}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.07] flex items-center justify-center text-gray-400 hover:text-white transition-all"
-            aria-label="Fechar"
-          >
-            <FaTimes size={12} />
-          </button>
-        </motion.div>
-
-        {/* Abas */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.12, duration: 0.2 }}
-          className="px-4 sm:px-6 pt-4 pb-3"
-        >
-          <div className="bg-[#0a0a0a] rounded-xl p-1 flex gap-1 border border-white/[0.04]">
-            <TabButton id="basic" icon={<FaInfoCircle size={11} />} label="Básico" />
-            <TabButton id="options" icon={<FaPizzaSlice size={11} />} label="Opções" />
-            <TabButton id="ingredients" icon={<FaPepperHot size={11} />} label="Ingredientes" />
-          </div>
-        </motion.div>
-
         {/* Conteúdo scrollável com AnimatePresence para trocar abas */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 pb-2 custom-scrollbar">
+        <div className="admin-item-content">
           <AnimatePresence mode="wait">
             {tab === 'basic' && (
               <motion.div
@@ -195,13 +164,13 @@ function ItemModal({ item, onClose, onSave, categories }: {
                 initial="enter"
                 animate="center"
                 exit="exit"
-                className="space-y-4 py-3"
+                className="space-y-5"
               >
                 {/* Nome (largo) + Preço (compacto) */}
-                <div className="flex gap-3">
+                <div className="admin-dialog-fields">
                   <div className="flex-1 min-w-0">
-                    <label className="form-label">Nome *</label>
-                    <input
+                    <label htmlFor="admin-item-name" className="form-label">Nome *</label>
+                    <input id="admin-item-name"
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
@@ -210,11 +179,11 @@ function ItemModal({ item, onClose, onSave, categories }: {
                       required
                     />
                   </div>
-                  <div className="w-32 shrink-0">
-                    <label className="form-label">Preço (R$) *</label>
+                  <div className="admin-dialog-price">
+                    <label htmlFor="admin-item-price" className="form-label">Preço (R$) *</label>
                     <div className="relative">
                       <span className="absolute inset-y-0 left-3 flex items-center text-gray-500 text-sm pointer-events-none select-none">R$</span>
-                      <input
+                      <input id="admin-item-price"
                         type="number"
                         value={price}
                         onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
@@ -230,8 +199,8 @@ function ItemModal({ item, onClose, onSave, categories }: {
 
                 {/* Categoria (largura total) */}
                 <div>
-                  <label className="form-label">Categoria *</label>
-                  <select
+                  <label htmlFor="admin-item-category" className="form-label">Categoria *</label>
+                  <select id="admin-item-category"
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                     className="form-input"
@@ -243,8 +212,8 @@ function ItemModal({ item, onClose, onSave, categories }: {
 
                 {/* Descrição */}
                 <div>
-                  <label className="form-label">Descrição</label>
-                  <textarea
+                  <label htmlFor="admin-item-description" className="form-label">Descrição</label>
+                  <textarea id="admin-item-description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     rows={3}
@@ -255,8 +224,8 @@ function ItemModal({ item, onClose, onSave, categories }: {
 
                 {/* URL da Imagem (largura total) */}
                 <div>
-                  <label className="form-label">URL da Imagem</label>
-                  <input
+                  <label htmlFor="admin-item-image" className="form-label">URL da Imagem</label>
+                  <input id="admin-item-image"
                     type="text"
                     value={image}
                     onChange={(e) => setImage(e.target.value)}
@@ -308,20 +277,20 @@ function ItemModal({ item, onClose, onSave, categories }: {
                 initial="enter"
                 animate="center"
                 exit="exit"
-                className="space-y-6 py-3"
+                className="space-y-4"
               >
                 {/* Tamanhos */}
-                <div>
+                <div className="admin-dialog-section">
                   <p className="admin-section-title">Tamanhos e Preços</p>
                   <AnimatePresence initial={false}>
                     {sizes.map((size, idx) => (
                       <motion.div key={size.id} custom={idx} variants={rowVariants} initial="hidden" animate="visible" exit="exit" className="admin-field-row admin-field-row-3">
-                        <input type="text" value={size.name} onChange={(e) => { const n = [...sizes]; n[idx] = { ...size, name: e.target.value }; setSizes(n); }} className="form-input w-full" placeholder="Ex: P, M, G" />
+                        <input type="text" aria-label={`Nome do tamanho ${idx + 1}`} value={size.name} onChange={(e) => { const n = [...sizes]; n[idx] = { ...size, name: e.target.value }; setSizes(n); }} className="form-input w-full" placeholder="Ex: P, M, G" />
                         <div className="relative">
                           <span className="absolute inset-y-0 left-2 flex items-center text-gray-600 text-[11px] pointer-events-none select-none z-10">R$</span>
-                          <input type="number" value={size.price} onChange={(e) => { const n = [...sizes]; n[idx] = { ...size, price: parseFloat(e.target.value) || 0 }; setSizes(n); }} step="0.01" min="0" className="form-input w-full" style={{ paddingLeft: '1.75rem' }} />
+                          <input type="number" aria-label={`Preço do tamanho ${idx + 1}`} value={size.price} onChange={(e) => { const n = [...sizes]; n[idx] = { ...size, price: parseFloat(e.target.value) || 0 }; setSizes(n); }} step="0.01" min="0" className="form-input w-full" style={{ paddingLeft: '1.75rem' }} />
                         </div>
-                        <button type="button" onClick={() => setSizes(sizes.filter((_, i) => i !== idx))} className={fieldRowBtn}><FaTrash size={11} /></button>
+                        <button type="button" aria-label="Remover tamanho" onClick={() => setSizes(sizes.filter((_, i) => i !== idx))} className={fieldRowBtn}><FaTrash size={11} /></button>
                       </motion.div>
                     ))}
                   </AnimatePresence>
@@ -331,15 +300,15 @@ function ItemModal({ item, onClose, onSave, categories }: {
                 </div>
 
                 {/* Bordas */}
-                <div>
+                <div className="admin-dialog-section">
                   <p className="admin-section-title">Opções de Borda</p>
                   <p className="text-[11px] text-gray-500 mb-2 -mt-1">O preço da borda pode variar por tamanho.</p>
                   <AnimatePresence initial={false}>
                     {borders.map((border, idx) => (
                       <motion.div key={border.id} custom={idx} variants={rowVariants} initial="hidden" animate="visible" exit="exit" className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-2.5 mb-2 space-y-2">
                         <div className="flex items-center gap-2">
-                          <input type="text" value={border.name} onChange={(e) => { const n = [...borders]; n[idx] = { ...border, name: e.target.value }; setBorders(n); }} className="form-input w-full" placeholder="Ex: Catupiry" />
-                          <button type="button" onClick={() => setBorders(borders.filter((_, i) => i !== idx))} className={fieldRowBtn}><FaTrash size={11} /></button>
+                          <input type="text" aria-label={`Nome da borda ${idx + 1}`} value={border.name} onChange={(e) => { const n = [...borders]; n[idx] = { ...border, name: e.target.value }; setBorders(n); }} className="form-input w-full" placeholder="Ex: Catupiry" />
+                          <button type="button" aria-label="Remover borda" onClick={() => setBorders(borders.filter((_, i) => i !== idx))} className={fieldRowBtn}><FaTrash size={11} /></button>
                         </div>
                         {sizes.filter(s => s.name).length > 0 ? (
                           <div className="flex flex-wrap gap-2">
@@ -350,7 +319,7 @@ function ItemModal({ item, onClose, onSave, categories }: {
                                   <span className="absolute inset-y-0 left-1.5 flex items-center text-gray-600 text-[10px] pointer-events-none select-none z-10">R$</span>
                                   <input
                                     type="number"
-                                    value={border.prices[size.name] ?? 0}
+                                    aria-label={`Preço da borda ${border.name || idx + 1}, tamanho ${size.name}`} value={border.prices[size.name] ?? 0}
                                     onChange={(e) => {
                                       const n = [...borders];
                                       n[idx] = { ...border, prices: { ...border.prices, [size.name]: parseFloat(e.target.value) || 0 } };
@@ -377,17 +346,17 @@ function ItemModal({ item, onClose, onSave, categories }: {
                 </div>
 
                 {/* Extras */}
-                <div>
+                <div className="admin-dialog-section">
                   <p className="admin-section-title">Extras</p>
                   <AnimatePresence initial={false}>
                     {extras.map((extra, idx) => (
                       <motion.div key={extra.id} custom={idx} variants={rowVariants} initial="hidden" animate="visible" exit="exit" className="admin-field-row admin-field-row-3">
-                        <input type="text" value={extra.name} onChange={(e) => { const n = [...extras]; n[idx] = { ...extra, name: e.target.value }; setExtras(n); }} className="form-input w-full" placeholder="Ex: Bacon" />
+                        <input type="text" aria-label={`Nome do extra ${idx + 1}`} value={extra.name} onChange={(e) => { const n = [...extras]; n[idx] = { ...extra, name: e.target.value }; setExtras(n); }} className="form-input w-full" placeholder="Ex: Bacon" />
                         <div className="relative">
                           <span className="absolute inset-y-0 left-2 flex items-center text-gray-600 text-[11px] pointer-events-none select-none z-10">R$</span>
-                          <input type="number" value={extra.price} onChange={(e) => { const n = [...extras]; n[idx] = { ...extra, price: parseFloat(e.target.value) || 0 }; setExtras(n); }} step="0.01" min="0" className="form-input w-full" style={{ paddingLeft: '1.75rem' }} />
+                          <input type="number" aria-label={`Preço do extra ${idx + 1}`} value={extra.price} onChange={(e) => { const n = [...extras]; n[idx] = { ...extra, price: parseFloat(e.target.value) || 0 }; setExtras(n); }} step="0.01" min="0" className="form-input w-full" style={{ paddingLeft: '1.75rem' }} />
                         </div>
-                        <button type="button" onClick={() => setExtras(extras.filter((_, i) => i !== idx))} className={fieldRowBtn}><FaTrash size={11} /></button>
+                        <button type="button" aria-label="Remover extra" onClick={() => setExtras(extras.filter((_, i) => i !== idx))} className={fieldRowBtn}><FaTrash size={11} /></button>
                       </motion.div>
                     ))}
                   </AnimatePresence>
@@ -405,14 +374,14 @@ function ItemModal({ item, onClose, onSave, categories }: {
                 initial="enter"
                 animate="center"
                 exit="exit"
-                className="py-3"
+                className="admin-dialog-section"
               >
                 <p className="admin-section-title">Ingredientes</p>
                 <AnimatePresence initial={false}>
                   {ingredients.map((ing, idx) => (
                     <motion.div key={ing.id} custom={idx} variants={rowVariants} initial="hidden" animate="visible" exit="exit" className="admin-field-row admin-field-row-2">
-                      <input type="text" value={ing.value} onChange={(e) => { const n = [...ingredients]; n[idx] = { ...ing, value: e.target.value }; setIngredients(n); }} className="form-input w-full" placeholder="Ex: Tomate, Queijo..." />
-                      <button type="button" onClick={() => setIngredients(ingredients.filter((_, i) => i !== idx))} className={fieldRowBtn}><FaTrash size={11} /></button>
+                      <input type="text" aria-label={`Ingrediente ${idx + 1}`} value={ing.value} onChange={(e) => { const n = [...ingredients]; n[idx] = { ...ing, value: e.target.value }; setIngredients(n); }} className="form-input w-full" placeholder="Ex: Tomate, Queijo..." />
+                      <button type="button" aria-label="Remover ingrediente" onClick={() => setIngredients(ingredients.filter((_, i) => i !== idx))} className={fieldRowBtn}><FaTrash size={11} /></button>
                     </motion.div>
                   ))}
                 </AnimatePresence>
@@ -424,20 +393,7 @@ function ItemModal({ item, onClose, onSave, categories }: {
           </AnimatePresence>
         </div>
 
-        {/* Rodapé */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: 0.2 }}
-          className="flex justify-end gap-3 px-4 sm:px-6 py-4 border-t border-white/[0.06] bg-[#0a0a0a]/70"
-        >
-          <button type="button" onClick={onClose} className="form-button-secondary">Cancelar</button>
-          <button onClick={handleSave} className="form-button-primary gap-2">
-            <FaSave size={13} /> {item._id ? 'Atualizar' : 'Salvar Item'}
-          </button>
-        </motion.div>
-      </motion.div>
-    </motion.div>
+    </AdminDialog>
   );
 }
 
@@ -494,56 +450,24 @@ const CategoryModal = ({
   };
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.18 }}
-        className="modal-overlay"
-        onClick={onClose}
-        role="dialog" aria-modal="true" aria-labelledby="category-modal-title"
-      >
-        <motion.div
-          initial={{ scale: 0.92, y: 30, opacity: 0 }}
-          animate={{ scale: 1, y: 0, opacity: 1 }}
-          exit={{ scale: 0.95, y: 16, opacity: 0 }}
-          transition={{ type: 'spring', stiffness: 380, damping: 30, mass: 0.8 }}
-          className="modal-panel slim text-white"
-          style={{ padding: 0, overflow: 'hidden' }}
-          role="document"
-          onClick={e => e.stopPropagation()}
-        >
-          {/* Cabeçalho */}
-          <motion.div
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.2 }}
-            className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/[0.06]"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-red-700/20 border border-red-700/30 flex items-center justify-center text-red-400">
-                <FaListAlt size={13} />
-              </div>
-              <div>
-                <h2 id="category-modal-title" className="text-base font-bold text-white leading-tight">
-                  {isEdit ? 'Editar Categoria' : 'Nova Categoria'}
-                </h2>
-                <p className="text-[11px] text-gray-500 mt-0.5">
-                  {isEdit ? `Editando: ${category?.label}` : 'Preencha as informações'}
-                </p>
-              </div>
-            </div>
-            <button onClick={onClose} className="w-8 h-8 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.07] flex items-center justify-center text-gray-400 hover:text-white transition-all" aria-label="Fechar">
-              <FaTimes size={12} />
-            </button>
-          </motion.div>
-
-          <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+    <AdminDialog
+      id="category-modal-title"
+      title={isEdit ? 'Editar categoria' : 'Nova categoria'}
+      description={isEdit ? `Atualize a categoria ${category?.label}.` : 'Defina como esta categoria aparece no cardápio.'}
+      icon={<FaListAlt />}
+      onClose={onClose}
+      footer={<>
+        <button type="button" onClick={onClose} className="form-button-secondary">Cancelar</button>
+        <button type="submit" form="admin-category-form" disabled={loading} aria-busy={loading} className="form-button-primary gap-2">
+          <FaSave size={13} /> {loading ? 'Salvando…' : isEdit ? 'Salvar alterações' : 'Criar categoria'}
+        </button>
+      </>}
+    >
+          <form id="admin-category-form" onSubmit={handleSubmit} className="space-y-5">
             {/* Nome */}
             <motion.div custom={0} variants={fieldVariants} initial="hidden" animate="visible">
-              <label className="form-label">Nome da Categoria</label>
-              <input
+              <label htmlFor="admin-category-name" className="form-label">Nome da Categoria</label>
+              <input id="admin-category-name"
                 type="text"
                 className="form-input"
                 value={form.label}
@@ -566,11 +490,11 @@ const CategoryModal = ({
             </motion.div>
 
             {/* Ícone + Ordem */}
-            <motion.div custom={1} variants={fieldVariants} initial="hidden" animate="visible" className="flex gap-3">
+            <motion.div custom={1} variants={fieldVariants} initial="hidden" animate="visible" className="admin-dialog-fields">
               <div className="flex-1 min-w-0">
-                <label className="form-label">Ícone (Emoji)</label>
+                <label htmlFor="admin-category-icon" className="form-label">Ícone (Emoji)</label>
                 <div className="relative">
-                  <input
+                  <input id="admin-category-icon"
                     type="text"
                     className="form-input pr-10"
                     value={form.icon}
@@ -580,20 +504,20 @@ const CategoryModal = ({
                   <button
                     type="button"
                     className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-300 transition-colors"
-                    onClick={() => setShowPicker(val => !val)}
+                    aria-label="Escolher emoji da categoria" aria-expanded={showPicker} onClick={() => setShowPicker(val => !val)}
                   >
                     <FaSmile size={14} />
                   </button>
                   {showPicker && (
-                    <div className="absolute z-10 mt-2">
-                      <EmojiPicker onEmojiClick={onEmojiClick} />
+                    <div className="relative z-10 mt-2">
+                      <EmojiPicker width="100%" height={300} theme={Theme.DARK} searchPlaceHolder="Pesquisar emoji" previewConfig={{ showPreview: false }} onEmojiClick={onEmojiClick} />
                     </div>
                   )}
                 </div>
               </div>
               <div className="w-24 shrink-0">
-                <label className="form-label">Ordem</label>
-                <input
+                <label htmlFor="admin-category-order" className="form-label">Ordem</label>
+                <input id="admin-category-order"
                   type="number"
                   className="form-input"
                   value={form.order}
@@ -626,32 +550,21 @@ const CategoryModal = ({
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-red-950/50 border border-red-800/50"
+                  role="alert" className="admin-dialog-error"
                 >
                   <span className="text-red-300 text-xs">{error}</span>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            <motion.div
-              custom={3} variants={fieldVariants} initial="hidden" animate="visible"
-              className="flex justify-end gap-3 pt-2 border-t border-white/[0.06]"
-            >
-              <button type="button" onClick={onClose} className="form-button-secondary">Cancelar</button>
-              <button type="submit" disabled={loading} className="form-button-primary gap-2">
-                <FaSave size={13} />
-                {loading ? 'Salvando...' : (isEdit ? 'Atualizar' : 'Criar Categoria')}
-              </button>
-            </motion.div>
           </form>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+    </AdminDialog>
   );
 };
 
 // --- COMPONENT: CATEGORIES TAB ---
 const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories: { _id?: string; value: string; label: string; icon?: string; order?: number; allowHalfAndHalf?: boolean }[]; onUpdate: () => void }) => {
+  const { confirm, confirmationDialog } = useAdminConfirm();
   const [categories, setCategories] = useState<{ _id?: string; value: string; label: string; icon?: string; order?: number; allowHalfAndHalf?: boolean }[]>(initialCategories);
   const [catLoading, setCatLoading] = useState(false);
   const [catError, setCatError] = useState('');
@@ -677,7 +590,7 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
   }, [initialCategories]);
 
   const handleDeleteCategory = async (id?: string) => {
-    if (!id || !confirm('Excluir esta categoria?')) return;
+    if (!id || !await confirm({ title: 'Excluir categoria?', message: 'A categoria será removida do cardápio. Deseja continuar?', confirmLabel: 'Excluir categoria', destructive: true })) return;
     setCatLoading(true);
     try {
       const res = await fetch(`/api/categories`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ _id: id }) });
@@ -693,6 +606,7 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
 
   return (
     <div className="space-y-5">
+      {confirmationDialog}
       {/* Cabeçalho */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
@@ -748,7 +662,7 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
           <div className="absolute left-8 right-8 h-px bg-gradient-to-r from-transparent via-red-700/30 to-transparent" aria-hidden />
 
           {/* Cabeçalho das colunas — oculto em mobile muito pequeno */}
-          <div className="hidden sm:grid grid-cols-[2.5rem_1fr_5rem_6rem_5.5rem_5rem] gap-4 px-5 py-3 border-b border-white/[0.06]">
+          <div className="hidden xl:grid grid-cols-[2.5rem_minmax(0,1fr)_5rem_6rem_5.5rem_6rem] gap-4 px-5 py-3 border-b border-white/[0.06]">
             <span className="text-[10px] uppercase tracking-widest text-gray-600 font-bold text-center">Icon</span>
             <span className="text-[10px] uppercase tracking-widest text-gray-600 font-bold">Nome</span>
             <span className="text-[10px] uppercase tracking-widest text-gray-600 font-bold text-center">Ordem</span>
@@ -767,7 +681,7 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
                 className="group border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] transition-colors"
               >
                 {/* Desktop row */}
-                <div className="hidden sm:grid grid-cols-[2.5rem_1fr_5rem_6rem_5.5rem_5rem] gap-4 items-center px-5 py-3.5">
+                <div className="hidden xl:grid grid-cols-[2.5rem_minmax(0,1fr)_5rem_6rem_5.5rem_6rem] gap-4 items-center px-5 py-3.5">
                   {/* Ícone */}
                   <div className="flex items-center justify-center">
                     <span className="text-xl leading-none">{cat.icon || <span className="text-gray-700 text-sm">—</span>}</span>
@@ -793,17 +707,17 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
                     </span>
                   </div>
                   {/* Ações */}
-                  <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex justify-end gap-1.5">
                     <button
                       onClick={() => setModalCategory(cat)}
-                      className="w-8 h-8 rounded-lg bg-white/[0.05] hover:bg-blue-900/40 border border-white/[0.07] hover:border-blue-700/40 text-gray-400 hover:text-blue-300 flex items-center justify-center transition-all"
+                      className="admin-icon-button text-gray-400 hover:text-blue-300"
                       aria-label={`Editar ${cat.label}`}
                     >
                       <FaEdit size={12} />
                     </button>
                     <button
                       onClick={() => handleDeleteCategory(cat._id)}
-                      className="w-8 h-8 rounded-lg bg-white/[0.05] hover:bg-red-950/50 border border-white/[0.07] hover:border-red-800/40 text-gray-400 hover:text-red-400 flex items-center justify-center transition-all"
+                      className="admin-icon-button text-gray-400 hover:text-red-300"
                       aria-label={`Excluir ${cat.label}`}
                     >
                       <FaTrash size={11} />
@@ -812,7 +726,7 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
                 </div>
 
                 {/* Mobile card */}
-                <div className="sm:hidden flex items-center gap-3 px-4 py-3.5">
+                <div className="xl:hidden flex items-center gap-3 px-4 py-3.5">
                   {/* Ícone */}
                   <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-xl shrink-0">
                     {cat.icon || '?'}
@@ -833,14 +747,14 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
                   <div className="flex gap-1.5 shrink-0">
                     <button
                       onClick={() => setModalCategory(cat)}
-                      className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/[0.07] text-gray-400 hover:text-blue-300 hover:bg-blue-900/30 flex items-center justify-center transition-all"
+                      className="admin-icon-button text-gray-400 hover:text-blue-300"
                       aria-label={`Editar ${cat.label}`}
                     >
                       <FaEdit size={12} />
                     </button>
                     <button
                       onClick={() => handleDeleteCategory(cat._id)}
-                      className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/[0.07] text-gray-400 hover:text-red-400 hover:bg-red-950/40 flex items-center justify-center transition-all"
+                      className="admin-icon-button text-gray-400 hover:text-red-300"
                       aria-label={`Excluir ${cat.label}`}
                     >
                       <FaTrash size={11} />
@@ -874,6 +788,8 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
 
 // --- COMPONENTE PRINCIPAL ---
 export default function AdminMenu() {
+  const { confirm, confirmationDialog } = useAdminConfirm();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -980,19 +896,20 @@ export default function AdminMenu() {
     try {
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(itemData) });
       if (res.ok) { handleCloseModal(); fetchData(); }
-      else { alert("Erro ao salvar o item.") }
-    } catch (error) { alert("Erro de conexão.") }
+      else { throw new Error("Não foi possível salvar o item. Tente novamente."); }
+    } catch (error) { throw error instanceof Error ? error : new Error("Erro de conexão."); }
   };
 
   const handleDeleteItem = async (id?: string, name?: string) => {
-    if (!id || !name || !confirm(`Excluir "${name}"?`)) return;
+    if (!id || !name || !await confirm({ title: 'Excluir item?', message: `O item "${name}" será removido do cardápio. Deseja continuar?`, confirmLabel: 'Excluir item', destructive: true })) return;
+    setDeleteError(null);
     setDeletingItems(prev => new Set(prev).add(id));
     try {
       const res = await fetch(`/api/menu/${id}`, { method: 'DELETE' });
       if (res.ok) { setMenuItems(prev => prev.filter(item => item._id !== id)); }
-      else { alert('Erro ao excluir.'); }
+      else { setDeleteError('Não foi possível excluir o item. Tente novamente.'); }
     } catch (err) {
-      alert('Erro de conexão.');
+      setDeleteError('Erro de conexão ao excluir o item. Tente novamente.');
     } finally {
       setDeletingItems(prev => { const newSet = new Set(prev); newSet.delete(id); return newSet; });
     }
@@ -1001,30 +918,28 @@ export default function AdminMenu() {
   const filteredItems = menuItems.filter((item) => selectedCategory === 'todas' || item.category === selectedCategory);
 
   return (
-    <div className="p-4 sm:p-6 text-gray-200">
+    <div className="admin-page text-gray-200">
+      {confirmationDialog}
       <div className="max-w-7xl mx-auto">
         {/* Cabeçalho */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Cardápio</h1>
-            <p className="text-gray-500 text-sm mt-0.5">Gerencie os itens e categorias</p>
-          </div>
+        <PageHeading title="Cardápio" description="Organize seus produtos, preços e categorias em um só lugar.">
           <div className="flex items-center gap-2 bg-[#0f0f0f] rounded-xl p-1 border border-white/[0.06]">
-            <button className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${activeTab === 'menu' ? 'bg-red-700/90 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`} onClick={() => setActiveTab('menu')}><FaThList size={13} /> Itens</button>
-            <button className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${activeTab === 'categories' ? 'bg-red-700/90 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`} onClick={() => setActiveTab('categories')}><FaListAlt size={13} /> Categorias</button>
+            <button className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${activeTab === 'menu' ? 'bg-red-700/90 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`} aria-pressed={activeTab === 'menu'} onClick={() => setActiveTab('menu')}><FaThList size={13} /> Itens</button>
+            <button className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${activeTab === 'categories' ? 'bg-red-700/90 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`} aria-pressed={activeTab === 'categories'} onClick={() => setActiveTab('categories')}><FaListAlt size={13} /> Categorias</button>
           </div>
-        </div>
+        </PageHeading>
+        {deleteError && <p role="alert" className="admin-dialog-error mb-6">{deleteError}</p>}
 
         {activeTab === 'menu' && (
           <div>
             {/* Barra de filtro */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6 p-4 rounded-xl border border-white/[0.06] bg-white/[0.02]">
-              <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="form-input flex-1 sm:max-w-xs">
+            <div className="admin-toolbar flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6">
+              <select aria-label="Filtrar itens por categoria" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="form-input flex-1 sm:max-w-xs">
                 <option value="todas">Todas as Categorias</option>
                 {categories.map((cat) => (<option key={cat.value} value={cat.value}>{cat.icon ? `${cat.icon} ` : ''}{cat.label}</option>))}
               </select>
               <div className="flex-1 sm:text-right">
-                <span className="text-xs text-gray-600">{filteredItems.length} {filteredItems.length === 1 ? 'item' : 'itens'}</span>
+                <span className="text-xs text-gray-600" role="status">{filteredItems.length} {filteredItems.length === 1 ? 'item' : 'itens'}</span>
               </div>
               <motion.button onClick={() => handleOpenModal()} whileHover={{ scale: 1.02 }} className="form-button-primary shrink-0"><FaPlus size={13} /> Novo Item</motion.button>
             </div>
@@ -1033,11 +948,12 @@ export default function AdminMenu() {
             )}
             {loading ? <p className="text-center py-10">Carregando...</p> : error ? <p className="text-red-500 text-center py-10">{error}</p> : (
               <div className="auto-grid">
+                {filteredItems.length === 0 && <div className="col-span-full"><EmptyState>Nenhum item nesta categoria. Use “Novo Item” para cadastrar.</EmptyState></div>}
                 {filteredItems.map((item) => (
                   <motion.div
                     key={item._id}
                     layout
-                    className={`bubble-card flex flex-col justify-between ${item.isAvailable === false ? 'opacity-50 ring-1 ring-red-900/40' : ''}`}
+                    className={`bubble-card flex flex-col justify-between ${item.isAvailable === false ? 'ring-1 ring-red-900/40' : ''}`}
                     onMouseMove={(e) => {
                       const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
                       e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - r.left}px`);
@@ -1066,7 +982,7 @@ export default function AdminMenu() {
                       </div>
                       <div className="p-2 sm:p-4">
                         <div className="flex items-start justify-between gap-2">
-                          <h3 className="text-base sm:text-lg font-bold text-white truncate">{item.name}</h3>
+                          <h3 className="text-base sm:text-lg font-bold text-white break-words">{item.name}</h3>
                           <span className={`shrink-0 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${item.isAvailable === false ? 'bg-red-900/60 text-red-300' : 'bg-green-900/50 text-green-300'}`}>
                             {item.isAvailable === false ? 'Inativo' : 'Ativo'}
                           </span>
@@ -1090,13 +1006,13 @@ export default function AdminMenu() {
                           <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-focus:ring-2 peer-focus:ring-red-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
                         </label>
                         <span className={`text-xs mt-1 font-medium ${item.isAvailable ?? true ? 'text-green-400' : 'text-gray-400'}`}>
-                          {togglingItems.has(item._id) ? '...' : item.isAvailable ?? true ? 'On' : 'Off'}
+                          {togglingItems.has(item._id) ? '...' : item.isAvailable ?? true ? 'Disponível' : 'Indisponível'}
                         </span>
                       </div>
                       <div className='flex gap-2'>
-                        <button className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700" onClick={() => handleOpenModal(item)} aria-label={`Editar item ${item.name}`} title={`Editar ${item.name}`}><FaEdit /></button>
+                        <button className="admin-icon-button text-gray-200" onClick={() => handleOpenModal(item)} aria-label={`Editar item ${item.name}`} title={`Editar ${item.name}`}><FaEdit /></button>
                         <button
-                          className="bg-gray-600 text-white p-2 rounded-lg hover:bg-gray-700 disabled:opacity-50"
+                          className="admin-icon-button text-red-300 disabled:opacity-50"
                           onClick={() => handleDeleteItem(item._id, item.name)}
                           disabled={deletingItems.has(item._id!)}
                           aria-label={deletingItems.has(item._id!) ? `Excluindo ${item.name}` : `Excluir item ${item.name}`}

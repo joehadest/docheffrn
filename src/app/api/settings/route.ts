@@ -12,7 +12,6 @@ if (process.env.NODE_ENV === 'development' && MONGODB_URI.startsWith('mongodb+sr
 }
 
 declare global {
-    // eslint-disable-next-line no-var
     var mongoose: { conn: typeof import('mongoose') | null; promise: Promise<typeof import('mongoose')> | null } | undefined;
 }
 

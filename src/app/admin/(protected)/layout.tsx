@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import '../admin.css';
 
 export const metadata: Metadata = {
   title: 'Painel Admin | Do Cheff',
@@ -11,7 +12,7 @@ export default function AdminProtectedLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[#1a1a1a] text-gray-200">
+    <div className="admin-theme">
       {children}
     </div>
   );

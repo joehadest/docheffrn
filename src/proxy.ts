@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
     const isAuthenticated = request.cookies.get('isAuthenticated');
     const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
     const isLoginPage = request.nextUrl.pathname === '/admin/login';
@@ -11,6 +11,7 @@ export function middleware(request: NextRequest) {
     if (isLogoutRoute) {
         const response = NextResponse.redirect(new URL('/admin/login', request.url));
         response.cookies.delete('isAuthenticated');
+        response.cookies.set('isAuthenticated', '', { path: '/admin', httpOnly: true, maxAge: 0 });
         return response;
     }
 
@@ -29,4 +30,4 @@ export function middleware(request: NextRequest) {
 
 export const config = {
     matcher: '/admin/:path*',
-}; 
+};

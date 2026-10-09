@@ -7,11 +7,12 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         await connectDB();
-        const item = await MenuItem.findById(params.id);
+        const item = await MenuItem.findById(id);
 
         if (!item) {
             return NextResponse.json(
@@ -32,10 +33,11 @@ export async function GET(
 
 export async function PUT(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        if (!isValidMenuItemId(params.id)) {
+        const { id } = await params;
+        if (!isValidMenuItemId(id)) {
             return NextResponse.json(
                 { success: false, error: 'ID do item inválido' },
                 { status: 400 }
@@ -44,7 +46,7 @@ export async function PUT(
 
         await connectDB();
         const body = await request.json();
-        const existing = await MenuItem.findById(params.id).select('isAvailable').lean();
+        const existing = await MenuItem.findById(id).select('isAvailable').lean();
 
         if (!existing) {
             return NextResponse.json(
@@ -64,7 +66,7 @@ export async function PUT(
         }
 
         const updatedItem = await MenuItem.findByIdAndUpdate(
-            params.id,
+            id,
             updateData,
             { new: true }
         );
@@ -88,11 +90,12 @@ export async function PUT(
 
 export async function DELETE(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         await connectDB();
-        const deletedItem = await MenuItem.findByIdAndDelete(params.id);
+        const deletedItem = await MenuItem.findByIdAndDelete(id);
 
         if (!deletedItem) {
             return NextResponse.json(

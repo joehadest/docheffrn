@@ -5,12 +5,13 @@ import { Pedido } from '@/types';
 
 export async function GET(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const { db } = await connectToDatabase();
         const pedido = await db.collection('pedidos').findOne({
-            _id: new ObjectId(params.id)
+            _id: new ObjectId(id)
         });
 
         if (!pedido) {
@@ -32,9 +33,10 @@ export async function GET(
 
 export async function PATCH(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const { db } = await connectToDatabase();
         const updates = await request.json();
 
@@ -42,7 +44,7 @@ export async function PATCH(
         updates.updatedAt = new Date().toISOString();
 
         const result = await db.collection('pedidos').findOneAndUpdate(
-            { _id: new ObjectId(params.id) },
+            { _id: new ObjectId(id) },
             { $set: updates },
             { returnDocument: 'after' }
         );
@@ -60,11 +62,11 @@ export async function PATCH(
         if (updates.status) {
             await db.collection('diagnosticos').insertOne({
                 tipo: 'info',
-                mensagem: `Status do pedido ${params.id} alterado para: ${updates.status}`,
+                mensagem: `Status do pedido ${id} alterado para: ${updates.status}`,
                 timestamp: new Date().toISOString(),
                 resolvido: false,
                 detalhes: {
-                    pedidoId: params.id,
+                    pedidoId: id,
                     statusAnterior: statusAnterior,
                     statusNovo: updates.status
                 }
@@ -83,12 +85,13 @@ export async function PATCH(
 
 export async function DELETE(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const { db } = await connectToDatabase();
         const result = await db.collection('pedidos').deleteOne({
-            _id: new ObjectId(params.id)
+            _id: new ObjectId(id)
         });
 
         if (result.deletedCount === 0) {
@@ -101,10 +104,10 @@ export async function DELETE(
         // Registra diagnóstico
         await db.collection('diagnosticos').insertOne({
             tipo: 'info',
-            mensagem: `Pedido ${params.id} removido`,
+            mensagem: `Pedido ${id} removido`,
             timestamp: new Date().toISOString(),
             resolvido: false,
-            detalhes: { pedidoId: params.id }
+            detalhes: { pedidoId: id }
         });
 
         return NextResponse.json({ success: true });

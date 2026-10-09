@@ -1,6 +1,9 @@
 'use client';
-import React, { useEffect, useState, useRef } from 'react';
-import { FaShareAlt } from 'react-icons/fa';
+import { useAdminConfirm } from './admin/useAdminConfirm';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
+import AdminDialog from './admin/AdminDialog';
+import { PageHeading, EmptyState } from './admin/AdminUI';
+import { FaShareAlt, FaClipboardList } from 'react-icons/fa';
 import { Pedido } from '../types/cart';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -46,7 +49,7 @@ const StatusUpdateToast = ({ message, onDone }: { message: string, onDone: () =>
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.5 }}
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-            className="fixed bottom-4 right-4 z-50"
+            role="status" className="fixed bottom-4 right-4 z-50"
         >
             <div className="bg-blue-600/90 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-3 border border-blue-400">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -58,8 +61,10 @@ const StatusUpdateToast = ({ message, onDone }: { message: string, onDone: () =>
 
 
 export default function AdminOrders() {
+  const { confirm, confirmationDialog } = useAdminConfirm();
     const [pedidos, setPedidos] = useState<Pedido[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [pedidoSelecionado, setPedidoSelecionado] = useState<Pedido | null>(null);
     const [mensagem, setMensagem] = useState<string | null>(null);
     const [pixKey, setPixKey] = useState('84987291269'); // (84) 98729-1269
@@ -79,6 +84,7 @@ export default function AdminOrders() {
     const soundLoopRef = useRef<number | null>(null);
     const soundLoopCountRef = useRef<number>(0);
 
+
     // Bloqueia scroll quando modal de pedido aberto
     useEffect(() => {
         if (pedidoSelecionado) {
@@ -90,7 +96,7 @@ export default function AdminOrders() {
     }, [pedidoSelecionado]);
 
     // Função robusta de reprodução de som
-    const playNotificationSound = async () => {
+    const playNotificationSound = useCallback(async () => {
         if (!soundEnabled) return;
         if (audioRef.current) {
             try {
@@ -112,7 +118,7 @@ export default function AdminOrders() {
                 console.warn('[Pedidos] Falha fallback de áudio', err2);
             }
         }
-    };
+    }, [soundEnabled]);
 
     // Inicializa preferencia de som do localStorage
     useEffect(() => {
@@ -154,16 +160,16 @@ export default function AdminOrders() {
         fetchPixKey();
     }, []);
 
-    const fetchPedidos = async (isPolling = false) => {
+    const fetchPedidos = useCallback(async (isPolling = false) => {
         try {
             if (!isPolling) setLoading(true);
             const res = await fetch(`/api/pedidos?ts=${Date.now()}`, { cache: 'no-store' });
             const data = await res.json();
             if (!data.success || !Array.isArray(data.data)) {
-                console.error('API de pedidos não retornou dados válidos.');
-                return;
+                throw new Error('Falha ao carregar pedidos');
             }
 
+            setLoadError(null);
             const allFetchedPedidos = data.data;
 
             if (firstLoadRef.current) {
@@ -183,18 +189,19 @@ export default function AdminOrders() {
                 setPedidos(allFetchedPedidos);
             }
         } catch (err) {
+            setLoadError('Não foi possível atualizar os pedidos. Os dados exibidos podem estar desatualizados.');
             console.error('Erro ao buscar pedidos:', err);
         } finally {
             if (!isPolling) setLoading(false);
         }
-    };
+    }, [playNotificationSound]);
 
     useEffect(() => {
         fetchPedidos(false);
         /* Polling mais frequente: SSE em serverless pode não propagar entre instâncias */
         const interval = setInterval(() => fetchPedidos(true), 45000);
         return () => clearInterval(interval);
-    }, []);
+    }, [fetchPedidos]);
 
     // Assinatura SSE para novos pedidos em tempo real
     useEffect(() => {
@@ -238,7 +245,7 @@ export default function AdminOrders() {
             setTimeout(() => { if (!sseRef.current) fetchPedidos(true); }, 5000);
         };
         return () => { es.close(); sseRef.current = null; };
-    }, []);
+    }, [fetchPedidos, playNotificationSound]);
 
     // Loop de som enquanto a notificação de NOVO PEDIDO estiver aberta
     useEffect(() => {
@@ -260,10 +267,10 @@ export default function AdminOrders() {
             soundLoopRef.current = null;
         }
         return () => { if (soundLoopRef.current) clearInterval(soundLoopRef.current); };
-    }, [newOrderNotification, soundEnabled]);
+    }, [newOrderNotification, soundEnabled, playNotificationSound]);
 
     const handleRemoverPedido = async (id: string) => {
-        if (!window.confirm('Tem certeza que deseja remover este pedido?')) return;
+        if (!await confirm({ title: 'Remover pedido?', message: 'Este pedido será removido do sistema. Deseja continuar?', confirmLabel: 'Remover pedido', destructive: true })) return;
         try {
             setLoading(true);
             const res = await fetch(`/api/pedidos?id=${id}`, { method: 'DELETE' });
@@ -416,15 +423,17 @@ export default function AdminOrders() {
 
 
     if (loading) return (
-        <div className="flex items-center justify-center py-20 gap-3">
+        <div role="status" className="flex items-center justify-center py-20 gap-3">
             <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-red-500" />
             <span className="text-gray-400">Carregando pedidos...</span>
         </div>
     );
 
     return (
-        <div className="p-2 sm:p-4 md:p-6">
-            <h2 className="text-2xl font-bold mb-4 text-red-600">Painel de Pedidos</h2>
+        <div className="admin-page">
+      {confirmationDialog}
+            <PageHeading title="Pedidos" description="Acompanhe cada etapa do atendimento e os novos pedidos em tempo real." />
+            {loadError && <div role="alert" className="admin-toolbar mb-4 text-red-300 text-sm flex flex-wrap gap-3 items-center justify-between"><p>{loadError}</p><button type="button" className="form-button-secondary" onClick={() => fetchPedidos(false)}>Tentar novamente</button></div>}
             <AnimatePresence>
                 {newOrderNotification && (
                     <motion.div
@@ -470,19 +479,19 @@ export default function AdminOrders() {
                 {!audioReady && <span className="text-[11px] text-gray-400">Clique para liberar o áudio.</span>}
             </div>
             <audio ref={audioRef} src="/sound/bell-notification-337658.mp3" preload="auto" className="hidden" />
-            <fieldset className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Filtros de pedidos">
+            <fieldset className="admin-toolbar mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Filtros de pedidos">
                 {/* Filtro de Período */}
                 <div className="lg:col-span-1">
                     <label className="block text-sm font-medium text-gray-200 mb-2">Mostrar Pedidos</label>
                     <div className="flex bg-[#2a2a2a] rounded-lg p-1 border border-gray-700">
                         <button
-                            onClick={() => setDateFilter('today')}
+                            aria-pressed={dateFilter === 'today'} onClick={() => setDateFilter('today')}
                             className={`flex-1 py-2 px-3 rounded-md text-xs font-semibold transition-colors ${dateFilter === 'today' ? 'bg-red-600 text-white shadow' : 'text-gray-300 hover:bg-gray-700'}`}
                         >
                             De Hoje
                         </button>
                         <button
-                            onClick={() => setDateFilter('all')}
+                            aria-pressed={dateFilter === 'all'} onClick={() => setDateFilter('all')}
                             className={`flex-1 py-2 px-3 rounded-md text-xs font-semibold transition-colors ${dateFilter === 'all' ? 'bg-red-600 text-white shadow' : 'text-gray-300 hover:bg-gray-700'}`}
                         >
                             Todos
@@ -515,9 +524,7 @@ export default function AdminOrders() {
             </fieldset>
 
             {filteredPedidos.length === 0 ? (
-                <div className="text-center text-gray-500 py-10">
-                    Nenhum pedido encontrado para os filtros selecionados.
-                </div>
+                <EmptyState>Nenhum pedido encontrado para os filtros selecionados.</EmptyState>
             ) : (
                 <ul className="space-y-4">
                     {filteredPedidos.map((pedido) => (
@@ -536,7 +543,7 @@ export default function AdminOrders() {
                             </div>
                             <div className="flex flex-row flex-wrap gap-2 mt-2 sm:mt-0 sm:ml-4 sm:flex-col z-10 w-full sm:w-auto">
                                 <button className="form-button-primary" onClick={() => setPedidoSelecionado(pedido)}>Ver Detalhes</button>
-                                <button className="form-button-secondary" onClick={() => handleCompartilharPedido(pedido)}><FaShareAlt /></button>
+                                <button aria-label={`Compartilhar pedido ${pedido._id.slice(-6)}`} className="form-button-secondary" onClick={() => handleCompartilharPedido(pedido)}><FaShareAlt /></button>
                                 <button className="form-button-danger" onClick={() => handleRemoverPedido(pedido._id)}>Remover</button>
                             </div>
                         </li>
@@ -544,28 +551,37 @@ export default function AdminOrders() {
                 </ul>
             )}
             {mensagem && (
-                <div className="mt-4 p-3 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded text-center font-semibold">{mensagem}</div>
+                <div role="status" className="mt-4 p-3 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded text-center font-semibold">{mensagem}</div>
             )}
             {pedidoSelecionado && (
-                <div className="modal-overlay" onClick={() => setPedidoSelecionado(null)}>
-                    <div className="modal-panel slim print-pedido" onClick={e => e.stopPropagation()}>
-                        <button className="modal-close-btn no-print focus-outline" onClick={() => setPedidoSelecionado(null)}>&times;</button>
-                        <div className="text-center mb-4 border-b border-gray-800 pb-4">
-                            <h3 id="order-modal-title" className="text-2xl font-bold text-red-500">Do&apos;Cheff</h3>
-                            <p className="text-sm text-gray-400">Detalhes do Pedido</p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-4">
+                <>
+                <AdminDialog
+                    id="order-modal-title"
+                    title={`Pedido #${pedidoSelecionado._id?.slice(-6) || '-'}`}
+                    description="Confira os itens, a entrega e o pagamento."
+                    icon={<FaClipboardList />}
+                    onClose={() => setPedidoSelecionado(null)}
+                    size="wide"
+                    className="print-pedido"
+                    footer={<>
+                            <button className="flex-1 form-button-secondary" onClick={() => window.open(`/admin/print/${pedidoSelecionado._id}`, '_blank')}>Imprimir</button>
+                            {getNextStatus(pedidoSelecionado.status) && (
+                                <button className="flex-1 form-button-primary" onClick={() => { updateOrderStatus(pedidoSelecionado._id, getNextStatus(pedidoSelecionado.status)!); setPedidoSelecionado(null); }}>Próximo Status</button>
+                            )}
+                    </>}
+                >
+                        <div className="admin-order-summary">
                             <div><span className="text-gray-400">Pedido:</span> <span className="text-white font-semibold">#{pedidoSelecionado._id?.slice(-6) || '-'}</span></div>
                             <div><span className="text-gray-400">Data:</span> <span className="text-white">{formatDate(pedidoSelecionado.data)}</span></div>
                             <div className="col-span-2"><span className="text-gray-400">Status:</span> <span className={`font-semibold px-2 py-1 rounded-md text-xs ${getStatusColor(pedidoSelecionado.status)}`}>{getStatusText(pedidoSelecionado.status)}</span></div>
                         </div>
-                        <div className="space-y-4 text-sm">
-                            <div className="bg-[#1F1F1F] p-3 rounded-lg border border-gray-800/50">
+                        <div className="admin-detail-grid">
+                            <div className="admin-dialog-section">
                                 <h4 className="font-semibold text-gray-300 mb-2">Cliente</h4>
                                 <p><span className="text-gray-400">Nome:</span> <span className="text-white">{pedidoSelecionado.cliente?.nome || '-'}</span></p>
                                 <p><span className="text-gray-400">Telefone:</span> <span className="text-white">{pedidoSelecionado.cliente?.telefone || '-'}</span></p>
                             </div>
-                            <div className="bg-[#1F1F1F] p-3 rounded-lg border border-gray-800/50">
+                            <div className="admin-dialog-section">
                                 <h4 className="font-semibold text-gray-300 mb-2">Entrega</h4>
                                 {pedidoSelecionado.tipoEntrega === 'local' ? (
                                     <p className="text-white">Mesa: {pedidoSelecionado.mesa || '-'}</p>
@@ -580,19 +596,19 @@ export default function AdminOrders() {
                                     </>
                                 )}
                             </div>
-                            <div className="bg-[#1F1F1F] p-3 rounded-lg border border-gray-800/50">
+                            <div className="admin-dialog-section">
                                 <h4 className="font-semibold text-gray-300 mb-2">Itens</h4>
                                 <ul className="divide-y divide-gray-800">
                                     {pedidoSelecionado.itens.map((item, idx) => (
                                         <li key={idx} className="flex justify-between py-1 text-gray-200">
-                                            <span className="flex-1 pr-2 break-words">{item.quantidade}x {item.nome}{item.size && ` (${item.size})`}{item.border && <span className="block text-xs text-gray-400 pl-2">- Borda: {item.border}</span>}{item.extras && item.extras.length > 0 && <span className="block text-xs text-gray-400 pl-2">- Extras: {item.extras.join(', ')}</span>}{item.observacao && <span className="block text-xs text-gray-400 pl-2">- Obs: {item.observacao}</span>}</span>
-                                            <span className="font-medium">R$ {(item.preco * item.quantidade).toFixed(2)}</span>
+                                            <span className="flex-1 min-w-0 pr-2 break-words">{item.quantidade}x {item.nome}{item.size && ` (${item.size})`}{item.border && <span className="block text-xs text-gray-400 pl-2">- Borda: {item.border}</span>}{item.extras && item.extras.length > 0 && <span className="block text-xs text-gray-400 pl-2">- Extras: {item.extras.join(', ')}</span>}{item.observacao && <span className="block text-xs text-gray-400 pl-2">- Obs: {item.observacao}</span>}</span>
+                                            <span className="font-medium shrink-0">R$ {(item.preco * item.quantidade).toFixed(2)}</span>
                                         </li>
                                     ))}
                                 </ul>
                             </div>
                             {/* ========== INÍCIO DA ALTERAÇÃO ========== */}
-                            <div className="bg-[#1F1F1F] p-3 rounded-lg border border-gray-800/50">
+                            <div className="admin-dialog-section">
                                 <h4 className="font-semibold text-gray-300 mb-2">Pagamento e Totais</h4>
                                 <div className="space-y-1">
                                     <div className="flex justify-between"><span className="text-gray-400">Forma:</span> <span className="text-white font-medium">{pedidoSelecionado.formaPagamento}</span></div>
@@ -655,17 +671,12 @@ export default function AdminOrders() {
                             </div>
                             {/* ========== FIM DA ALTERAÇÃO ========== */}
                         </div>
-                        <div className="mt-6 flex flex-col sm:flex-row gap-2 no-print">
-                            <button className="flex-1 form-button-secondary" onClick={() => window.open(`/admin/print/${pedidoSelecionado._id}`, '_blank')}>Imprimir</button>
-                            {getNextStatus(pedidoSelecionado.status) && (
-                                <button className="flex-1 form-button-primary" onClick={() => { updateOrderStatus(pedidoSelecionado._id, getNextStatus(pedidoSelecionado.status)!); setPedidoSelecionado(null); }}>Próximo Status</button>
-                            )}
-                        </div>
-                    </div>
+                </AdminDialog>
+
                     <style jsx global>{`
-                        @media print { body * { visibility: hidden !important; } .print-pedido, .print-pedido * { visibility: visible !important; } .print-pedido { position: absolute !important; left: 0; top: 0; width: 80mm; min-width: 0; max-width: 100vw; background: white !important; color: #000 !important; font-size: 9px !important; box-shadow: none !important; border: none !important; margin: 0 !important; padding: 2mm !important; } .print-pedido h3 { font-size: 11px !important; margin-bottom: 2mm !important; text-align: center !important; } .print-pedido h4 { font-size: 10px !important; margin-bottom: 1mm !important; } .print-pedido div, .print-pedido span { font-size: 9px !important; margin: 0 !important; padding: 0 !important; } .print-pedido button, .print-pedido .no-print { display: none !important; } .print-pedido ul { margin: 0 !important; padding: 0 !important; } .print-pedido li { margin-bottom: 1mm !important; } }
+                        @media print { body * { visibility: hidden !important; } .print-pedido, .print-pedido * { visibility: visible !important; } .print-pedido { display: block !important; max-height: none !important; overflow: visible !important; position: absolute !important; left: 0; top: 0; width: 80mm; min-width: 0; max-width: 100vw; background: white !important; color: #000 !important; font-size: 9px !important; box-shadow: none !important; border: none !important; margin: 0 !important; padding: 2mm !important; } .print-pedido h3 { font-size: 11px !important; margin-bottom: 2mm !important; text-align: center !important; } .print-pedido h4 { font-size: 10px !important; margin-bottom: 1mm !important; } .print-pedido div, .print-pedido span { font-size: 9px !important; margin: 0 !important; padding: 0 !important; } .print-pedido button, .print-pedido .no-print { display: none !important; } .print-pedido .admin-dialog-body { overflow: visible !important; } .print-pedido ul { margin: 0 !important; padding: 0 !important; } .print-pedido li { margin-bottom: 1mm !important; } }
                     `}</style>
-                </div>
+                </>
             )}
         </div>
     );

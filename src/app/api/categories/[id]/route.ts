@@ -42,8 +42,8 @@ try {
 } catch {
     Category = mongoose.model<ICategory>('Category', categorySchema);
 }
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
-    const { id } = params;
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     const { allowHalfAndHalf } = await request.json();
 
     if (typeof allowHalfAndHalf !== 'boolean') {

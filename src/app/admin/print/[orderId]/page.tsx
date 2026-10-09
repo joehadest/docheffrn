@@ -251,6 +251,11 @@ export default function PrintOrderPage() {
                     padding-top: 10px;
                 }
 
+                @media screen {
+                    html, body { width: 100%; min-height: 100vh; background: #101115; }
+                    body::before, body::after { display: none; }
+                    .receipt-container { width: min(76mm, calc(100% - 32px)); margin: 24px auto; padding: 16px; background: white; border-radius: 12px; box-shadow: 0 16px 48px #0004; }
+                }
                 @media print {
                     .no-print {
                         display: none !important;

@@ -1,8 +1,7 @@
 /* src/app/globals.css */
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../../tailwind.config.js";
 
 /* ==== Tema Base — Ember Charcoal ==== */
 :root {

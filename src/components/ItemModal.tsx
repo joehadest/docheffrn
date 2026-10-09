@@ -181,7 +181,7 @@ export default function ItemModal({
     return (
         <AnimatePresence>
             <motion.div
-                className="fixed inset-0 z-[80] flex items-end justify-center bg-black/75 backdrop-blur-md sm:items-center sm:p-4"
+                className="product-modal-overlay fixed inset-0 z-[80] flex items-end justify-center bg-black/75 backdrop-blur-md sm:items-center sm:p-4"
                 style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
                 variants={overlayVariants}
                 initial="hidden"
@@ -193,7 +193,7 @@ export default function ItemModal({
                 aria-labelledby="item-modal-title"
             >
                 <motion.div
-                    className="flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-surface-raised shadow-2xl sm:max-h-[92vh] sm:max-w-lg sm:rounded-3xl"
+                    className="product-modal-panel flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-surface-raised shadow-2xl sm:max-h-[92vh] sm:max-w-lg sm:rounded-3xl"
                     variants={isDesktop ? panelVariantsDesktop : panelVariants}
                     initial="hidden"
                     animate="visible"
@@ -207,7 +207,7 @@ export default function ItemModal({
                     </div>
 
                     {/* Hero imagem */}
-                    <div className="relative h-44 shrink-0 overflow-hidden sm:h-52">
+                    <div className="product-modal-hero relative h-44 shrink-0 overflow-hidden sm:h-52">
                         {item.image ? (
                             <Image
                                 src={item.image}
@@ -228,7 +228,7 @@ export default function ItemModal({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md transition hover:bg-black/70"
+                            className="product-modal-close absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md transition hover:bg-black/70"
                             aria-label="Fechar"
                             style={{ top: 'max(0.75rem, env(safe-area-inset-top, 0px))' }}
                         >
@@ -249,7 +249,7 @@ export default function ItemModal({
 
                     {/* Conteúdo scrollável */}
                     <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-                        <div className="flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
+                        <div className="product-modal-body flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
                             {/* Tamanhos */}
                             {item.sizes && sizeCount > 0 && (
                                 <section>
@@ -440,7 +440,7 @@ export default function ItemModal({
 
                         {/* Footer sticky */}
                         <div
-                            className="shrink-0 border-t border-white/[0.08] bg-surface-raised/95 px-4 py-3 backdrop-blur-md sm:px-5 sm:py-4"
+                            className="product-modal-footer shrink-0 border-t border-white/[0.08] bg-surface-raised/95 px-4 py-3 backdrop-blur-md sm:px-5 sm:py-4"
                             style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
                         >
                             <div className="mb-3 flex items-center justify-between gap-3">

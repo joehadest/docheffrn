@@ -1,4 +1,5 @@
 "use client";
+import { PageHeading, StatCard } from './admin/AdminUI';
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getRestaurantStatus } from '../utils/timeUtils';
@@ -32,28 +33,6 @@ function SettingsCard({
     );
 }
 
-/* ─── StatCard ─── */
-function StatCard({
-    label, value, sub, color, icon,
-}: { label: string; value: string | number; sub?: string; color?: string; icon?: React.ReactNode }) {
-    return (
-        <div className="relative rounded-2xl border border-white/[0.08] bg-[#111] overflow-hidden p-5 shadow-[0_4px_20px_-6px_rgba(0,0,0,0.6)]">
-            <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-widest text-gray-600 font-bold mb-2">{label}</p>
-                    <p className={`text-2xl font-bold truncate ${color ?? 'text-white'}`}>{value}</p>
-                    {sub && <p className="text-xs text-gray-600 mt-1">{sub}</p>}
-                </div>
-                {icon && (
-                    <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-gray-600 shrink-0">
-                        {icon}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-}
-
 /* ─── Componente principal ─── */
 export default function AdminSettings() {
     const [isOpen, setIsOpen] = useState(false);
@@ -73,6 +52,7 @@ export default function AdminSettings() {
     const [newFee, setNewFee] = useState('');
     const [pixKey, setPixKey] = useState('');
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [stats, setStats] = useState<Stats>({ todayOrders: 0, todayRevenue: 0, pendingOrders: 0 });
 
     const checkOpenStatus = useCallback(() => getRestaurantStatus(businessHours).isOpen, [businessHours]);
@@ -86,6 +66,7 @@ export default function AdminSettings() {
                     fetch('/api/pedidos'),
                 ]);
                 const settingsData = await settingsRes.json();
+                if (!settingsRes.ok || !settingsData.success || !settingsData.data) throw new Error('Falha ao carregar');
                 if (settingsData.success && settingsData.data) {
                     setBusinessHours(settingsData.data.businessHours || {});
                     setDeliveryFees(settingsData.data.deliveryFees || []);
@@ -104,7 +85,8 @@ export default function AdminSettings() {
                     });
                 }
             } catch {
-                setSaveMessage({ text: 'Erro ao carregar configurações.', ok: false });
+                setLoadError(true);
+                setSaveMessage({ text: 'Não foi possível carregar as configurações. Recarregue a página para tentar novamente.', ok: false });
             } finally {
                 setLoading(false);
             }
@@ -167,26 +149,22 @@ export default function AdminSettings() {
     ] as const;
 
     if (loading) return (
-        <div className="flex items-center justify-center py-24 gap-3">
+        <div role="status" className="flex items-center justify-center py-24 gap-3">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-500" />
             <span className="text-gray-500 text-sm">Carregando configurações...</span>
         </div>
     );
 
     return (
-        <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
+        <div className="admin-page space-y-6">
 
             {/* ── Cabeçalho ── */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                    <h1 className="text-2xl font-bold text-white tracking-tight">Configurações</h1>
-                    <p className="text-gray-500 text-sm mt-0.5">Gerencie horários, taxas e pagamentos</p>
-                </div>
+            <PageHeading title="Configurações" description="Defina os horários de atendimento, as taxas de entrega e os dados de pagamento.">
                 <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold border w-fit ${isOpen ? 'bg-green-950/60 text-green-400 border-green-800/50' : 'bg-red-950/60 text-red-400 border-red-900/50'}`}>
                     <span className={`w-2 h-2 rounded-full ${isOpen ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
                     {isOpen ? 'Aberto Agora' : 'Fechado Agora'}
                 </div>
-            </div>
+            </PageHeading>
 
             {/* ── Stats ── */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -211,7 +189,7 @@ export default function AdminSettings() {
             </div>
 
             {/* ── Configurações principais ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
                 {/* Horários */}
                 <SettingsCard title="Horários de Funcionamento" icon={<FaClock size={12} />}>
@@ -231,7 +209,7 @@ export default function AdminSettings() {
                             return (
                                 <div
                                     key={key}
-                                    className={`grid grid-cols-[1fr_auto] items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${isOn ? 'bg-white/[0.03] border border-white/[0.06]' : 'border border-transparent opacity-50'}`}
+                                    className={`admin-hours-row px-3 py-2.5 rounded-xl transition-all ${isOn ? 'bg-white/[0.03] border border-white/[0.06]' : 'border border-transparent'}`}
                                 >
                                     <label className="flex items-center gap-2.5 cursor-pointer select-none min-w-0">
                                         <input
@@ -245,9 +223,10 @@ export default function AdminSettings() {
                                             <span className="hidden sm:inline">{labelFull}</span>
                                         </span>
                                     </label>
-                                    <div className="flex items-center gap-2 shrink-0">
+                                    <div className="admin-hours-times">
                                         <input
                                             type="time"
+                                            aria-label={`Abertura: ${labelFull}`}
                                             value={cfg?.start ?? '18:00'}
                                             onChange={(e) => handleBusinessHoursChange(key, 'start', e.target.value)}
                                             disabled={!isOn}
@@ -255,6 +234,7 @@ export default function AdminSettings() {
                                         />
                                         <input
                                             type="time"
+                                            aria-label={`Fechamento: ${labelFull}`}
                                             value={cfg?.end ?? '22:00'}
                                             onChange={(e) => handleBusinessHoursChange(key, 'end', e.target.value)}
                                             disabled={!isOn}
@@ -299,7 +279,7 @@ export default function AdminSettings() {
                                                 </span>
                                                 <button
                                                     onClick={() => handleRemoveFee(index)}
-                                                    className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-600 hover:text-red-400 hover:bg-red-950/40 transition-all opacity-0 group-hover:opacity-100"
+                                                    className="admin-icon-button text-gray-400 hover:text-red-300"
                                                     aria-label={`Remover ${fee.neighborhood}`}
                                                 >
                                                     <FaTrash size={10} />
@@ -318,7 +298,7 @@ export default function AdminSettings() {
                                     type="text"
                                     value={newNeighborhood}
                                     onChange={e => setNewNeighborhood(e.target.value)}
-                                    placeholder="Nome do bairro"
+                                    aria-label="Nome do bairro" placeholder="Nome do bairro"
                                     className="form-input flex-1 min-w-0"
                                     onKeyDown={e => e.key === 'Enter' && handleAddFee()}
                                 />
@@ -328,7 +308,7 @@ export default function AdminSettings() {
                                         type="number"
                                         value={newFee}
                                         onChange={e => setNewFee(e.target.value)}
-                                        placeholder="0.00"
+                                        aria-label="Taxa de entrega em reais" placeholder="0.00"
                                         className="form-input w-full"
                                         style={{ paddingLeft: '1.875rem' }}
                                         onKeyDown={e => e.key === 'Enter' && handleAddFee()}
@@ -351,10 +331,10 @@ export default function AdminSettings() {
                     <SettingsCard title="Chave PIX" icon={<FaQrcode size={12} />}>
                         <div className="space-y-3">
                             <div>
-                                <label className="form-label">Chave para Recebimento</label>
+                                <label htmlFor="admin-pix" className="form-label">Chave para Recebimento</label>
                                 <input
                                     type="text"
-                                    value={pixKey}
+                                    id="admin-pix" value={pixKey}
                                     onChange={(e) => setPixKey(e.target.value)}
                                     placeholder="CPF, e-mail, telefone ou chave aleatória"
                                     className="form-input"
@@ -370,10 +350,10 @@ export default function AdminSettings() {
             </div>
 
             {/* ── Rodapé / Ações ── */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-2">
+            <div className="admin-settings-save flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
                 <motion.button
                     onClick={handleSave}
-                    disabled={isSaving}
+                    disabled={isSaving || loadError}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.97 }}
                     className="form-button-primary min-w-[160px] disabled:opacity-60 disabled:cursor-not-allowed gap-2"
@@ -398,7 +378,7 @@ export default function AdminSettings() {
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: -8 }}
                             transition={{ duration: 0.2 }}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium ${saveMessage.ok ? 'bg-green-950/60 border-green-800/50 text-green-300' : 'bg-red-950/60 border-red-800/50 text-red-300'}`}
+                            role="status" className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium ${saveMessage.ok ? 'bg-green-950/60 border-green-800/50 text-green-300' : 'bg-red-950/60 border-red-800/50 text-red-300'}`}
                         >
                             {saveMessage.ok ? (
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
