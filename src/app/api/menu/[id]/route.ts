@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/adminSession';
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/menuModel';
 import MenuItem from '@/lib/menuModel';
@@ -35,6 +36,8 @@ export async function PUT(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     try {
         const { id } = await params;
         if (!isValidMenuItemId(id)) {
@@ -92,6 +95,8 @@ export async function DELETE(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     try {
         const { id } = await params;
         await connectDB();

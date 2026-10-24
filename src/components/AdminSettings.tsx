@@ -18,18 +18,13 @@ function SettingsCard({
     title, icon, children,
 }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
     return (
-        <div className="relative rounded-2xl border border-white/[0.08] bg-[#111] overflow-hidden shadow-[0_8px_32px_-8px_rgba(0,0,0,0.8)]">
-            <div className="absolute top-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-red-700/40 to-transparent" />
-            <div className="flex items-center gap-3 px-5 py-4 border-b border-white/[0.06]">
-                {icon && (
-                    <div className="w-7 h-7 rounded-lg bg-red-700/15 border border-red-700/25 flex items-center justify-center text-red-400 shrink-0">
-                        {icon}
-                    </div>
-                )}
-                <h2 className="text-sm font-bold text-white tracking-wide">{title}</h2>
+        <section className="admin-settings-card">
+            <div className="admin-settings-card-head">
+                {icon && <span aria-hidden="true">{icon}</span>}
+                <h2>{title}</h2>
             </div>
-            <div className="p-5 space-y-4">{children}</div>
-        </div>
+            <div className="admin-settings-card-body">{children}</div>
+        </section>
     );
 }
 
@@ -195,11 +190,11 @@ export default function AdminSettings() {
                 <SettingsCard title="Horários de Funcionamento" icon={<FaClock size={12} />}>
                     <div className="space-y-1">
                         {/* Cabeçalho das colunas */}
-                        <div className="grid grid-cols-[1fr_auto] items-center px-1 mb-2">
+                        <div className="admin-hours-row admin-hours-head">
                             <span className="text-[10px] uppercase tracking-widest text-gray-600 font-bold">Dia</span>
-                            <div className="flex gap-2">
-                                <span className="text-[10px] uppercase tracking-widest text-gray-600 font-bold w-[5.5rem] text-center">Abertura</span>
-                                <span className="text-[10px] uppercase tracking-widest text-gray-600 font-bold w-[5.5rem] text-center">Fechamento</span>
+                            <div className="admin-hours-times">
+                                <span className="text-[10px] uppercase tracking-widest text-gray-600 font-bold text-center">Abertura</span>
+                                <span className="text-[10px] uppercase tracking-widest text-gray-600 font-bold text-center">Fechamento</span>
                             </div>
                         </div>
 
@@ -209,7 +204,7 @@ export default function AdminSettings() {
                             return (
                                 <div
                                     key={key}
-                                    className={`admin-hours-row px-3 py-2.5 rounded-xl transition-all ${isOn ? 'bg-white/[0.03] border border-white/[0.06]' : 'border border-transparent'}`}
+                                    className={`admin-hours-row ${isOn ? 'is-open' : ''}`}
                                 >
                                     <label className="flex items-center gap-2.5 cursor-pointer select-none min-w-0">
                                         <input
@@ -267,14 +262,13 @@ export default function AdminSettings() {
                                             animate={{ opacity: 1, x: 0 }}
                                             exit={{ opacity: 0, x: 8 }}
                                             transition={{ duration: 0.18 }}
-                                            className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] group"
+                                            className="admin-fee-row"
                                         >
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-red-600/60 shrink-0" />
-                                                <span className="text-sm text-gray-200 truncate">{fee.neighborhood}</span>
+                                            <div className="admin-fee-name">
+                                                <span className="truncate">{fee.neighborhood}</span>
                                             </div>
                                             <div className="flex items-center gap-3 shrink-0 ml-2">
-                                                <span className="text-sm font-bold text-red-400">
+                                                <span className="admin-fee-value">
                                                     R$ {fee.fee.toFixed(2)}
                                                 </span>
                                                 <button

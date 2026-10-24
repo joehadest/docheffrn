@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/adminSession';
 /**
  * @deprecated Use Mongoose/MenuItem (coleção menuitems) via GET /api/menu ou scripts de seed.
  * Esta rota legada escrevia na coleção nativa `menu`, divergente do cardápio público.
@@ -33,7 +34,9 @@ const menuItems = [
     }
 ];
 
-export async function POST() {
+export async function POST(request: Request) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     try {
         await connectDB();
 

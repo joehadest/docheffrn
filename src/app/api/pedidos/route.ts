@@ -1,13 +1,22 @@
+import { requireAdmin } from '@/lib/adminSession';
 import { NextResponse } from 'next/server';
 import { broadcast } from '@/lib/sse';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
+import { handleLegacyOrderUpdate } from '@/lib/legacyOrderUpdate';
+import { validOrderItems } from '@/utils/adminOrderActions';
 
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
         const telefone = searchParams.get('telefone');
+
+        if (!id && !telefone?.trim()) {
+            const denied = await requireAdmin(request);
+            if (denied) return denied;
+        }
+        if (id && !/^[a-f\d]{24}$/i.test(id)) return NextResponse.json({ success: false, message: 'ID inválido.' }, { status: 400 });
 
         const { db } = await connectToDatabase();
         const collection = db.collection('pedidos');
@@ -59,6 +68,25 @@ export async function POST(request: Request) {
     try {
         const pedido = await request.json();
 
+        if (!pedido || typeof pedido !== 'object' || Array.isArray(pedido) || !['entrega', 'retirada', 'local'].includes(pedido.tipoEntrega) || !validOrderItems(pedido.itens)) {
+            return NextResponse.json({ success: false, message: 'Dados do pedido inválidos.' }, { status: 400 });
+        }
+        if (pedido.tipoEntrega === 'local') {
+            const denied = await requireAdmin(request);
+            if (denied) return denied;
+        } else if (!pedido.itens.length || typeof pedido.cliente?.nome !== 'string' || !pedido.cliente.nome.trim() || typeof pedido.cliente?.telefone !== 'string' || !pedido.cliente.telefone.trim()) {
+            return NextResponse.json({ success: false, message: 'Informe os itens e os dados do cliente.' }, { status: 400 });
+        }
+        const fee = pedido.tipoEntrega === 'entrega' ? (pedido.endereco?.deliveryFee ?? 0) : 0;
+        if (typeof fee !== 'number' || !Number.isFinite(fee) || fee < 0) return NextResponse.json({ success: false, message: 'Taxa de entrega inválida.' }, { status: 400 });
+        // Internal fields are always generated on the server, including public checkout.
+        delete pedido._id; delete pedido.deliveryAssignment; delete pedido.cancelReason;
+        pedido.total = (pedido.itens.reduce((sum: number, item: { preco: number; quantidade: number }) => sum + Math.round(item.preco * 100) * item.quantidade, 0) + Math.round(fee * 100)) / 100;
+        pedido.data = new Date().toISOString();
+        pedido.updatedAt = pedido.data;
+        pedido.status = 'pendente';
+        pedido.statusHistory = [{ status: 'pendente', at: pedido.data }];
+
         const { db } = await connectToDatabase();
 
         // Horário de funcionamento é só indicativo no cardápio; não bloquear POST aqui
@@ -101,44 +129,12 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const id = searchParams.get('id');
-        const updates = await request.json();
-
-        if (!id) {
-            return NextResponse.json(
-                { success: false, message: 'ID do pedido não fornecido' },
-                { status: 400 }
-            );
-        }
-
-        const { db } = await connectToDatabase();
-        const collection = db.collection('pedidos');
-
-        const result = await collection.updateOne(
-            { _id: new ObjectId(id) },
-            { $set: updates }
-        );
-
-        if (result.matchedCount === 0) {
-            return NextResponse.json(
-                { success: false, message: 'Pedido não encontrado' },
-                { status: 404 }
-            );
-        }
-
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        console.error('Erro ao atualizar pedido:', error);
-        return NextResponse.json(
-            { success: false, message: 'Erro ao atualizar pedido' },
-            { status: 500 }
-        );
-    }
+    return handleLegacyOrderUpdate(request, new URL(request.url).searchParams.get('id'));
 }
 
 export async function DELETE(request: Request) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
@@ -170,4 +166,4 @@ export async function DELETE(request: Request) {
             { status: 500 }
         );
     }
-} 
+}

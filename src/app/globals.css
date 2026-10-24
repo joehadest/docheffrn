@@ -59,6 +59,18 @@ body > * {
   z-index: 1;
 }
 
+/* Keep public navigation above the page, outside Tailwind's utility layers. */
+.public-site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.public-categories-bar {
+  position: sticky;
+  z-index: 40;
+}
+
 /* Utilitários do cardápio público */
 .menu-hero {
   position: relative;

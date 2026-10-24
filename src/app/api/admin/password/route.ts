@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import { hashPassword, comparePassword, isHashedPassword } from '@/lib/passwordUtils';
+import { clearAdminSessionCookie, createAdminSession, isSameOriginRequest, requireAdmin, revokeAllAdminSessions } from '@/lib/adminSession';
 
 // Conexão com MongoDB
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -80,10 +81,11 @@ const Settings = mongoose.models.Settings || mongoose.model('Settings', settings
 
 // Função para verificar senha
 export async function POST(request: Request) {
+    if (!isSameOriginRequest(request)) return NextResponse.json({ success: false, message: 'Origem não permitida.' }, { status: 403 });
     try {
         const { password } = await request.json();
         
-        if (!password) {
+        if (typeof password !== 'string' || !password || password.length > 200) {
             return NextResponse.json(
                 { success: false, message: 'Senha é obrigatória' },
                 { status: 400 }
@@ -106,7 +108,7 @@ export async function POST(request: Request) {
 
         if (isPasswordValid) {
             const res = NextResponse.json({ success: true, message: 'Senha correta' });
-            res.cookies.set('isAuthenticated', 'true', { httpOnly: true, path: '/admin', maxAge: 60 * 60 * 24 });
+            await createAdminSession(res);
             return res;
         } else {
             return NextResponse.json(
@@ -125,10 +127,12 @@ export async function POST(request: Request) {
 
 // Função para alterar senha
 export async function PUT(request: Request) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     try {
         const { currentPassword, newPassword } = await request.json();
         
-        if (!currentPassword || !newPassword) {
+        if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || !currentPassword || !newPassword || currentPassword.length > 200 || newPassword.length > 200) {
             return NextResponse.json(
                 { success: false, message: 'Senha atual e nova senha são obrigatórias' },
                 { status: 400 }
@@ -167,11 +171,14 @@ export async function PUT(request: Request) {
         settings.adminPassword = await hashPassword(newPassword);
         settings.lastUpdated = new Date();
         await settings.save();
-
-        return NextResponse.json({ 
+        await revokeAllAdminSessions();
+        const response = NextResponse.json({
             success: true, 
             message: 'Senha alterada com sucesso' 
         });
+        clearAdminSessionCookie(response);
+        await createAdminSession(response);
+        return response;
     } catch (error) {
         console.error('Erro ao alterar senha:', error);
         return NextResponse.json(

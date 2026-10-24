@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { FaTimes } from 'react-icons/fa';
 import { useAdminDialog } from './AdminUI';
 
@@ -20,9 +20,10 @@ export default function AdminDialog({ id, title, description, describedBy, role 
   className?: string;
 }) {
   const dialogRef = useAdminDialog(true, onClose);
+  const reducedMotion = useReducedMotion();
 
   return (
-    <motion.div className="modal-overlay admin-dialog-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: .16 }} onClick={onClose}>
+    <motion.div className="modal-overlay admin-dialog-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reducedMotion ? 0 : .16 }} onClick={onClose}>
       <motion.div
         ref={dialogRef}
         role={role}
@@ -31,10 +32,10 @@ export default function AdminDialog({ id, title, description, describedBy, role 
         aria-describedby={describedBy || (description ? `${id}-description` : undefined)}
         tabIndex={-1}
         className={`modal-panel admin-dialog admin-dialog-${size} ${className}`}
-        initial={{ opacity: 0, y: 18, scale: .98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 12, scale: .98 }}
-        transition={{ duration: .18, ease: 'easeOut' }}
+        initial={reducedMotion ? false : { opacity: 0, y: 18, scale: .98 }}
+        animate={reducedMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
+        exit={reducedMotion ? undefined : { opacity: 0, y: 12, scale: .98 }}
+        transition={{ duration: reducedMotion ? 0 : .18, ease: 'easeOut' }}
         onClick={event => event.stopPropagation()}
       >
         <header className="admin-dialog-header">

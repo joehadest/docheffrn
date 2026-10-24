@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/adminSession';
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
@@ -34,6 +35,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     try {
         const { clientId, orderId, status, message } = await request.json();
 

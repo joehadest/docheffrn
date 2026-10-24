@@ -5,13 +5,36 @@ import React, { useState, useEffect, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MenuItem } from '@/types/menu';
 import Image from 'next/image';
-import { FaPlus, FaEdit, FaTrash, FaSave, FaListAlt, FaThList, FaInfoCircle, FaPizzaSlice, FaPepperHot, FaSmile } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaSave, FaListAlt, FaThList, FaInfoCircle, FaPizzaSlice, FaPepperHot, FaSmile, FaImage, FaSpinner } from 'react-icons/fa';
 import { PageHeading, EmptyState } from './admin/AdminUI';
-import AdminDialog from './admin/AdminDialog';
+import MenuEditorDialog from './admin/MenuEditorDialog';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 
-// --- COMPONENT: ITEM MODAL (TABBED) ---
-function ItemModal({ item, onClose, onSave, categories }: {
+type ItemEditorSection = 'basic' | 'image' | 'options' | 'ingredients';
+
+function ItemEditorTab({ id, selected, onSelect, icon, label }: { id: ItemEditorSection; selected: ItemEditorSection; onSelect: (id: ItemEditorSection) => void; icon: React.ReactNode; label: string }) {
+  return <button type="button" aria-pressed={selected === id} onClick={() => onSelect(id)} className="menu-editor-tab"><span aria-hidden="true">{icon}</span><span>{label}</span></button>;
+}
+
+function ItemImagePreview({ src, name }: { src: string; name: string }) {
+  const [status, setStatus] = useState<'empty' | 'loading' | 'ready' | 'error'>(src ? 'loading' : 'empty');
+  return (
+    <figure className="menu-editor-image-preview" aria-label="Prévia completa da imagem">
+      {src && status !== 'error' && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt={name ? `Prévia de ${name}` : 'Prévia da imagem do produto'} style={{ opacity: status === 'ready' ? 1 : 0 }} onLoad={() => setStatus('ready')} onError={() => setStatus('error')} />
+      )}
+      {status !== 'ready' && <div className="menu-editor-image-placeholder" role={status === 'empty' ? undefined : 'status'}>
+        {status === 'loading' ? <FaSpinner className="animate-spin" aria-hidden="true" /> : <FaImage aria-hidden="true" />}
+        <strong>{status === 'loading' ? 'Carregando imagem…' : status === 'error' ? 'Não foi possível carregar a imagem' : 'Sua imagem aparece aqui'}</strong>
+        <p>{status === 'loading' ? 'A prévia aparecerá aqui assim que estiver pronta.' : status === 'error' ? 'Verifique o link e tente novamente.' : 'Adicione uma URL para visualizar a foto completa.'}</p>
+      </div>}
+    </figure>
+  );
+}
+
+// --- PRODUCT EDITOR ---
+function MenuItemEditor({ item, onClose, onSave, categories }: {
   item: Partial<MenuItem>;
   onClose: () => void;
   onSave: (itemData: Partial<MenuItem>) => Promise<void>;
@@ -25,13 +48,8 @@ function ItemModal({ item, onClose, onSave, categories }: {
   const [price, setPrice] = useState(item.price || 0);
   const [category, setCategory] = useState(item.category || categories[0]?.value || '');
   const [image, setImage] = useState(item.image || '');
-  const [imageError, setImageError] = useState(false);
   const [destaque, setDestaque] = useState(item.destaque || false);
 
-  React.useEffect(() => {
-    setImageError(false);
-  }, [image]);
-  
   // Listas dinâmicas como arrays de objetos com IDs únicos
   const [sizes, setSizes] = useState<Array<{ id: string; name: string; price: number }>>(() => {
     return Object.entries(item.sizes || {}).map(([name, price]) => ({
@@ -70,7 +88,7 @@ function ItemModal({ item, onClose, onSave, categories }: {
     }));
   });
   
-  const [tab, setTab] = useState<'basic' | 'options' | 'ingredients'>('basic');
+  const [tab, setTab] = useState<ItemEditorSection>('basic');
 
   const handleSave = async () => {
     if (saving) return;
@@ -103,68 +121,44 @@ function ItemModal({ item, onClose, onSave, categories }: {
     }); } catch (error) { setSaveError(error instanceof Error ? error.message : 'Erro ao salvar o item.'); } finally { setSaving(false); }
   };
 
-  const TabButton = ({ id, icon, label }: { id: 'basic' | 'options' | 'ingredients'; icon: React.ReactNode; label: string }) => (
-    <button
-      type="button"
-      aria-pressed={tab === id}
-      onClick={() => setTab(id)}
-      className="admin-dialog-tab"
-    >
-      <span className="opacity-80">{icon}</span>
-      <span>{label}</span>
-    </button>
-  );
-
-  const fieldRowBtn = "shrink-0 w-11 h-11 rounded-lg bg-red-950/50 border border-red-900/30 text-red-400 hover:bg-red-900/50 hover:text-red-300 flex items-center justify-center transition-colors";
-  const addRowBtn = "w-full mt-1 py-2.5 rounded-xl border border-dashed border-white/[0.08] text-gray-600 text-xs hover:border-red-700/40 hover:text-red-400 transition-all duration-200 flex items-center justify-center gap-2 hover:bg-red-950/10";
+  const fieldRowBtn = "admin-row-remove";
+  const addRowBtn = "admin-add-row";
 
   const rowVariants = {
-    hidden: { opacity: 0, x: -10, scale: 0.97 },
-    visible: (i: number) => ({
-      opacity: 1, x: 0, scale: 1,
-      transition: { delay: i * 0.05, duration: 0.2, ease: 'easeOut' }
-    }),
-    exit: { opacity: 0, x: 10, scale: 0.97, transition: { duration: 0.15 } }
-  };
-
-  const tabContentVariants = {
-    enter: { opacity: 0, y: 8 },
-    center: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.16, 0.77, 0.3, 1] } },
-    exit: { opacity: 0, y: -4, transition: { duration: 0.14 } },
+    hidden: { opacity: 0, x: -4 },
+    visible: { opacity: 1, x: 0, transition: { duration: .12 } },
+    exit: { opacity: 0, x: 4, transition: { duration: .1 } }
   };
 
   return (
-    <AdminDialog
+    <MenuEditorDialog
       id="item-modal-title"
       title={item._id ? 'Editar item' : 'Novo item'}
       description={item._id ? `Atualize as informações de ${item.name}.` : 'Organize as informações e opções do produto.'}
       icon={item._id ? <FaEdit /> : <FaPlus />}
       onClose={onClose}
       size="wide"
-      navigation={<div className="admin-dialog-tabs" aria-label="Seções do item">
-        <TabButton id="basic" icon={<FaInfoCircle />} label="Básico" />
-        <TabButton id="options" icon={<FaPizzaSlice />} label="Opções" />
-        <TabButton id="ingredients" icon={<FaPepperHot />} label="Ingredientes" />
-      </div>}
+      busy={saving}
+      sectionKey={tab}
+      navigation={<nav className="menu-editor-tabs" aria-label="Seções do item">
+        <ItemEditorTab id="basic" selected={tab} onSelect={setTab} icon={<FaInfoCircle />} label="Básico" />
+        <ItemEditorTab id="image" selected={tab} onSelect={setTab} icon={<FaImage />} label="Imagem" />
+        <ItemEditorTab id="options" selected={tab} onSelect={setTab} icon={<FaPizzaSlice />} label="Opções" />
+        <ItemEditorTab id="ingredients" selected={tab} onSelect={setTab} icon={<FaPepperHot />} label="Ingredientes" />
+      </nav>}
       footer={<>
         {saveError && <p role="alert" className="admin-dialog-error">{saveError}</p>}
-        <button type="button" onClick={onClose} className="form-button-secondary">Cancelar</button>
+        <button type="button" disabled={saving} onClick={onClose} className="form-button-secondary">Cancelar</button>
         <button type="button" disabled={saving} aria-busy={saving} onClick={handleSave} className="form-button-primary gap-2">
           <FaSave size={13} /> {saving ? 'Salvando…' : item._id ? 'Salvar alterações' : 'Salvar item'}
         </button>
       </>}
     >
-        {/* Conteúdo scrollável com AnimatePresence para trocar abas */}
         <div className="admin-item-content">
-          <AnimatePresence mode="wait">
             {tab === 'basic' && (
-              <motion.div
+              <div
                 key="basic"
-                variants={tabContentVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                className="space-y-5"
+                className="menu-editor-tab-panel space-y-5"
               >
                 {/* Nome (largo) + Preço (compacto) */}
                 <div className="admin-dialog-fields">
@@ -222,38 +216,6 @@ function ItemModal({ item, onClose, onSave, categories }: {
                   />
                 </div>
 
-                {/* URL da Imagem (largura total) */}
-                <div>
-                  <label htmlFor="admin-item-image" className="form-label">URL da Imagem</label>
-                  <input id="admin-item-image"
-                    type="text"
-                    value={image}
-                    onChange={(e) => setImage(e.target.value)}
-                    className="form-input"
-                    placeholder="https://..."
-                  />
-                </div>
-
-                {/* Prévia da imagem */}
-                <AnimatePresence>
-                  {image && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.25 }}
-                      className={`rounded-xl overflow-hidden border ${imageError ? 'border-red-800/40 bg-red-950/20' : 'border-white/[0.07] bg-[#0a0a0a]'} h-40 flex items-center justify-center`}
-                    >
-                      {imageError ? (
-                        <p className="text-xs text-red-400 px-4 text-center">Imagem não encontrada — verifique a URL</p>
-                      ) : (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={image} alt="Prévia" className="h-full w-full object-cover" onError={() => setImageError(true)} />
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
                 {/* Destaque */}
                 <label className="flex items-center gap-3 p-3.5 rounded-xl border border-white/[0.07] bg-white/[0.02] cursor-pointer hover:bg-white/[0.04] transition-colors select-none">
                   <input
@@ -267,17 +229,28 @@ function ItemModal({ item, onClose, onSave, categories }: {
                     <p className="text-xs text-gray-500 mt-0.5">Aparece na seção de destaques do cardápio</p>
                   </div>
                 </label>
-              </motion.div>
+              </div>
+            )}
+
+            {tab === 'image' && (
+              <div key="image" className="menu-editor-tab-panel menu-editor-image-section">
+                <div className="menu-editor-section-heading">
+                  <h3>Imagem do produto</h3>
+                  <p>Confira a foto inteira antes de salvar.</p>
+                </div>
+                <div>
+                  <label htmlFor="admin-item-image" className="form-label">URL da imagem</label>
+                  <input id="admin-item-image" type="url" value={image} onChange={e => setImage(e.target.value)} className="form-input" placeholder="https://exemplo.com/imagem.jpg" aria-describedby="admin-item-image-help" />
+                  <p id="admin-item-image-help" className="menu-editor-image-help">Cole o link direto da imagem que aparecerá no cardápio.</p>
+                </div>
+                <ItemImagePreview key={image} src={image} name={name} />
+              </div>
             )}
 
             {tab === 'options' && (
-              <motion.div
+              <div
                 key="options"
-                variants={tabContentVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                className="space-y-4"
+                className="menu-editor-tab-panel space-y-4"
               >
                 {/* Tamanhos */}
                 <div className="admin-dialog-section">
@@ -364,17 +337,13 @@ function ItemModal({ item, onClose, onSave, categories }: {
                     <FaPlus size={10} /> Adicionar Extra
                   </button>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {tab === 'ingredients' && (
-              <motion.div
+              <div
                 key="ingredients"
-                variants={tabContentVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                className="admin-dialog-section"
+                className="menu-editor-tab-panel admin-dialog-section"
               >
                 <p className="admin-section-title">Ingredientes</p>
                 <AnimatePresence initial={false}>
@@ -388,17 +357,16 @@ function ItemModal({ item, onClose, onSave, categories }: {
                 <button type="button" onClick={() => setIngredients([...ingredients, { id: `new-${Date.now()}`, value: '' }])} className={addRowBtn}>
                   <FaPlus size={10} /> Adicionar Ingrediente
                 </button>
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
         </div>
 
-    </AdminDialog>
+    </MenuEditorDialog>
   );
 }
 
 // --- COMPONENT: CATEGORY MODAL ---
-const CategoryModal = ({
+const MenuCategoryEditor = ({
   category,
   onClose,
   onSaved
@@ -441,23 +409,16 @@ const CategoryModal = ({
     finally { setLoading(false); }
   };
 
-  const fieldVariants = {
-    hidden: { opacity: 0, y: 6 },
-    visible: (i: number) => ({
-      opacity: 1, y: 0,
-      transition: { delay: 0.1 + i * 0.06, duration: 0.2, ease: 'easeOut' }
-    }),
-  };
-
   return (
-    <AdminDialog
+    <MenuEditorDialog
       id="category-modal-title"
       title={isEdit ? 'Editar categoria' : 'Nova categoria'}
       description={isEdit ? `Atualize a categoria ${category?.label}.` : 'Defina como esta categoria aparece no cardápio.'}
       icon={<FaListAlt />}
       onClose={onClose}
+      busy={loading}
       footer={<>
-        <button type="button" onClick={onClose} className="form-button-secondary">Cancelar</button>
+        <button type="button" disabled={loading} onClick={onClose} className="form-button-secondary">Cancelar</button>
         <button type="submit" form="admin-category-form" disabled={loading} aria-busy={loading} className="form-button-primary gap-2">
           <FaSave size={13} /> {loading ? 'Salvando…' : isEdit ? 'Salvar alterações' : 'Criar categoria'}
         </button>
@@ -465,7 +426,7 @@ const CategoryModal = ({
     >
           <form id="admin-category-form" onSubmit={handleSubmit} className="space-y-5">
             {/* Nome */}
-            <motion.div custom={0} variants={fieldVariants} initial="hidden" animate="visible">
+            <div>
               <label htmlFor="admin-category-name" className="form-label">Nome da Categoria</label>
               <input id="admin-category-name"
                 type="text"
@@ -475,22 +436,17 @@ const CategoryModal = ({
                 placeholder="Ex: Pizzas"
                 required
               />
-              <AnimatePresence>
                 {form.value && (
-                  <motion.p
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
+                  <p
                     className="text-[11px] text-gray-600 mt-1"
                   >
                     slug: <span className="text-gray-500">{form.value}</span>
-                  </motion.p>
+                  </p>
                 )}
-              </AnimatePresence>
-            </motion.div>
+            </div>
 
             {/* Ícone + Ordem */}
-            <motion.div custom={1} variants={fieldVariants} initial="hidden" animate="visible" className="admin-dialog-fields">
+            <div className="admin-dialog-fields">
               <div className="flex-1 min-w-0">
                 <label htmlFor="admin-category-icon" className="form-label">Ícone (Emoji)</label>
                 <div className="relative">
@@ -525,11 +481,10 @@ const CategoryModal = ({
                   min={0}
                 />
               </div>
-            </motion.div>
+            </div>
 
             {/* Meio a meio */}
-            <motion.label
-              custom={2} variants={fieldVariants} initial="hidden" animate="visible"
+            <label
               className="flex items-center gap-3 p-3.5 rounded-xl border border-white/[0.07] bg-white/[0.02] cursor-pointer hover:bg-white/[0.04] transition-colors select-none"
             >
               <input
@@ -542,7 +497,7 @@ const CategoryModal = ({
                 <p className="text-sm font-medium text-gray-200">Permitir Meio a Meio</p>
                 <p className="text-xs text-gray-500 mt-0.5">Clientes poderão dividir o item em dois sabores</p>
               </div>
-            </motion.label>
+            </label>
 
             <AnimatePresence>
               {error && (
@@ -558,7 +513,7 @@ const CategoryModal = ({
             </AnimatePresence>
 
           </form>
-    </AdminDialog>
+    </MenuEditorDialog>
   );
 };
 
@@ -657,7 +612,7 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
         </motion.div>
       ) : (
         /* Tabela-like refinada: cabeçalho + linhas animadas */
-        <div className="rounded-2xl border border-white/[0.07] bg-[#111] overflow-hidden shadow-[0_8px_32px_-8px_rgba(0,0,0,0.7)]">
+        <div className="admin-category-table">
           {/* Linha de acento */}
           <div className="absolute left-8 right-8 h-px bg-gradient-to-r from-transparent via-red-700/30 to-transparent" aria-hidden />
 
@@ -774,13 +729,16 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
         </div>
       )}
 
+      <AnimatePresence initial={false}>
       {modalCategory && (
-        <CategoryModal
+        <MenuCategoryEditor
+          key={modalCategory._id || 'new-category'}
           category={modalCategory}
           onClose={() => setModalCategory(null)}
           onSaved={() => { fetchCategories(); onUpdate(); }}
         />
       )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -801,16 +759,6 @@ export default function AdminMenu() {
   const [deletingItems, setDeletingItems] = useState<Set<string>>(new Set());
   const [togglingItems, setTogglingItems] = useState<Set<string>>(new Set());
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const shouldLock = isModalOpen;
-    if (shouldLock) {
-      document.body.classList.add('modal-open');
-    } else {
-      document.body.classList.remove('modal-open');
-    }
-    return () => { document.body.classList.remove('modal-open'); };
-  }, [isModalOpen]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -918,14 +866,14 @@ export default function AdminMenu() {
   const filteredItems = menuItems.filter((item) => selectedCategory === 'todas' || item.category === selectedCategory);
 
   return (
-    <div className="admin-page text-gray-200">
+    <div className="admin-page admin-menu-page text-gray-200">
       {confirmationDialog}
-      <div className="max-w-7xl mx-auto">
+      <div>
         {/* Cabeçalho */}
         <PageHeading title="Cardápio" description="Organize seus produtos, preços e categorias em um só lugar.">
-          <div className="flex items-center gap-2 bg-[#0f0f0f] rounded-xl p-1 border border-white/[0.06]">
-            <button className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${activeTab === 'menu' ? 'bg-red-700/90 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`} aria-pressed={activeTab === 'menu'} onClick={() => setActiveTab('menu')}><FaThList size={13} /> Itens</button>
-            <button className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${activeTab === 'categories' ? 'bg-red-700/90 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`} aria-pressed={activeTab === 'categories'} onClick={() => setActiveTab('categories')}><FaListAlt size={13} /> Categorias</button>
+          <div className="admin-segmented admin-segmented-heading" role="group" aria-label="Seções do cardápio">
+            <button type="button" className="admin-segment" aria-pressed={activeTab === 'menu'} onClick={() => setActiveTab('menu')}><FaThList size={13} /> Itens</button>
+            <button type="button" className="admin-segment" aria-pressed={activeTab === 'categories'} onClick={() => setActiveTab('categories')}><FaListAlt size={13} /> Categorias</button>
           </div>
         </PageHeading>
         {deleteError && <p role="alert" className="admin-dialog-error mb-6">{deleteError}</p>}
@@ -950,21 +898,19 @@ export default function AdminMenu() {
               <div className="auto-grid">
                 {filteredItems.length === 0 && <div className="col-span-full"><EmptyState>Nenhum item nesta categoria. Use “Novo Item” para cadastrar.</EmptyState></div>}
                 {filteredItems.map((item) => (
-                  <motion.div
+                  <div
                     key={item._id}
-                    layout
-                    className={`bubble-card flex flex-col justify-between ${item.isAvailable === false ? 'ring-1 ring-red-900/40' : ''}`}
-                    onMouseMove={(e) => {
-                      const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - r.left}px`);
-                      e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - r.top}px`);
-                    }}
+                    className="bubble-card admin-item-card"
+                    data-available={item.isAvailable === false ? 'false' : 'true'}
                   >
                     <span className="bubble-glow" />
                     <span className="bubble-press-overlay" />
                     <span className="bubble-border-gradient" />
                     <div className="bubble-content">
-                      <div className="relative h-32 sm:h-40 w-full bg-[#2a2a2a]">
+                      <div className="admin-item-media">
+                        <span className="admin-item-status" data-state={item.isAvailable === false ? 'off' : 'on'}>
+                          {item.isAvailable === false ? 'Inativo' : 'Ativo'}
+                        </span>
                         {item.image ? (
                           <Image
                             src={item.image}
@@ -975,40 +921,33 @@ export default function AdminMenu() {
                             unoptimized={item.image.startsWith('http')}
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs">
+                          <div className="admin-item-placeholder">
                             Sem imagem
                           </div>
                         )}
                       </div>
-                      <div className="p-2 sm:p-4">
-                        <div className="flex items-start justify-between gap-2">
-                          <h3 className="text-base sm:text-lg font-bold text-white break-words">{item.name}</h3>
-                          <span className={`shrink-0 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${item.isAvailable === false ? 'bg-red-900/60 text-red-300' : 'bg-green-900/50 text-green-300'}`}>
-                            {item.isAvailable === false ? 'Inativo' : 'Ativo'}
-                          </span>
-                        </div>
-                        <p className="text-gray-400 text-sm mt-1">R$ {item.price.toFixed(2)}</p>
+                      <div className="admin-item-body">
+                        <h3 className="admin-item-title">{item.name}</h3>
+                        <p className="admin-item-price">R$ {item.price.toFixed(2)}</p>
                       </div>
                     </div>
-                    <div className="p-2 sm:p-4 border-t border-gray-800/70 bg-[#1e1e1e]/60 flex justify-between items-center gap-2 relative z-10">
-                      <div className="flex flex-col items-center">
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={item.isAvailable ?? true}
-                            onChange={(e) => handleAvailabilityChange(item, e.target.checked)}
-                            disabled={togglingItems.has(item._id)}
-                            className="sr-only peer"
-                            aria-label={item.isAvailable ? `Desativar disponibilidade de ${item.name}` : `Ativar disponibilidade de ${item.name}`}
-                            role="switch"
-                            aria-checked={item.isAvailable ?? true}
-                          />
-                          <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-focus:ring-2 peer-focus:ring-red-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-                        </label>
-                        <span className={`text-xs mt-1 font-medium ${item.isAvailable ?? true ? 'text-green-400' : 'text-gray-400'}`}>
+                    <div className="admin-item-footer">
+                      <label className="admin-switch">
+                        <input
+                          type="checkbox"
+                          checked={item.isAvailable ?? true}
+                          onChange={(e) => handleAvailabilityChange(item, e.target.checked)}
+                          disabled={togglingItems.has(item._id)}
+                          className="sr-only peer"
+                          aria-label={item.isAvailable ? `Desativar disponibilidade de ${item.name}` : `Ativar disponibilidade de ${item.name}`}
+                          role="switch"
+                          aria-checked={item.isAvailable ?? true}
+                        />
+                        <span className="admin-switch-track" aria-hidden="true"></span>
+                        <span className="admin-switch-label">
                           {togglingItems.has(item._id) ? '...' : item.isAvailable ?? true ? 'Disponível' : 'Indisponível'}
                         </span>
-                      </div>
+                      </label>
                       <div className='flex gap-2'>
                         <button className="admin-icon-button text-gray-200" onClick={() => handleOpenModal(item)} aria-label={`Editar item ${item.name}`} title={`Editar ${item.name}`}><FaEdit /></button>
                         <button
@@ -1022,7 +961,7 @@ export default function AdminMenu() {
                         </button>
                       </div>
                     </div>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             )}
@@ -1032,7 +971,9 @@ export default function AdminMenu() {
         {activeTab === 'categories' && <CategoriesTab categories={categories} onUpdate={fetchData} />}
       </div>
 
-      {isModalOpen && <ItemModal item={editingItem!} onClose={handleCloseModal} onSave={handleSaveItem} categories={categories} />}
+      <AnimatePresence initial={false}>
+        {isModalOpen && <MenuItemEditor key={editingItem?._id || 'new-item'} item={editingItem!} onClose={handleCloseModal} onSave={handleSaveItem} categories={categories} />}
+      </AnimatePresence>
     </div>
   );
 }

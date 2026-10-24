@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/adminSession';
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 
@@ -39,7 +40,9 @@ const defaultCategories = [
 	{ value: 'bebidas', label: 'Bebidas' }
 ];
 
-export async function POST() {
+export async function POST(request: Request) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
 	await connectDB();
 	await Category.deleteMany({});
 	const result = await Category.insertMany(defaultCategories);

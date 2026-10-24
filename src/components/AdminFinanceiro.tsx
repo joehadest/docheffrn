@@ -163,7 +163,7 @@ export default function AdminFinanceiro() {
 
             {/* Finalizar todos os pendentes do período */}
             {pedidosPendentesNoPeriodo.length > 0 && (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#141414] border border-white/[0.07] rounded-xl px-4 py-3">
+                <div className="admin-banner">
                     <p className="text-sm text-gray-400">
                         <span className="text-white font-semibold">{pedidosPendentesNoPeriodo.length}</span> pedido(s) pendente(s) em &quot;{periodLabel}&quot;
                     </p>
@@ -209,7 +209,7 @@ export default function AdminFinanceiro() {
                     {periodPedidos.map((pedido) => (
                         <li
                             key={pedido._id}
-                            className="bubble-card p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                            className="bubble-card admin-order-row"
                             onMouseMove={(e) => {
                                 const r = e.currentTarget.getBoundingClientRect();
                                 e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - r.left}px`);
@@ -217,20 +217,20 @@ export default function AdminFinanceiro() {
                             }}
                         >
                             <span className="bubble-glow" /><span className="bubble-press-overlay" /><span className="bubble-border-gradient" />
-                            <div className="bubble-content flex-1">
-                                <div className="font-semibold text-lg text-white">
-                                    Pedido <span className="text-red-500">#{pedido._id.slice(-6)}</span>
-                                </div>
-                                <div className="text-sm text-gray-400 mb-1">{pedido.cliente?.nome || '-'}</div>
-                                <div className="text-sm text-gray-400 mb-2">Data: {formatDate(pedido.data)}</div>
-                                <div className="font-bold text-red-500">Total: R$ {calcularTotal(pedido).toFixed(2)}</div>
-                                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                    <div className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(pedido.status)}`}>
+                            <div className="bubble-content admin-order-row-info">
+                                <div className="admin-order-row-title">
+                                    <span>Pedido <em>#{pedido._id.slice(-6)}</em></span>
+                                    <span className={`admin-order-row-status ${getStatusColor(pedido.status)}`}>
                                         {getStatusText(pedido.status)}
-                                    </div>
+                                    </span>
                                 </div>
+                                <div className="admin-order-row-meta">
+                                    <span>{pedido.cliente?.nome || '-'}</span>
+                                    <span>Data: {formatDate(pedido.data)}</span>
+                                </div>
+                                <div className="admin-order-row-total">Total: <strong>R$ {calcularTotal(pedido).toFixed(2)}</strong></div>
                             </div>
-                            <div className="flex flex-row flex-wrap gap-2 mt-2 sm:mt-0 sm:ml-4 z-10 w-full sm:w-auto">
+                            <div className="admin-order-row-actions">
                                 <button
                                     type="button"
                                     className="form-button-secondary"

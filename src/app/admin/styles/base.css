@@ -1,0 +1,546 @@
+/* ==========================================================================
+   Admin base: canvas, typography, focus, scrollbars, form controls, buttons.
+   ========================================================================== */
+
+/* ---------- Canvas ---------- */
+.admin-theme {
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  background: var(--ad-bg);
+  color: var(--ad-text);
+  font-family: var(--ad-font-body);
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 238 218 / 0.22) transparent;
+}
+
+.admin-theme *,
+.admin-theme *::before,
+.admin-theme *::after {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 238 218 / 0.22) transparent;
+}
+
+/* Ember glow and a whisper of film grain behind everything. */
+.admin-theme::before,
+.admin-theme::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.admin-theme::before {
+  background:
+    radial-gradient(900px 520px at 6% -8%, rgb(238 75 51 / 0.1), transparent 62%),
+    radial-gradient(720px 480px at 100% 0%, rgb(249 115 22 / 0.055), transparent 60%),
+    radial-gradient(820px 560px at 50% 118%, rgb(255 238 218 / 0.035), transparent 60%);
+}
+
+.admin-theme::after {
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---------- Typography ---------- */
+.admin-theme :is(h1, h2, h3, h4) {
+  text-wrap: balance;
+}
+
+.admin-theme p {
+  text-wrap: pretty;
+}
+
+.admin-theme strong {
+  font-weight: 650;
+}
+
+.admin-theme a {
+  text-underline-offset: 3px;
+}
+
+.admin-theme ::selection {
+  background: rgb(238 75 51 / 0.4);
+  color: #fff;
+}
+
+.admin-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  color: var(--ad-accent-hi);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.admin-eyebrow::before {
+  content: '';
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--ad-accent), transparent);
+}
+
+.admin-description {
+  max-width: 64ch;
+  margin-top: 10px;
+  color: var(--ad-muted);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.admin-help-text {
+  margin: 14px 0 20px;
+  color: var(--ad-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+/* Section label used inside editors and modals. */
+.admin-theme .admin-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  color: var(--ad-text-2);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.admin-theme .admin-section-title::before {
+  width: 3px;
+  height: 14px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--ad-accent), rgb(238 75 51 / 0.2));
+}
+
+/* ---------- Focus ---------- */
+.admin-theme :is(button, a, summary, [role='button'], [tabindex]):focus-visible {
+  outline: 2px solid var(--ad-focus);
+  outline-offset: 3px;
+}
+
+.admin-theme :is(input, select, textarea):focus-visible {
+  outline: none;
+}
+
+.admin-theme :is(button, [role='button'], summary, label[for], select) {
+  cursor: pointer;
+}
+
+.admin-theme :is(button:disabled, [aria-disabled='true']) {
+  cursor: not-allowed;
+}
+
+.admin-skip {
+  position: fixed;
+  left: 16px;
+  top: -80px;
+  z-index: 200;
+  padding: 12px 18px;
+  border-radius: var(--ad-r-md);
+  background: var(--ad-text);
+  color: #17120f;
+  font-size: 0.875rem;
+  font-weight: 700;
+  box-shadow: 0 16px 40px -12px rgb(0 0 0 / 0.8);
+  transition: top var(--ad-med) var(--ad-ease);
+}
+
+.admin-skip:focus {
+  top: calc(12px + var(--ad-safe-top));
+}
+
+/* ---------- Form fields ---------- */
+.admin-theme .form-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--ad-text-2);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+.admin-theme .form-input {
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--ad-line-2);
+  border-radius: var(--ad-r-md);
+  background-color: var(--ad-field);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.4);
+  color: var(--ad-text);
+  font-size: 0.9375rem;
+  line-height: 1.35;
+  transition:
+    border-color var(--ad-fast),
+    box-shadow var(--ad-fast),
+    background-color var(--ad-fast);
+}
+
+/* The base utilities cannot override .form-input padding, so the common
+   offsets used around icons and inline buttons are restated here. */
+.admin-theme .form-input.pr-10 {
+  padding-right: 2.5rem;
+}
+
+.admin-theme .form-input.pr-20 {
+  padding-right: 5rem;
+}
+
+.admin-theme .form-input::placeholder {
+  color: var(--ad-faint);
+  opacity: 1;
+}
+
+.admin-theme .form-input:hover:not(:disabled, :focus) {
+  border-color: var(--ad-line-3);
+  background-color: var(--ad-field);
+}
+
+.admin-theme .form-input:focus {
+  border-color: var(--ad-accent);
+  background-color: #0d0c0b;
+  box-shadow:
+    inset 0 1px 2px rgb(0 0 0 / 0.4),
+    var(--ad-ring);
+}
+
+.admin-theme .form-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-theme .form-input[aria-invalid='true'] {
+  border-color: var(--ad-danger-line);
+}
+
+.admin-theme textarea.form-input {
+  line-height: 1.55;
+}
+
+.admin-theme select.form-input {
+  padding-right: 42px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23a79f93'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 16px;
+  text-overflow: ellipsis;
+}
+
+.admin-theme select option,
+.admin-theme select optgroup {
+  background-color: var(--ad-surface-2);
+  color: var(--ad-text);
+}
+
+.admin-theme :is(input[type='date'], input[type='time'], input[type='month']) {
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-theme ::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity var(--ad-fast);
+}
+
+.admin-theme ::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+.admin-theme input[type='number'] {
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-theme :is(.form-checkbox, .delivery-active-check input[type='checkbox']) {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-grid;
+  flex-shrink: 0;
+  place-content: center;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  border: 1.5px solid var(--ad-line-3);
+  border-radius: 6px;
+  background-color: var(--ad-field);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 14px;
+  cursor: pointer;
+  transition:
+    background-color var(--ad-fast),
+    border-color var(--ad-fast),
+    box-shadow var(--ad-fast);
+}
+
+.admin-theme :is(.form-checkbox, .delivery-active-check input[type='checkbox']):hover:not(:disabled) {
+  border-color: var(--ad-accent-hi);
+}
+
+.admin-theme :is(.form-checkbox, .delivery-active-check input[type='checkbox']):checked {
+  border-color: transparent;
+  background-color: var(--ad-btn-1);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E");
+  box-shadow: 0 6px 14px -6px rgb(238 75 51 / 0.8);
+}
+
+.admin-theme :is(.form-checkbox, .delivery-active-check input[type='checkbox']):focus-visible {
+  outline: 2px solid var(--ad-focus);
+  outline-offset: 3px;
+}
+
+.admin-theme :is(.form-checkbox, .delivery-active-check input[type='checkbox']):disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ---------- Buttons ---------- */
+.admin-theme :is(.form-button-primary, .form-button-secondary, .form-button-danger) {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid transparent;
+  border-radius: var(--ad-r-md);
+  font-family: var(--ad-font-body);
+  font-size: 0.875rem;
+  font-weight: 650;
+  letter-spacing: 0.005em;
+  line-height: 1.25;
+  text-align: center;
+  text-wrap: balance;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  transition:
+    background var(--ad-fast),
+    border-color var(--ad-fast),
+    box-shadow var(--ad-fast),
+    transform var(--ad-fast) var(--ad-ease),
+    color var(--ad-fast);
+}
+
+.admin-theme :is(.form-button-primary, .form-button-secondary, .form-button-danger):active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+}
+
+.admin-theme .form-button-primary {
+  border-color: rgb(255 168 150 / 0.4);
+  background: linear-gradient(180deg, #d83d2c 0%, var(--ad-btn-2) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.24),
+    0 12px 26px -14px rgb(238 75 51 / 0.85);
+  color: #fff;
+}
+
+.admin-theme .form-button-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #d93d2b 0%, #c3231f 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.3),
+    0 16px 32px -12px rgb(238 75 51 / 1);
+}
+
+.admin-theme .form-button-secondary {
+  border-color: var(--ad-line-2);
+  background: rgb(255 238 218 / 0.05);
+  box-shadow: inset 0 1px 0 rgb(255 244 232 / 0.04);
+  color: var(--ad-text);
+}
+
+.admin-theme .form-button-secondary:hover:not(:disabled) {
+  border-color: var(--ad-line-3);
+  background: rgb(255 238 218 / 0.1);
+}
+
+.admin-theme .form-button-danger {
+  border-color: var(--ad-danger-line);
+  background: var(--ad-danger-bg);
+  box-shadow: none;
+  color: var(--ad-danger);
+}
+
+.admin-theme .form-button-danger:hover:not(:disabled) {
+  background: rgb(255 111 92 / 0.22);
+  color: #ffd3cb;
+}
+
+.admin-theme button:disabled {
+  opacity: 0.5;
+}
+
+/* Square icon button used for edit, delete and quick actions. */
+.admin-theme .admin-icon-button {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--ad-line-2);
+  border-radius: var(--ad-r-md);
+  background: rgb(255 238 218 / 0.05);
+  transition:
+    background var(--ad-fast),
+    border-color var(--ad-fast),
+    transform var(--ad-fast) var(--ad-ease);
+}
+
+.admin-theme .admin-icon-button:hover:not(:disabled) {
+  border-color: var(--ad-line-3);
+  background: rgb(255 238 218 / 0.1);
+}
+
+.admin-theme .admin-icon-button:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+/* Inline text action with an arrow, e.g. "Ver todos". */
+.admin-text-link,
+.admin-inline-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  color: var(--ad-accent-hi);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  transition: color var(--ad-fast), gap var(--ad-fast) var(--ad-ease);
+}
+
+.admin-text-link:hover,
+.admin-inline-action:hover {
+  color: #ffd0c8;
+  gap: 11px;
+}
+
+.admin-inline-action {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 16px;
+  padding: 0 16px;
+  border: 1px dashed var(--ad-line-3);
+  border-radius: var(--ad-r-md);
+  color: var(--ad-text-2);
+}
+
+.admin-inline-action:hover {
+  border-color: var(--ad-accent-line);
+  background: var(--ad-accent-bg-2);
+  color: var(--ad-text);
+}
+
+/* Spinner: restyles the Tailwind border spinners used by loading states. */
+.admin-theme .animate-spin.rounded-full {
+  border: 2px solid rgb(255 238 218 / 0.14);
+  border-top-color: var(--ad-accent);
+}
+
+.admin-theme button .animate-spin.rounded-full {
+  border-color: rgb(255 255 255 / 0.3);
+  border-top-color: #fff;
+}
+
+/* ---------- Utility remaps for classes the markup still uses ---------- */
+.admin-theme :is(.bg-\[\#111\], .bg-\[\#141414\]) {
+  background-color: var(--ad-surface);
+}
+
+.admin-theme :is(.bg-\[\#0f0f0f\], .bg-\[\#0a0a0a\]) {
+  background-color: var(--ad-field);
+}
+
+.admin-theme .bg-\[\#1e1e1e\] {
+  background-color: var(--ad-surface-2);
+}
+
+.admin-theme .bg-\[\#2a2a2a\] {
+  background-color: var(--ad-surface-3);
+}
+
+/* Pastel status chips (bg-*-100 with text-*-800) become dark tinted chips. */
+.admin-theme .bg-yellow-100 {
+  background-color: var(--ad-warn-bg);
+  box-shadow: inset 0 0 0 1px var(--ad-warn-line);
+}
+
+.admin-theme .bg-blue-100 {
+  background-color: var(--ad-info-bg);
+  box-shadow: inset 0 0 0 1px var(--ad-info-line);
+}
+
+.admin-theme .bg-green-100 {
+  background-color: var(--ad-ok-bg);
+  box-shadow: inset 0 0 0 1px var(--ad-ok-line);
+}
+
+.admin-theme .bg-purple-100 {
+  background-color: var(--ad-violet-bg);
+  box-shadow: inset 0 0 0 1px var(--ad-violet-line);
+}
+
+.admin-theme .bg-red-100 {
+  background-color: var(--ad-danger-bg);
+  box-shadow: inset 0 0 0 1px var(--ad-danger-line);
+}
+
+.admin-theme .text-yellow-800 {
+  color: var(--ad-warn);
+}
+
+.admin-theme .text-blue-800 {
+  color: var(--ad-info);
+}
+
+.admin-theme .text-green-800 {
+  color: var(--ad-ok);
+}
+
+.admin-theme .text-purple-800 {
+  color: var(--ad-violet);
+}
+
+.admin-theme .text-red-800 {
+  color: var(--ad-danger);
+}
+
+.admin-theme .border-yellow-300 {
+  border-color: var(--ad-warn-line);
+}
+
+/* ---------- Motion and contrast preferences ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .admin-theme *,
+  .admin-theme *::before,
+  .admin-theme *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .admin-theme :is(.form-button-primary, .form-button-secondary, .form-button-danger, .form-input) {
+    border: 1px solid ButtonText;
+  }
+
+  .admin-nav button[aria-current='page'] {
+    outline: 2px solid Highlight;
+  }
+}

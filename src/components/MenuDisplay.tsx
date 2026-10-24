@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMenu } from '@/contexts/MenuContext';
 import ItemModal from './ItemModal';
@@ -162,6 +162,7 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
     const categoryElementsRef = useRef<{ [key: string]: HTMLElement | null }>({});
 
     const isClickScrolling = useRef(false);
+    const [headerOffset, setHeaderOffset] = useState(0);
     const [stickyOffset, setStickyOffset] = useState<number>(0);
 
     // Fade nas bordas da barra de categorias (indica scroll horizontal)
@@ -189,27 +190,35 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
         };
     }, [categories, loading]);
 
-    // Calcula dinamicamente a altura/offset da barra de categorias sticky,
-    // considerando safe-area/topo e variações de toolbar móvel
-    useEffect(() => {
+    // Measure after loading, when the real navigation has replaced the skeleton.
+    // CSS placement, category links and active-section tracking share this offset.
+    useLayoutEffect(() => {
+        if (loading || error) return;
+        const bar = stickyBarRef.current;
+        if (!bar) return;
+        const header = document.querySelector<HTMLElement>('[data-public-header]');
+
         const computeStickyOffset = () => {
-            const h = stickyBarRef.current?.getBoundingClientRect().height ?? 0;
-            // margem extra para respirar abaixo da barra
-            setStickyOffset(Math.max(0, Math.ceil(h)));
+            const headerHeight = Math.ceil(header?.getBoundingClientRect().height ?? 0);
+            const barHeight = Math.ceil(bar.getBoundingClientRect().height);
+            setHeaderOffset(headerHeight);
+            setStickyOffset(headerHeight + barHeight);
         };
 
         computeStickyOffset();
+        const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(computeStickyOffset) : null;
+        observer?.observe(bar);
+        if (header) observer?.observe(header);
         window.addEventListener('resize', computeStickyOffset);
-        // Em dispositivos móveis, visualViewport altera com a barra/teclado
-        const vv = (window as any).visualViewport as VisualViewport | undefined;
+        const vv = window.visualViewport;
         vv?.addEventListener('resize', computeStickyOffset);
-        // Importante: evitar recalcular em 'scroll' do visualViewport no iOS para não causar re-render em cada frame
 
         return () => {
+            observer?.disconnect();
             window.removeEventListener('resize', computeStickyOffset);
             vv?.removeEventListener('resize', computeStickyOffset);
         };
-    }, []);
+    }, [loading, error]);
 
     useEffect(() => {
         const fetchAllData = async () => {
@@ -260,12 +269,13 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
             rafId = 0;
             if (isClickScrolling.current) return;
 
-            const y = window.scrollY + stickyOffset + 12; // compensa a barra sticky
+            const scrollY = window.scrollY;
+            const y = scrollY + stickyOffset + 12;
             let activeId = ids[0];
             for (const id of ids) {
                 const el = categoryElementsRef.current[id];
                 if (!el) continue;
-                if (el.offsetTop <= y) {
+                if (el.getBoundingClientRect().top + scrollY <= y) {
                     activeId = id;
                 } else {
                     break;
@@ -564,7 +574,7 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
         const element = document.getElementById(`category-${categoryValue}`);
         if (element) {
             const offset = stickyOffset + 8; // 8px de folga abaixo da barra
-            const elementPosition = element.offsetTop - offset;
+            const elementPosition = window.scrollY + element.getBoundingClientRect().top - offset;
             window.scrollTo({
                 top: Math.max(0, elementPosition),
                 behavior: 'smooth'
@@ -620,7 +630,8 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
             {/* Barra de categorias sticky */}
             <div
                 ref={stickyBarRef}
-                className="sticky top-[52px] z-30 border-b border-white/[0.06] bg-surface pt-3.5 pb-3.5 sm:top-[56px] sm:pt-4 sm:pb-4"
+                className="public-categories-bar border-b border-white/[0.06] bg-surface pt-3.5 pb-3.5 sm:pt-4 sm:pb-4"
+                style={{ top: headerOffset }}
             >
                 <div className="mx-auto max-w-7xl px-4 sm:px-6">
                     <div

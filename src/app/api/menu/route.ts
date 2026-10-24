@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/adminSession';
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/menuModel';
 import MenuItem from '@/lib/menuModel';
@@ -889,6 +890,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     try {
         await connectDB();
         const body = await request.json();
@@ -914,6 +917,8 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     try {
         await connectDB();
         const body = await request.json();
@@ -943,6 +948,8 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     try {
         await connectDB();
         const { searchParams } = new URL(request.url);

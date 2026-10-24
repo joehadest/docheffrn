@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/adminSession';
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import dns from 'dns';
@@ -51,6 +52,8 @@ try {
 }
 
 export async function PATCH(request: Request) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
 	await connectDB();
 	const body = await request.json();
 	let updated = [];
@@ -74,6 +77,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
 	await connectDB();
 	const body = await request.json();
 	if (!body.value || !body.label) {
@@ -91,6 +96,8 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
 	await connectDB();
 	const body = await request.json();
 	if (!body._id || !body.value || !body.label) {
@@ -112,6 +119,8 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
 	await connectDB();
 	const body = await request.json();
 	if (!body._id) {

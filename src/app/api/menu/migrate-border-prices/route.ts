@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/adminSession';
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/menuModel';
 import MenuItem from '@/lib/menuModel';
@@ -8,7 +9,9 @@ import MenuItem from '@/lib/menuModel';
  * — mesma proporção que já era cobrada de fato no carrinho antes desta mudança.
  * Rodar uma vez manualmente após o deploy; itens já migrados são ignorados.
  */
-export async function POST() {
+export async function POST(request: Request) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     try {
         await connectDB();
 

@@ -1,0 +1,693 @@
+/* ==========================================================================
+   Deliveries: dispatch board, delivery cards and courier management.
+   ========================================================================== */
+
+.admin-theme .admin-deliveries :is(.admin-heading-actions, .delivery-courier-toolbar) > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.admin-theme .delivery-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* ---------- Work list: queue tabs and filters ---------- */
+.admin-theme .delivery-worklist {
+  margin-bottom: 18px;
+  padding: clamp(16px, 2vw, 22px);
+  border: 1px solid var(--ad-line);
+  border-radius: var(--ad-r-xl);
+  background: var(--ad-card-bg);
+  box-shadow: var(--ad-shadow-card);
+}
+
+.admin-theme .delivery-queues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.admin-theme .delivery-queues button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--ad-line-2);
+  border-radius: 999px;
+  background: rgb(255 238 218 / 0.04);
+  color: var(--ad-text-2);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  transition:
+    background var(--ad-fast),
+    border-color var(--ad-fast),
+    color var(--ad-fast);
+}
+
+.admin-theme .delivery-queues button:hover {
+  border-color: var(--ad-line-3);
+  background: rgb(255 238 218 / 0.08);
+}
+
+.admin-theme .delivery-queues button span {
+  min-width: 24px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgb(255 238 218 / 0.09);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-theme .delivery-queues button[aria-pressed='true'] span {
+  background: rgb(238 75 51 / 0.3);
+  color: #fff;
+}
+
+.admin-theme .delivery-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.admin-theme .delivery-filters > label {
+  flex: 1;
+  min-width: 190px;
+}
+
+.admin-theme .delivery-filters > .delivery-search {
+  flex: 2;
+  min-width: 230px;
+}
+
+.admin-theme .delivery-filters .form-label,
+.admin-theme .delivery-courier-form .form-label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.admin-theme .delivery-filters .form-input,
+.admin-theme .delivery-detail-grid .form-input {
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-theme .delivery-search-field {
+  position: relative;
+  display: block;
+}
+
+.admin-theme .delivery-search-field > svg {
+  position: absolute;
+  top: 50%;
+  left: 15px;
+  z-index: 1;
+  color: var(--ad-faint);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.admin-theme .delivery-search-field > input {
+  padding-left: 42px;
+}
+
+.admin-theme .delivery-result-count {
+  margin-bottom: 18px;
+  color: var(--ad-muted);
+  font-size: 0.8125rem;
+}
+
+/* ---------- Delivery cards ---------- */
+.admin-theme .delivery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+
+.admin-theme .delivery-card {
+  --ops-accent: var(--ad-ok);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 20px 20px 20px 24px;
+  overflow: hidden;
+  border: 1px solid var(--ad-line);
+  border-radius: var(--ad-r-xl);
+  background: var(--ad-card-bg);
+  box-shadow: var(--ad-shadow-card);
+  transition:
+    border-color var(--ad-med) var(--ad-ease),
+    box-shadow var(--ad-med) var(--ad-ease),
+    transform var(--ad-med) var(--ad-ease);
+}
+
+.admin-theme .delivery-card:has(.delivery-status-em_entrega) {
+  --ops-accent: var(--ad-violet);
+}
+
+.admin-theme .delivery-card:has(.delivery-status-entregue) {
+  --ops-accent: #7fe3c8;
+}
+
+.admin-theme .delivery-card::before {
+  content: '';
+  position: absolute;
+  top: 18px;
+  bottom: 18px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--ops-accent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--ops-accent) 65%, transparent);
+}
+
+.admin-theme .delivery-card:hover {
+  border-color: var(--ad-line-3);
+  box-shadow: var(--ad-shadow-lift);
+  transform: translateY(-2px);
+}
+
+.admin-theme .delivery-card-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.admin-theme .delivery-order-number {
+  color: var(--ad-text-2);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-theme .delivery-status {
+  padding: 4px 11px;
+  border: 1px solid var(--ad-ok-line);
+  border-radius: 999px;
+  background: var(--ad-ok-bg);
+  color: var(--ad-ok);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.admin-theme .delivery-status-em_entrega {
+  border-color: var(--ad-violet-line);
+  background: var(--ad-violet-bg);
+  color: var(--ad-violet);
+}
+
+.admin-theme .delivery-status-entregue {
+  border-color: rgb(127 227 200 / 0.3);
+  background: rgb(127 227 200 / 0.12);
+  color: #7fe3c8;
+}
+
+.admin-theme .delivery-card h2 {
+  color: var(--ad-text);
+  font-family: var(--ad-font-display);
+  font-size: 1.1875rem;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.admin-theme .delivery-elapsed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 18px;
+  color: var(--ad-muted);
+  font-size: 0.75rem;
+}
+
+.admin-theme .delivery-address {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  color: var(--ad-text-2);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.admin-theme .delivery-address > svg {
+  flex-shrink: 0;
+  margin-top: 4px;
+  color: var(--ad-accent-hi);
+}
+
+.admin-theme .delivery-address p {
+  overflow-wrap: anywhere;
+}
+
+.admin-theme .delivery-card-courier {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0;
+  padding: 11px 14px;
+  border: 1px solid var(--ad-line-2);
+  border-radius: var(--ad-r-md);
+  background: var(--ad-field);
+  color: var(--ad-text-2);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.admin-theme .delivery-card-courier svg {
+  flex-shrink: 0;
+  color: var(--ad-violet);
+}
+
+.admin-theme .delivery-amounts {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+  font-size: 0.8125rem;
+}
+
+.admin-theme .delivery-amounts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-theme .delivery-amounts dt {
+  color: var(--ad-muted);
+}
+
+.admin-theme .delivery-amounts dd {
+  color: var(--ad-text);
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.admin-theme .delivery-note {
+  margin: 0 0 14px;
+  padding: 11px 14px;
+  border: 1px solid var(--ad-warn-line);
+  border-radius: var(--ad-r-md);
+  background: var(--ad-warn-bg);
+  color: #f6d9a1;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.admin-theme .delivery-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.admin-theme .delivery-card-actions button {
+  width: 100%;
+}
+
+/* ---------- Feedback ---------- */
+.admin-theme .delivery-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 170px;
+  color: var(--ad-muted);
+  font-size: 0.9375rem;
+}
+
+.admin-theme .delivery-alert,
+.admin-theme .delivery-success {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border-radius: var(--ad-r-md);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.admin-theme .delivery-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--ad-danger-line);
+  background: var(--ad-danger-bg);
+  color: #ffc9c0;
+}
+
+.admin-theme .delivery-alert button {
+  min-height: 36px;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.admin-theme .delivery-success {
+  border: 1px solid var(--ad-ok-line);
+  background: var(--ad-ok-bg);
+  color: #aeeed0;
+}
+
+.admin-theme .delivery-footnote {
+  margin-top: 16px;
+  color: var(--ad-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.admin-theme .delivery-load-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+/* ---------- Details dialog ---------- */
+.admin-theme .delivery-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-theme .delivery-detail-full {
+  grid-column: 1 / -1;
+}
+
+.admin-theme .delivery-detail-grid .admin-dialog-section > p {
+  margin-top: 10px;
+  color: var(--ad-text-2);
+  font-size: 0.875rem;
+}
+
+.admin-theme .delivery-detail-grid .admin-dialog-section > strong {
+  font-size: 1rem;
+}
+
+.admin-theme .delivery-phone {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  min-height: 44px;
+  padding-block: 8px;
+  color: var(--ad-info);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.admin-theme .delivery-phone:hover {
+  color: #b5d8ff;
+}
+
+.admin-theme .delivery-items {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-theme .delivery-items > li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid var(--ad-line);
+  font-size: 0.875rem;
+}
+
+.admin-theme .delivery-items > li:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.admin-theme .delivery-items > li > div {
+  min-width: 0;
+}
+
+.admin-theme .delivery-items > li > span {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-theme .delivery-items p {
+  margin-top: 4px;
+  color: var(--ad-muted);
+  font-size: 0.8125rem;
+}
+
+.admin-theme .delivery-history {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-theme .delivery-history > li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  padding: 12px 0 12px 22px;
+  border-bottom: 1px solid var(--ad-line);
+  font-size: 0.8125rem;
+}
+
+.admin-theme .delivery-history > li::before {
+  content: '';
+  position: absolute;
+  top: 18px;
+  left: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ad-accent);
+  box-shadow: 0 0 0 4px var(--ad-accent-bg);
+}
+
+.admin-theme .delivery-history > li:last-child {
+  border-bottom: 0;
+}
+
+.admin-theme .delivery-history time {
+  color: var(--ad-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-theme .delivery-history p {
+  grid-column: 1 / -1;
+  color: var(--ad-muted);
+}
+
+/* ---------- Couriers ---------- */
+.admin-theme .delivery-courier-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.admin-theme .delivery-courier-toolbar p {
+  color: var(--ad-muted);
+  font-size: 0.875rem;
+}
+
+.admin-theme .delivery-courier-form {
+  margin-bottom: 20px;
+}
+
+.admin-theme .delivery-active-check {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  margin-top: 12px;
+  color: var(--ad-text-2);
+  font-size: 0.875rem;
+}
+
+.admin-theme .delivery-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.admin-theme .delivery-courier-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-theme .delivery-courier-list > li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--ad-line);
+  border-radius: var(--ad-r-lg);
+  background: rgb(255 244 232 / 0.025);
+}
+
+.admin-theme .delivery-courier-avatar {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--ad-violet-line);
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgb(191 169 255 / 0.28), rgb(191 169 255 / 0.1));
+  color: #e4daff;
+  font-family: var(--ad-font-display);
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.admin-theme .delivery-courier-info {
+  display: grid;
+  flex: 1;
+  gap: 3px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-theme .delivery-courier-info strong {
+  font-size: 0.9375rem;
+}
+
+.admin-theme .delivery-courier-info a {
+  color: var(--ad-info);
+  font-size: 0.8125rem;
+}
+
+.admin-theme .delivery-courier-info small {
+  color: var(--ad-muted);
+  font-size: 0.75rem;
+}
+
+.admin-theme .delivery-courier-state {
+  padding: 4px 11px;
+  border: 1px solid var(--ad-line-2);
+  border-radius: 999px;
+  background: rgb(255 238 218 / 0.06);
+  color: var(--ad-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.admin-theme .delivery-courier-state.is-active {
+  border-color: var(--ad-ok-line);
+  background: var(--ad-ok-bg);
+  color: var(--ad-ok);
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+@media (max-width: 1250px) {
+  .admin-theme .delivery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-theme .delivery-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .admin-theme .delivery-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-theme .delivery-stats {
+    gap: 12px;
+  }
+
+  .admin-theme .delivery-stats .admin-stat {
+    padding: 16px;
+  }
+
+  .admin-theme .delivery-stats .admin-stat-top > span {
+    display: none;
+  }
+
+  .admin-theme .delivery-queues {
+    gap: 6px;
+  }
+
+  .admin-theme .delivery-queues button {
+    flex: 1 1 100%;
+    justify-content: space-between;
+  }
+
+  .admin-theme .delivery-filters > label,
+  .admin-theme .delivery-filters > .delivery-search {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  .admin-theme .delivery-filters > button {
+    width: 100%;
+  }
+
+  .admin-theme .delivery-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-theme .delivery-courier-list > li {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .admin-theme .delivery-courier-list > li > button {
+    width: 100%;
+  }
+
+  .admin-theme .delivery-courier-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+  }
+
+  .admin-theme .delivery-form-actions > button {
+    flex: 1;
+  }
+
+  .admin-theme .delivery-history > li {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (hover: none) {
+  .admin-theme .delivery-card:hover {
+    transform: none;
+  }
+}

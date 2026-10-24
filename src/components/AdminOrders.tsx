@@ -2,38 +2,20 @@
 import { useAdminConfirm } from './admin/useAdminConfirm';
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import AdminDialog from './admin/AdminDialog';
+import AdminDeliveries from './admin/AdminDeliveries';
+import { AdminDataProvider } from '@/contexts/AdminDataContext';
 import { PageHeading, EmptyState } from './admin/AdminUI';
-import { FaShareAlt, FaClipboardList } from 'react-icons/fa';
+import { FaShareAlt, FaClipboardList, FaSyncAlt, FaList, FaColumns, FaClock, FaSearch, FaVolumeUp, FaVolumeMute, FaChevronLeft, FaChevronRight, FaMotorcycle, FaArrowLeft } from 'react-icons/fa';
 import { Pedido } from '../types/cart';
 import { motion, AnimatePresence } from 'framer-motion';
-
-interface Endereco {
-    street: string;
-    number: string;
-    complement?: string;
-    neighborhood: string;
-    zipCode: string;
-    deliveryFee: number;
-    estimatedTime: string;
-}
-
-interface PedidoItem {
-    nome: string;
-    quantidade: number;
-    preco: number;
-    observacao?: string;
-    size?: string;
-    border?: string;
-    extras?: string[];
-}
-
-interface Cliente {
-    nome: string;
-    telefone: string;
-}
+import { financialOrderTotal, FINANCE_TIME_ZONE } from '@/utils/financePeriod';
+import { ORDER_STATUSES, ORDER_STATUS_LABELS, ORDER_CHANNEL_LABELS, nextOrderStatus, nextOrderAction, filterOperationOrders, isActiveOrder, orderElapsedLabel } from './admin/orderOperations';
+import './admin/admin-operations.css';
+import './admin/admin-orders.css';
 
 type PedidoStatus = 'pendente' | 'preparando' | 'pronto' | 'em_entrega' | 'entregue' | 'cancelado';
-type DateFilter = 'today' | 'all'; // Novo tipo para o filtro de data
+type DateFilter = 'active' | 'today' | 'all';
+const ORDERS_PER_PAGE = 12;
 
 // Componente para a notificação de atualização de status
 const StatusUpdateToast = ({ message, onDone }: { message: string, onDone: () => void }) => {
@@ -49,9 +31,9 @@ const StatusUpdateToast = ({ message, onDone }: { message: string, onDone: () =>
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.5 }}
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-            role="status" className="fixed bottom-4 right-4 z-50"
+            role="status" className="admin-toast"
         >
-            <div className="bg-blue-600/90 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-3 border border-blue-400">
+            <div className="admin-toast-body">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 <span className="text-sm font-medium">{message}</span>
             </div>
@@ -61,6 +43,15 @@ const StatusUpdateToast = ({ message, onDone }: { message: string, onDone: () =>
 
 
 export default function AdminOrders() {
+    const [deliveryView, setDeliveryView] = useState<{ orderId?: string } | null>(null);
+    if (deliveryView) return <AdminDataProvider><div className="orders-deliveries-view">
+        <div className="orders-deliveries-navigation"><button type="button" className="form-button-secondary" onClick={() => setDeliveryView(null)}><FaArrowLeft aria-hidden="true" /> Voltar aos pedidos</button></div>
+        <AdminDeliveries initialOrderId={deliveryView.orderId} />
+    </div></AdminDataProvider>;
+    return <OrdersWorkspace onOpenDeliveries={orderId => setDeliveryView({ orderId })} />;
+}
+
+function OrdersWorkspace({ onOpenDeliveries }: { onOpenDeliveries: (orderId?: string) => void }) {
   const { confirm, confirmationDialog } = useAdminConfirm();
     const [pedidos, setPedidos] = useState<Pedido[]>([]);
     const [loading, setLoading] = useState(true);
@@ -68,9 +59,15 @@ export default function AdminOrders() {
     const [pedidoSelecionado, setPedidoSelecionado] = useState<Pedido | null>(null);
     const [mensagem, setMensagem] = useState<string | null>(null);
     const [pixKey, setPixKey] = useState('84987291269'); // (84) 98729-1269
-    const [phoneFilter, setPhoneFilter] = useState('');
+    const [searchFilter, setSearchFilter] = useState('');
+    const [channelFilter, setChannelFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
-    const [dateFilter, setDateFilter] = useState<DateFilter>('today'); // Novo estado para filtro de data
+    const [dateFilter, setDateFilter] = useState<DateFilter>('active');
+    const [view, setView] = useState<'list' | 'board'>('board');
+    const [listPage, setListPage] = useState(1);
+    const [now, setNow] = useState(() => Date.now());
+    const [refreshing, setRefreshing] = useState(false);
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
     const [newOrderNotification, setNewOrderNotification] = useState<string | null>(null);
     const [statusUpdateToast, setStatusUpdateToast] = useState<string | null>(null);
@@ -80,9 +77,16 @@ export default function AdminOrders() {
     const firstLoadRef = useRef<boolean>(true);
     const userInteractedRef = useRef<boolean>(false);
     const lastHeardOrderIdsRef = useRef<Set<string>>(new Set());
+    const knownOrderIdsRef = useRef<Set<string>>(new Set());
     const sseRef = useRef<EventSource | null>(null);
+    const resultsRef = useRef<HTMLDivElement | null>(null);
     const soundLoopRef = useRef<number | null>(null);
     const soundLoopCountRef = useRef<number>(0);
+
+    useEffect(() => {
+        const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+        return () => window.clearInterval(timer);
+    }, []);
 
 
     // Bloqueia scroll quando modal de pedido aberto
@@ -163,14 +167,16 @@ export default function AdminOrders() {
     const fetchPedidos = useCallback(async (isPolling = false) => {
         try {
             if (!isPolling) setLoading(true);
+            else setRefreshing(true);
             const res = await fetch(`/api/pedidos?ts=${Date.now()}`, { cache: 'no-store' });
             const data = await res.json();
-            if (!data.success || !Array.isArray(data.data)) {
+            if (!res.ok || !data.success || !Array.isArray(data.data)) {
                 throw new Error('Falha ao carregar pedidos');
             }
 
             setLoadError(null);
-            const allFetchedPedidos = data.data;
+            const allFetchedPedidos: Pedido[] = data.data;
+            setLastUpdated(new Date());
 
             if (firstLoadRef.current) {
                 firstLoadRef.current = false;
@@ -187,12 +193,21 @@ export default function AdminOrders() {
                 }
             } else {
                 setPedidos(allFetchedPedidos);
+                const newOrders = allFetchedPedidos.filter(order => !knownOrderIdsRef.current.has(order._id) && !lastHeardOrderIdsRef.current.has(order._id) && order.status === 'pendente');
+                if (newOrders.length) {
+                    setNewOrderNotification(newOrders.length === 1 ? `Novo pedido recebido! #${newOrders[0]._id.slice(-6)}` : `${newOrders.length} novos pedidos recebidos!`);
+                    newOrders.forEach(order => lastHeardOrderIdsRef.current.add(order._id));
+                    if (userInteractedRef.current) await playNotificationSound();
+                }
             }
+            knownOrderIdsRef.current = new Set(allFetchedPedidos.map(order => order._id));
+            setPedidoSelecionado(previous => previous ? allFetchedPedidos.find(order => order._id === previous._id) || null : null);
         } catch (err) {
             setLoadError('Não foi possível atualizar os pedidos. Os dados exibidos podem estar desatualizados.');
             console.error('Erro ao buscar pedidos:', err);
         } finally {
             if (!isPolling) setLoading(false);
+            setRefreshing(false);
         }
     }, [playNotificationSound]);
 
@@ -217,6 +232,7 @@ export default function AdminOrders() {
                     const single = await res.json();
                     if (single?.success && single.data) {
                         const pedidoNovo: Pedido = single.data;
+                        knownOrderIdsRef.current.add(pedidoNovo._id);
                         setPedidos(prev => [pedidoNovo, ...prev.filter(p => p._id !== pedidoNovo._id)]);
                         if (userInteractedRef.current && !lastHeardOrderIdsRef.current.has(pedidoNovo._id)) {
                             await playNotificationSound();
@@ -232,18 +248,18 @@ export default function AdminOrders() {
                     if (single?.success && single.data) {
                         const pedidoAtualizado: Pedido = single.data;
                         setPedidos(prev => prev.map(p => p._id === pedidoAtualizado._id ? pedidoAtualizado : p));
+                        setPedidoSelecionado(previous => previous?._id === pedidoAtualizado._id ? pedidoAtualizado : previous);
                         setNewOrderNotification(`Comprovante recebido para pedido #${String(pedidoAtualizado._id).slice(-6)}`);
                         if (userInteractedRef.current) {
                             await playNotificationSound();
                         }
                     }
                 }
+                if (payload?.type === 'pedido-atualizado' || payload?.type === 'status-atualizado') await fetchPedidos(true);
             } catch (e) { console.warn('Falha ao processar evento SSE', e); }
         };
-        es.onerror = () => {
-            es.close(); sseRef.current = null;
-            setTimeout(() => { if (!sseRef.current) fetchPedidos(true); }, 5000);
-        };
+        // EventSource reconnects automatically; polling continues if serverless instances do not share events.
+        es.onerror = () => { fetchPedidos(true); };
         return () => { es.close(); sseRef.current = null; };
     }, [fetchPedidos, playNotificationSound]);
 
@@ -266,7 +282,7 @@ export default function AdminOrders() {
             clearInterval(soundLoopRef.current);
             soundLoopRef.current = null;
         }
-        return () => { if (soundLoopRef.current) clearInterval(soundLoopRef.current); };
+        return () => { if (soundLoopRef.current) clearInterval(soundLoopRef.current); soundLoopRef.current = null; };
     }, [newOrderNotification, soundEnabled, playNotificationSound]);
 
     const handleRemoverPedido = async (id: string) => {
@@ -304,7 +320,7 @@ export default function AdminOrders() {
         const subtotal = calcularSubtotal(pedido);
         const total = calcularTotal(pedido);
         const mensagem = `*Do'Cheff - Pedido #${pedido._id.slice(-6)}*\n\n` +
-            `*Data:* ${new Date(pedido.data).toLocaleString('pt-BR')}\n` +
+            `*Data:* ${formatDate(pedido.data)}\n` +
             `*Status:* ${getStatusText(pedido.status)}\n\n` +
             `*Cliente:*\nNome: ${pedido.cliente.nome}\nTelefone: ${pedido.cliente.telefone}\n\n` +
             `*Endereço de Entrega:*\n${enderecoFormatado}\n\n` +
@@ -323,37 +339,30 @@ export default function AdminOrders() {
     };
 
     const updateOrderStatus = async (orderId: string, newStatus: PedidoStatus) => {
+        const current = pedidos.find(order => order._id === orderId);
+        if (!current || updatingStatus) return;
         try {
             setUpdatingStatus(orderId);
-            const res = await fetch(`/api/pedidos?id=${orderId}`, {
+            const res = await fetch(`/api/admin/orders/${orderId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus }),
+                body: JSON.stringify({ status: newStatus, expectedStatus: current.status }),
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.message || 'Erro ao atualizar status do pedido');
+            if (!res.ok) {
+                if (res.status === 409) await fetchPedidos(true);
+                throw new Error(data.message || data.error || 'Erro ao atualizar status do pedido');
+            }
             if (data.success) {
                 setPedidos(prev => prev.map(order => order._id === orderId ? { ...order, status: newStatus } : order));
+                setPedidoSelecionado(previous => previous?._id === orderId ? { ...previous, status: newStatus } : previous);
                 setStatusUpdateToast(`Pedido #${orderId.slice(-6)}: ${getStatusText(newStatus)}`);
-                const timestamp = new Date().toLocaleString('pt-BR');
-                const message = `Status do seu pedido #${orderId.slice(-6)} foi atualizado para: ${getStatusText(newStatus)}`;
-                await fetch('/api/notifications', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        clientId: pedidos.find(p => p._id === orderId)?.cliente.telefone,
-                        orderId,
-                        status: newStatus,
-                        message,
-                        timestamp
-                    }),
-                });
             } else {
                 throw new Error(data.message || 'Erro ao atualizar status do pedido');
             }
         } catch (err) {
             console.error('Erro ao atualizar status:', err);
-            setStatusUpdateToast('Erro ao atualizar status.');
+            setStatusUpdateToast(err instanceof Error ? err.message : 'Erro ao atualizar status.');
         } finally {
             setUpdatingStatus(null);
         }
@@ -377,49 +386,72 @@ export default function AdminOrders() {
         cancelado: 'Cancelado'
     }[status]);
 
-    const getNextStatus = (currentStatus: PedidoStatus): PedidoStatus | null => {
-        const flow: Record<PedidoStatus, PedidoStatus | null> = {
-            pendente: 'preparando',
-            preparando: 'pronto',
-            pronto: 'em_entrega',
-            em_entrega: 'entregue',
-            entregue: null,
-            cancelado: null,
-        };
-        return flow[currentStatus];
-    };
-
-    const formatDate = (dateString: string) => new Date(dateString).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const formatDate = (dateString: string) => new Date(dateString).toLocaleString('pt-BR', { timeZone: FINANCE_TIME_ZONE, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     const calcularSubtotal = (pedido: Pedido) =>
         pedido.itens.reduce((acc, item) => acc + (item.preco * item.quantidade), 0);
 
     const calcularTaxaEntrega = (pedido: Pedido) =>
         pedido.tipoEntrega === 'entrega' ? (pedido.endereco?.deliveryFee ?? 0) : 0;
 
-    // Usa o total gravado se válido (> 0), senão reconstrói a partir dos itens + taxa
-    const calcularTotal = (pedido: Pedido) => {
-        if (pedido.total != null && pedido.total > 0) return pedido.total;
-        return calcularSubtotal(pedido) + calcularTaxaEntrega(pedido);
+    const calcularTotal = financialOrderTotal;
+    const filteredPedidos = filterOperationOrders(pedidos, { search: searchFilter, status: statusFilter, channel: channelFilter, period: dateFilter }, new Date(now));
+    const visibleStatuses = ORDER_STATUSES.filter(status => statusFilter
+        ? status === statusFilter
+        : (dateFilter === 'active' && status !== 'entregue' && status !== 'cancelado') || filteredPedidos.some(order => order.status === status));
+    const pendingCount = pedidos.filter(order => order.status === 'pendente').length;
+    const activeCount = pedidos.filter(isActiveOrder).length;
+    const pageCount = Math.max(1, Math.ceil(filteredPedidos.length / ORDERS_PER_PAGE));
+    const currentPage = Math.min(listPage, pageCount);
+    const firstListIndex = (currentPage - 1) * ORDERS_PER_PAGE;
+    const listOrders = [...filteredPedidos]
+        .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+        .slice(firstListIndex, firstListIndex + ORDERS_PER_PAGE);
+    const hasFilters = searchFilter || statusFilter || channelFilter || dateFilter !== 'active';
+
+    const changeDateFilter = (period: DateFilter) => {
+        setDateFilter(period);
+        setListPage(1);
+        if (period === 'active' && (statusFilter === 'entregue' || statusFilter === 'cancelado')) setStatusFilter('');
     };
 
-    const getLocalDateString = (date: Date) => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+    const clearFilters = () => {
+        setSearchFilter('');
+        setStatusFilter('');
+        setChannelFilter('');
+        setDateFilter('active');
+        setListPage(1);
     };
 
-    const filteredPedidos = pedidos.filter(pedido => {
-        const todayString = getLocalDateString(new Date());
-        const orderDate = new Date(pedido.data);
-        const orderDateString = getLocalDateString(orderDate);
+    const changeListPage = (page: number) => {
+        setListPage(page);
+        resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
 
-        const matchesDate = dateFilter === 'all' || orderDateString === todayString;
-        const matchesPhone = !phoneFilter || pedido.cliente?.telefone?.includes(phoneFilter);
-        const matchesStatus = !statusFilter || pedido.status === statusFilter;
+    const cancelOrder = async (order: Pedido) => {
+        if (!await confirm({ title: 'Cancelar pedido?', message: `O pedido #${order._id.slice(-6)} ficará marcado como cancelado e continuará no histórico.`, confirmLabel: 'Cancelar pedido', destructive: true })) return;
+        await updateOrderStatus(order._id, 'cancelado');
+    };
 
-        return matchesDate && matchesPhone && matchesStatus;
-    });
+    const renderOrderCard = (pedido: Pedido) => (
+        <article className="ops-order-card" data-status={pedido.status}>
+            <div className="ops-order-card-top"><strong>#{pedido._id.slice(-6)}</strong><span className="ops-channel">{ORDER_CHANNEL_LABELS[pedido.tipoEntrega] || 'Pedido'}{pedido.tipoEntrega === 'local' && pedido.mesa ? ` · ${pedido.mesa}` : ''}</span></div>
+            <div className="orders-card-customer">
+                <h3>{pedido.cliente?.nome || 'Cliente não informado'}</h3>
+                <p className="ops-order-phone">{pedido.cliente?.telefone || (pedido.tipoEntrega === 'local' ? 'Atendimento presencial' : 'Telefone não informado')}</p>
+            </div>
+            <div className="ops-order-items">{pedido.itens.slice(0, 2).map((item, index) => <p key={index}>{item.quantidade}× {item.nome}{item.size ? ` (${item.size})` : ''}</p>)}{pedido.itens.length > 2 && <p className="ops-muted">+ {pedido.itens.length - 2} {pedido.itens.length - 2 === 1 ? 'item' : 'itens'}</p>}{pedido.itens.length === 0 && <p className="ops-muted">Sem itens lançados</p>}</div>
+            <div className="ops-order-totals"><strong>{calcularTotal(pedido).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong><span className={`ops-status-badge ${getStatusColor(pedido.status)}`}>{getStatusText(pedido.status)}</span></div>
+            <p className="ops-order-time" title={formatDate(pedido.data)}><FaClock aria-hidden="true" /> {isActiveOrder(pedido) ? orderElapsedLabel(pedido.data, now) : formatDate(pedido.data)}</p>
+            <div className="ops-order-actions">
+                {nextOrderStatus(pedido) && (pedido.tipoEntrega === 'entrega' && pedido.status === 'pronto' && !pedido.deliveryAssignment
+                    ? <button type="button" className="form-button-primary ops-next-button" onClick={() => onOpenDeliveries(pedido._id)}>Atribuir entregador</button>
+                    : <button type="button" disabled={!!updatingStatus} className="form-button-primary ops-next-button" onClick={() => updateOrderStatus(pedido._id, nextOrderStatus(pedido)!)}>{updatingStatus === pedido._id ? 'Salvando…' : nextOrderAction(pedido)}</button>)}
+                <button type="button" className="form-button-secondary" onClick={() => setPedidoSelecionado(pedido)}>Detalhes</button>
+                <button type="button" className="form-button-secondary ops-share-button" aria-label={`Compartilhar pedido ${pedido._id.slice(-6)}`} onClick={() => handleCompartilharPedido(pedido)}><FaShareAlt aria-hidden="true" /></button>
+            </div>
+            {pedido.tipoEntrega === 'local' && pedido.status === 'pronto' && <p className="ops-local-note">Finalize o pagamento e feche a conta em Mesas.</p>}
+        </article>
+    );
 
 
     if (loading) return (
@@ -430,9 +462,28 @@ export default function AdminOrders() {
     );
 
     return (
-        <div className="admin-page">
+        <div className="admin-page orders-page">
       {confirmationDialog}
-            <PageHeading title="Pedidos" description="Acompanhe cada etapa do atendimento e os novos pedidos em tempo real." />
+            <PageHeading title="Central de pedidos" description="Acompanhe a fila, confira os detalhes e avance cada pedido.">
+                <button type="button" className="form-button-secondary" onClick={() => onOpenDeliveries()}><FaMotorcycle aria-hidden="true" /> Entregas</button>
+                <details className="orders-sound-menu">
+                    <summary className="form-button-secondary">{soundEnabled ? <FaVolumeUp aria-hidden="true" /> : <FaVolumeMute aria-hidden="true" />} Alertas</summary>
+                    <div className="orders-sound-panel">
+                        <strong>Alertas de novos pedidos</strong>
+                        <button type="button" className="admin-pill-button" aria-pressed={soundEnabled} onClick={() => { const next = !soundEnabled; setSoundEnabled(next); localStorage.setItem('ordersSoundEnabled', String(next)); }}>
+                            {soundEnabled ? <FaVolumeUp aria-hidden="true" /> : <FaVolumeMute aria-hidden="true" />} Som {soundEnabled ? 'ativado' : 'desativado'}
+                        </button>
+                        <button type="button" onClick={playNotificationSound} className="form-button-secondary">Testar som</button>
+                        {!audioReady && <p>Clique em testar som para liberar o áudio neste navegador.</p>}
+                    </div>
+                </details>
+                <button type="button" className="form-button-secondary" disabled={refreshing} onClick={() => fetchPedidos(true)}><FaSyncAlt className={refreshing ? 'animate-spin' : ''} aria-hidden="true" /> {refreshing ? 'Atualizando…' : 'Atualizar'}</button>
+            </PageHeading>
+            <div className="ops-summary-strip orders-summary">
+                <span><strong>{activeCount}</strong> em andamento</span>
+                <span><strong>{pendingCount}</strong> aguardando preparo</span>
+                <span className="ops-updated">{lastUpdated ? `Atualizado às ${lastUpdated.toLocaleTimeString('pt-BR', { timeZone: FINANCE_TIME_ZONE, hour: '2-digit', minute: '2-digit' })}` : 'Aguardando atualização'}</span>
+            </div>
             {loadError && <div role="alert" className="admin-toolbar mb-4 text-red-300 text-sm flex flex-wrap gap-3 items-center justify-between"><p>{loadError}</p><button type="button" className="form-button-secondary" onClick={() => fetchPedidos(false)}>Tentar novamente</button></div>}
             <AnimatePresence>
                 {newOrderNotification && (
@@ -464,94 +515,63 @@ export default function AdminOrders() {
                     <StatusUpdateToast message={statusUpdateToast} onDone={() => setStatusUpdateToast(null)} />
                 )}
             </AnimatePresence>
-            <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
-                <button
-                    type="button"
-                    onClick={() => { const next = !soundEnabled; setSoundEnabled(next); localStorage.setItem('ordersSoundEnabled', String(next)); }}
-                    className={`px-3 py-1.5 rounded-md border text-xs font-semibold transition-colors ${soundEnabled ? 'bg-green-700/40 border-green-600 text-green-300 hover:bg-green-700/60' : 'bg-gray-700/40 border-gray-600 text-gray-300 hover:bg-gray-700/60'}`}
-                    aria-pressed={soundEnabled}
-                >
-                    Som: {soundEnabled ? 'Ativado' : 'Mutado'}
-                </button>
-                <button type="button" onClick={playNotificationSound} className="px-3 py-1.5 rounded-md border text-xs font-semibold transition-colors bg-blue-700/40 border-blue-600 text-blue-200 hover:bg-blue-700/60">
-                    Testar Som
-                </button>
-                {!audioReady && <span className="text-[11px] text-gray-400">Clique para liberar o áudio.</span>}
-            </div>
             <audio ref={audioRef} src="/sound/bell-notification-337658.mp3" preload="auto" className="hidden" />
-            <fieldset className="admin-toolbar mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Filtros de pedidos">
-                {/* Filtro de Período */}
-                <div className="lg:col-span-1">
-                    <label className="block text-sm font-medium text-gray-200 mb-2">Mostrar Pedidos</label>
-                    <div className="flex bg-[#2a2a2a] rounded-lg p-1 border border-gray-700">
-                        <button
-                            aria-pressed={dateFilter === 'today'} onClick={() => setDateFilter('today')}
-                            className={`flex-1 py-2 px-3 rounded-md text-xs font-semibold transition-colors ${dateFilter === 'today' ? 'bg-red-600 text-white shadow' : 'text-gray-300 hover:bg-gray-700'}`}
-                        >
-                            De Hoje
-                        </button>
-                        <button
-                            aria-pressed={dateFilter === 'all'} onClick={() => setDateFilter('all')}
-                            className={`flex-1 py-2 px-3 rounded-md text-xs font-semibold transition-colors ${dateFilter === 'all' ? 'bg-red-600 text-white shadow' : 'text-gray-300 hover:bg-gray-700'}`}
-                        >
-                            Todos
-                        </button>
+            <section className="orders-workspace" aria-label="Organização dos pedidos">
+                <div className="orders-workspace-header">
+                    <div className="orders-periods" role="group" aria-label="Período dos pedidos">
+                        <button type="button" aria-pressed={dateFilter === 'active'} onClick={() => changeDateFilter('active')}>Em andamento</button>
+                        <button type="button" aria-pressed={dateFilter === 'today'} onClick={() => changeDateFilter('today')}>Hoje</button>
+                        <button type="button" aria-pressed={dateFilter === 'all'} onClick={() => changeDateFilter('all')}>Histórico</button>
+                    </div>
+                    <div className="ops-view-switch" role="group" aria-label="Visualização dos pedidos">
+                        <button type="button" aria-pressed={view === 'board'} onClick={() => setView('board')}><FaColumns aria-hidden="true" /> Quadro</button>
+                        <button type="button" aria-pressed={view === 'list'} onClick={() => setView('list')}><FaList aria-hidden="true" /> Lista</button>
                     </div>
                 </div>
-
-                {/* Filtros existentes */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-2" htmlFor="filtro-telefone">Buscar por telefone</label>
-                    <input id="filtro-telefone" type="tel" value={phoneFilter} onChange={(e) => setPhoneFilter(e.target.value)} placeholder="Digite o telefone" className="form-input" />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-2" htmlFor="filtro-status">Filtrar por status</label>
-                    <div className="flex gap-2">
-                        <select id="filtro-status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="form-input">
-                            <option value="">Todos</option>
-                            <option value="pendente">Pendente</option>
-                            <option value="preparando">Preparando</option>
-                            <option value="pronto">Pronto</option>
-                            <option value="em_entrega">Em Entrega</option>
-                            <option value="entregue">Entregue</option>
-                            <option value="cancelado">Cancelado</option>
-                        </select>
-                        {(phoneFilter || statusFilter) && (
-                            <button type="button" onClick={() => { setPhoneFilter(''); setStatusFilter(''); }} className="form-button-secondary text-xs">Limpar</button>
-                        )}
+                <fieldset className="orders-filters" aria-label="Filtros de pedidos">
+                    <div className="orders-search">
+                        <label htmlFor="order-search">Buscar pedido</label>
+                        <div><FaSearch aria-hidden="true" /><input id="order-search" type="search" value={searchFilter} onChange={event => { setSearchFilter(event.target.value); setListPage(1); }} placeholder="Nome, telefone, número ou mesa" className="form-input" /></div>
                     </div>
+                    <div><label htmlFor="order-channel">Canal de atendimento</label><select id="order-channel" className="form-input" value={channelFilter} onChange={event => { setChannelFilter(event.target.value); setListPage(1); }}><option value="">Todos os canais</option><option value="entrega">Delivery</option><option value="retirada">Retirada</option><option value="local">Mesas</option></select></div>
+                    <div><label htmlFor="order-status">Status do pedido</label><select id="order-status" value={statusFilter} onChange={event => { const status = event.target.value; setStatusFilter(status); setListPage(1); if (dateFilter === 'active' && (status === 'entregue' || status === 'cancelado')) setDateFilter('all'); }} className="form-input"><option value="">Todos os status</option>{ORDER_STATUSES.map(status => <option key={status} value={status}>{getStatusText(status)}</option>)}</select></div>
+                </fieldset>
+                <div className="orders-filter-footer">
+                    <p>{dateFilter === 'active' ? 'Inclui pedidos em aberto de dias anteriores.' : dateFilter === 'today' ? 'Pedidos de hoje, no horário de Brasília.' : 'Todos os pedidos, inclusive concluídos e cancelados.'}</p>
+                    {hasFilters && <button type="button" className="ops-clear" onClick={clearFilters}>Limpar filtros</button>}
                 </div>
-            </fieldset>
-
-            {filteredPedidos.length === 0 ? (
-                <EmptyState>Nenhum pedido encontrado para os filtros selecionados.</EmptyState>
+            </section>
+            <div ref={resultsRef} className="ops-results-toolbar orders-results">
+                <p role="status"><strong>{filteredPedidos.length}</strong> {filteredPedidos.length === 1 ? 'pedido encontrado' : 'pedidos encontrados'}</p>
+                {filteredPedidos.length > 0 && <p><FaClock aria-hidden="true" /> {view === 'board' ? 'Mais antigos primeiro em cada etapa' : 'Mais recentes primeiro'}</p>}
+            </div>
+            {filteredPedidos.length === 0 ? <EmptyState>Nenhum pedido encontrado para os filtros selecionados.{hasFilters && <span className="orders-empty-actions"><button type="button" className="form-button-secondary" onClick={clearFilters}>Limpar filtros</button></span>}</EmptyState> : view === 'board' ? (
+                <div className={`ops-board${visibleStatuses.length === 1 ? ' orders-board-single' : ''}`} role="region" tabIndex={0} aria-label="Pedidos organizados por status" style={{ '--orders-column-count': visibleStatuses.length } as React.CSSProperties}>
+                    {visibleStatuses.map(status => {
+                        const orders = filteredPedidos.filter(order => order.status === status).sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+                        return (
+                            <section className="ops-column" data-status={status} key={status} aria-labelledby={`ops-column-${status}`}>
+                                <header className="ops-column-heading"><h2 id={`ops-column-${status}`}>{ORDER_STATUS_LABELS[status]}</h2><span>{orders.length}</span></header>
+                                {orders.length ? <ul className="ops-card-stack" tabIndex={0} aria-label={`Fila: ${ORDER_STATUS_LABELS[status]}`}>{orders.map(order => <li key={order._id}>{renderOrderCard(order)}</li>)}</ul> : <p className="ops-column-empty">Nenhum pedido nesta etapa.</p>}
+                            </section>
+                        );
+                    })}
+                </div>
             ) : (
-                <ul className="space-y-4">
-                    {filteredPedidos.map((pedido) => (
-                        <li key={pedido._id} className="bubble-card p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3" onMouseMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - r.left}px`); e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - r.top}px`); }}>
-                            <span className="bubble-glow" /><span className="bubble-press-overlay" /><span className="bubble-border-gradient" />
-                            <div className="bubble-content flex-1">
-                                <div className="font-semibold text-lg text-white">Pedido <span className="text-red-500">#{pedido._id.slice(-6)}</span></div>
-                                <div className="text-sm text-gray-400 mb-2">Data: {formatDate(pedido.data)}</div>
-                                <div className="font-bold text-red-500">Total: R$ {calcularTotal(pedido).toFixed(2)}</div>
-                                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                    <div className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(pedido.status)}`}>{getStatusText(pedido.status)}</div>
-                                    {getNextStatus(pedido.status) && (
-                                        <button onClick={() => updateOrderStatus(pedido._id, getNextStatus(pedido.status)!)} disabled={updatingStatus === pedido._id} className="form-button-primary text-xs py-1 px-2">{updatingStatus === pedido._id ? '...' : 'Próximo'}</button>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="flex flex-row flex-wrap gap-2 mt-2 sm:mt-0 sm:ml-4 sm:flex-col z-10 w-full sm:w-auto">
-                                <button className="form-button-primary" onClick={() => setPedidoSelecionado(pedido)}>Ver Detalhes</button>
-                                <button aria-label={`Compartilhar pedido ${pedido._id.slice(-6)}`} className="form-button-secondary" onClick={() => handleCompartilharPedido(pedido)}><FaShareAlt /></button>
-                                <button className="form-button-danger" onClick={() => handleRemoverPedido(pedido._id)}>Remover</button>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
+                <>
+                    <ul className="ops-order-list">{listOrders.map(order => <li key={order._id}>{renderOrderCard(order)}</li>)}</ul>
+                    {pageCount > 1 && <nav className="orders-pagination" aria-label="Paginação dos pedidos">
+                        <p>Exibindo {firstListIndex + 1}–{Math.min(firstListIndex + ORDERS_PER_PAGE, filteredPedidos.length)} de {filteredPedidos.length} pedidos</p>
+                        <div>
+                            <button type="button" className="form-button-secondary" aria-label="Página anterior" disabled={currentPage === 1} onClick={() => changeListPage(currentPage - 1)}><FaChevronLeft aria-hidden="true" /></button>
+                            <span role="status">Página {currentPage} de {pageCount}</span>
+                            <button type="button" className="form-button-secondary" aria-label="Próxima página" disabled={currentPage === pageCount} onClick={() => changeListPage(currentPage + 1)}><FaChevronRight aria-hidden="true" /></button>
+                        </div>
+                    </nav>}
+                </>
             )}
             {mensagem && (
-                <div role="status" className="mt-4 p-3 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded text-center font-semibold">{mensagem}</div>
+                <div role="status" className="admin-notice">{mensagem}</div>
             )}
             {pedidoSelecionado && (
                 <>
@@ -565,8 +585,10 @@ export default function AdminOrders() {
                     className="print-pedido"
                     footer={<>
                             <button className="flex-1 form-button-secondary" onClick={() => window.open(`/admin/print/${pedidoSelecionado._id}`, '_blank')}>Imprimir</button>
-                            {getNextStatus(pedidoSelecionado.status) && (
-                                <button className="flex-1 form-button-primary" onClick={() => { updateOrderStatus(pedidoSelecionado._id, getNextStatus(pedidoSelecionado.status)!); setPedidoSelecionado(null); }}>Próximo Status</button>
+                            {pedidoSelecionado.tipoEntrega === 'entrega' && pedidoSelecionado.status === 'pronto' && !pedidoSelecionado.deliveryAssignment ? (
+                                <button type="button" className="flex-1 form-button-primary" onClick={() => onOpenDeliveries(pedidoSelecionado._id)}>Atribuir entregador</button>
+                            ) : nextOrderStatus(pedidoSelecionado) && (
+                                <button disabled={!!updatingStatus} className="flex-1 form-button-primary" onClick={() => updateOrderStatus(pedidoSelecionado._id, nextOrderStatus(pedidoSelecionado)!)}>{updatingStatus === pedidoSelecionado._id ? 'Salvando…' : nextOrderAction(pedidoSelecionado)}</button>
                             )}
                     </>}
                 >
@@ -575,6 +597,8 @@ export default function AdminOrders() {
                             <div><span className="text-gray-400">Data:</span> <span className="text-white">{formatDate(pedidoSelecionado.data)}</span></div>
                             <div className="col-span-2"><span className="text-gray-400">Status:</span> <span className={`font-semibold px-2 py-1 rounded-md text-xs ${getStatusColor(pedidoSelecionado.status)}`}>{getStatusText(pedidoSelecionado.status)}</span></div>
                         </div>
+                        {pedidoSelecionado.tipoEntrega === 'local' && pedidoSelecionado.status === 'pronto' && <p className="ops-local-note mb-4">Finalize o pagamento e feche esta conta na aba Mesas.</p>}
+                        {pedidoSelecionado.observacoes && <div className="ops-kitchen-observation mb-4"><strong>Observações do pedido</strong><p>{pedidoSelecionado.observacoes}</p></div>}
                         <div className="admin-detail-grid">
                             <div className="admin-dialog-section">
                                 <h4 className="font-semibold text-gray-300 mb-2">Cliente</h4>
@@ -671,6 +695,7 @@ export default function AdminOrders() {
                             </div>
                             {/* ========== FIM DA ALTERAÇÃO ========== */}
                         </div>
+                        <div className="ops-detail-management"><p>Gerenciar este pedido</p><div>{isActiveOrder(pedidoSelecionado) && <button type="button" className="form-button-danger" disabled={!!updatingStatus} onClick={() => cancelOrder(pedidoSelecionado)}>Cancelar pedido</button>}<button type="button" className="form-button-secondary" onClick={() => handleCompartilharPedido(pedidoSelecionado)}>Compartilhar</button><button type="button" className="ops-delete" disabled={!!updatingStatus} onClick={() => handleRemoverPedido(pedidoSelecionado._id)}>Remover permanentemente</button></div></div>
                 </AdminDialog>
 
                     <style jsx global>{`

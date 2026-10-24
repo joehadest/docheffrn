@@ -1,0 +1,185 @@
+/* ==========================================================================
+   Admin design tokens — "Ember Ledger"
+   Warm charcoal surfaces, hairline borders and a single ember accent.
+   Every admin stylesheet reads from these variables, so the whole panel can
+   be re-tuned from this file. Scoped to .admin-theme: the public menu is
+   never affected.
+   ========================================================================== */
+
+.admin-theme {
+  color-scheme: dark;
+
+  /* Canvas and surfaces */
+  --ad-bg: #0c0b0a;
+  --ad-bg-raised: #11100e;
+  --ad-surface: #171513;
+  --ad-surface-2: #1e1b18;
+  --ad-surface-3: #282420;
+  --ad-field: #100f0d;
+  --ad-scrim: rgb(8 7 6 / 0.78);
+  --ad-card-bg:
+    linear-gradient(180deg, rgb(255 244 232 / 0.034), rgb(255 244 232 / 0.01)),
+    var(--ad-surface);
+
+  /* Hairlines */
+  --ad-line: rgb(255 238 218 / 0.085);
+  --ad-line-2: rgb(255 238 218 / 0.14);
+  --ad-line-3: rgb(255 238 218 / 0.24);
+
+  /* Text */
+  --ad-text: #f7f3ee;
+  --ad-text-2: #d8d0c5;
+  --ad-muted: #a79f93;
+  --ad-faint: #8b8378;
+
+  /* Brand */
+  --ad-accent: #ee4b33;
+  --ad-accent-hi: #ff9e8f;
+  --ad-btn-1: #d63a2a;
+  --ad-btn-2: #b81f1d;
+  --ad-accent-bg: rgb(238 75 51 / 0.13);
+  --ad-accent-bg-2: rgb(238 75 51 / 0.07);
+  --ad-accent-line: rgb(238 75 51 / 0.38);
+  --ad-focus: #ffb3a6;
+
+  /* Semantic colours: text, tint, border */
+  --ad-ok: #58d9a6;
+  --ad-ok-bg: rgb(88 217 166 / 0.13);
+  --ad-ok-line: rgb(88 217 166 / 0.3);
+  --ad-warn: #f6c05a;
+  --ad-warn-bg: rgb(246 192 90 / 0.13);
+  --ad-warn-line: rgb(246 192 90 / 0.3);
+  --ad-info: #7bbcff;
+  --ad-info-bg: rgb(123 188 255 / 0.13);
+  --ad-info-line: rgb(123 188 255 / 0.3);
+  --ad-violet: #bfa9ff;
+  --ad-violet-bg: rgb(191 169 255 / 0.13);
+  --ad-violet-line: rgb(191 169 255 / 0.3);
+  --ad-danger: #ff8f80;
+  --ad-danger-bg: rgb(255 111 92 / 0.12);
+  --ad-danger-line: rgb(255 111 92 / 0.34);
+
+  /* Shape */
+  --ad-r-xs: 8px;
+  --ad-r-sm: 10px;
+  --ad-r-md: 12px;
+  --ad-r-lg: 16px;
+  --ad-r-xl: 20px;
+  --ad-r-2xl: 26px;
+
+  /* Elevation */
+  --ad-shadow-card: inset 0 1px 0 rgb(255 244 232 / 0.045), 0 14px 34px -22px rgb(0 0 0 / 0.85);
+  --ad-shadow-lift: inset 0 1px 0 rgb(255 244 232 / 0.06), 0 22px 44px -24px rgb(0 0 0 / 0.9);
+  --ad-shadow-pop: 0 0 0 1px rgb(0 0 0 / 0.55), 0 40px 120px -24px rgb(0 0 0 / 0.95), 0 0 90px -40px rgb(238 75 51 / 0.35);
+  --ad-ring: 0 0 0 3px rgb(238 75 51 / 0.22);
+
+  /* Motion */
+  --ad-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ad-fast: 140ms;
+  --ad-med: 240ms;
+
+  /* Type */
+  --ad-font-display: var(--font-display), 'Bricolage Grotesque', system-ui, sans-serif;
+  --ad-font-body: var(--font-sans), 'DM Sans', system-ui, sans-serif;
+
+  /* Layout */
+  --ad-sidebar-w: 248px;
+  --ad-topbar-h: 64px;
+  --ad-page-max: 1480px;
+  --ad-page-pad: clamp(16px, 3vw, 40px);
+  --ad-bottom-nav-h: 66px;
+  --ad-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --ad-safe-top: env(safe-area-inset-top, 0px);
+
+  /* Legacy names still used by older rules and components */
+  --admin-bg: var(--ad-bg);
+  --admin-panel: var(--ad-surface);
+  --admin-line: var(--ad-line-2);
+  --admin-muted: var(--ad-muted);
+}
+
+/* The page scrollbar and overscroll area belong to <html>. */
+html:has(.admin-theme) {
+  color-scheme: dark;
+  background: #0c0b0a;
+  scrollbar-color: rgb(255 238 218 / 0.24) #0c0b0a;
+}
+
+@media (min-width: 1440px) {
+  .admin-theme {
+    --ad-sidebar-w: 272px;
+  }
+}
+
+@media (min-width: 1880px) {
+  .admin-theme {
+    --ad-page-max: 1680px;
+  }
+}
+
+@media (min-width: 2300px) {
+  .admin-theme {
+    --ad-page-max: 1920px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Tailwind palette remap. The admin markup still uses utilities such as
+   text-gray-400 or bg-red-950/50; pointing the theme variables at the warm
+   palette recolours all of them at once, only inside the admin.
+   -------------------------------------------------------------------------- */
+.admin-theme {
+  --color-gray-200: #e6dfd5;
+  --color-gray-300: #d2cabf;
+  --color-gray-400: #a79f93;
+  --color-gray-500: #988f84;
+  --color-gray-600: #8b8378;
+  --color-gray-700: #4a443d;
+  --color-gray-800: #2e2a25;
+
+  --color-red-100: #ffe3de;
+  --color-red-300: #ffb4a8;
+  --color-red-400: #ff8f80;
+  --color-red-500: #ff6f5c;
+  --color-red-600: #e5493a;
+  --color-red-700: #c3302a;
+  --color-red-800: #8c2420;
+  --color-red-900: #5e1c1a;
+  --color-red-950: #34100f;
+
+  --color-green-100: #d8f7e8;
+  --color-green-300: #94e8c2;
+  --color-green-400: #58d9a6;
+  --color-green-500: #34c48a;
+  --color-green-600: #23a371;
+  --color-green-700: #1c7e58;
+  --color-green-800: #175e43;
+  --color-green-900: #144536;
+  --color-green-950: #0e2b22;
+
+  --color-emerald-200: #b3f0d6;
+  --color-emerald-300: #94e8c2;
+  --color-emerald-400: #58d9a6;
+  --color-emerald-500: #34c48a;
+  --color-emerald-950: #0e2b22;
+
+  --color-yellow-100: #fdf0c9;
+  --color-yellow-300: #f9d88a;
+  --color-yellow-400: #f6c05a;
+  --color-yellow-800: #7a5410;
+
+  --color-amber-300: #f9d88a;
+  --color-amber-400: #f6c05a;
+  --color-amber-500: #e9a93a;
+
+  --color-blue-100: #dcebff;
+  --color-blue-200: #c4defc;
+  --color-blue-300: #a0cbff;
+  --color-blue-400: #7bbcff;
+  --color-blue-600: #3f86e0;
+  --color-blue-700: #2f68b3;
+  --color-blue-800: #234f8a;
+
+  --color-purple-100: #ece4ff;
+  --color-purple-800: #4f3a96;
+}

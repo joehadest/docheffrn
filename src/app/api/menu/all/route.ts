@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/adminSession';
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/menuModel';
 import MenuItem from '@/lib/menuModel';
@@ -5,7 +6,9 @@ import { normalizeMissingAvailability, noStoreHeaders } from '@/lib/menuAvailabi
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     try {
         await connectDB();
         await normalizeMissingAvailability();

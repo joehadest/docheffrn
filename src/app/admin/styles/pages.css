@@ -1,0 +1,835 @@
+/* ==========================================================================
+   Admin pages: Menu, Categories, Tables, Settings and Finance.
+   ========================================================================== */
+
+/* ---------- Card base (public .bubble-card, reskinned for the admin) ---------- */
+.admin-theme .bubble-card {
+  border: 1px solid var(--ad-line);
+  border-radius: var(--ad-r-xl);
+  background: var(--ad-card-bg);
+  box-shadow: var(--ad-shadow-card);
+  transition:
+    border-color var(--ad-med) var(--ad-ease),
+    box-shadow var(--ad-med) var(--ad-ease),
+    background var(--ad-med) var(--ad-ease);
+}
+
+.admin-theme .bubble-card:hover {
+  border-color: var(--ad-line-3);
+  box-shadow: var(--ad-shadow-lift);
+}
+
+.admin-theme .bubble-card:active {
+  transform: none;
+}
+
+.admin-theme :is(.bubble-glow, .bubble-press-overlay, .bubble-border-gradient) {
+  display: none;
+}
+
+.admin-theme .bubble-content {
+  position: static;
+  z-index: auto;
+}
+
+.admin-theme .auto-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 264px), 1fr));
+  gap: 20px;
+}
+
+/* ---------- Menu: items toolbar and product cards ---------- */
+/* Keep the grid width stable when a menu dialog locks page scrolling. */
+html:has(.admin-menu-page) {
+  scrollbar-gutter: stable;
+}
+
+.admin-segmented-heading {
+  width: auto;
+}
+
+.admin-theme .admin-item-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.admin-theme .admin-item-card .bubble-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.admin-item-media {
+  position: relative;
+  flex-shrink: 0;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background:
+    radial-gradient(160px 100px at 30% 20%, rgb(238 75 51 / 0.12), transparent 70%),
+    var(--ad-surface-3);
+}
+
+.admin-item-media::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 46%;
+  background: linear-gradient(transparent, rgb(12 11 10 / 0.7));
+  pointer-events: none;
+}
+
+.admin-item-media img {
+  transition:
+    transform 0.5s var(--ad-ease),
+    filter var(--ad-med);
+}
+
+.admin-item-card:hover .admin-item-media img {
+  transform: scale(1.045);
+}
+
+.admin-item-card[data-available='false'] .admin-item-media img {
+  filter: grayscale(0.85) brightness(0.55);
+}
+
+.admin-item-placeholder {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: var(--ad-muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+}
+
+.admin-item-status {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--ad-ok-line);
+  border-radius: 999px;
+  background: rgb(14 43 34 / 0.82);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: var(--ad-ok);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.admin-item-status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.admin-item-status[data-state='off'] {
+  border-color: var(--ad-danger-line);
+  background: rgb(52 16 15 / 0.85);
+  color: var(--ad-danger);
+}
+
+.admin-item-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px 18px;
+}
+
+.admin-item-title {
+  color: var(--ad-text);
+  font-family: var(--ad-font-display);
+  font-size: 1.0625rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.admin-item-price {
+  margin-top: auto;
+  color: var(--ad-accent-hi);
+  font-family: var(--ad-font-display);
+  font-size: 1.125rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-item-footer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--ad-line);
+  background: rgb(10 9 8 / 0.4);
+}
+
+.admin-item-footer > div {
+  display: flex;
+  gap: 8px;
+}
+
+/* Availability switch */
+.admin-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.admin-switch-track {
+  position: relative;
+  flex-shrink: 0;
+  width: 46px;
+  height: 26px;
+  border: 1px solid var(--ad-line-2);
+  border-radius: 999px;
+  background: var(--ad-surface-3);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.45);
+  transition:
+    background var(--ad-med) var(--ad-ease),
+    border-color var(--ad-med);
+}
+
+.admin-switch-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.5);
+  transition: transform var(--ad-med) var(--ad-ease);
+}
+
+.admin-switch input:checked + .admin-switch-track {
+  border-color: transparent;
+  background: linear-gradient(180deg, #3fd7a0, #23a371);
+}
+
+.admin-switch input:checked + .admin-switch-track::after {
+  transform: translateX(20px);
+}
+
+.admin-switch input:focus-visible + .admin-switch-track {
+  outline: 2px solid var(--ad-focus);
+  outline-offset: 3px;
+}
+
+.admin-switch input:disabled + .admin-switch-track {
+  opacity: 0.5;
+}
+
+.admin-switch-label {
+  color: var(--ad-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.admin-switch input:checked ~ .admin-switch-label {
+  color: var(--ad-ok);
+}
+
+/* ---------- Editor rows (sizes, borders, extras, ingredients) ---------- */
+.admin-theme .admin-row-remove {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--ad-danger-line);
+  border-radius: var(--ad-r-md);
+  background: var(--ad-danger-bg);
+  color: var(--ad-danger);
+  transition:
+    background var(--ad-fast),
+    color var(--ad-fast),
+    transform var(--ad-fast) var(--ad-ease);
+}
+
+.admin-theme .admin-row-remove:hover {
+  background: rgb(255 111 92 / 0.22);
+  color: #ffd3cb;
+}
+
+.admin-theme .admin-row-remove:active {
+  transform: scale(0.94);
+}
+
+.admin-theme .admin-add-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 4px;
+  border: 1px dashed var(--ad-line-3);
+  border-radius: var(--ad-r-md);
+  color: var(--ad-text-2);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  transition:
+    background var(--ad-fast),
+    border-color var(--ad-fast),
+    color var(--ad-fast);
+}
+
+.admin-theme .admin-add-row:hover {
+  border-color: var(--ad-accent-line);
+  background: var(--ad-accent-bg-2);
+  color: var(--ad-text);
+}
+
+/* ---------- Categories list ---------- */
+.admin-theme .admin-category-table {
+  overflow: hidden;
+  border: 1px solid var(--ad-line);
+  border-radius: var(--ad-r-xl);
+  background: var(--ad-card-bg);
+  box-shadow: var(--ad-shadow-card);
+}
+
+.admin-category-table > div:first-of-type {
+  background: rgb(255 244 232 / 0.03);
+}
+
+.admin-category-table .group {
+  transition: background var(--ad-fast);
+}
+
+/* ---------- Tables (mesas) ---------- */
+.admin-table-card {
+  cursor: pointer;
+  padding: 18px 20px;
+}
+
+.admin-table-card:hover {
+  border-color: var(--ad-accent-line);
+}
+
+.admin-table-card:focus-visible {
+  outline: 2px solid var(--ad-focus);
+  outline-offset: 3px;
+}
+
+.admin-table-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--ad-text);
+  font-family: var(--ad-font-display);
+  font-size: 1.125rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.admin-table-card-head > svg {
+  box-sizing: content-box;
+  flex-shrink: 0;
+  padding: 9px;
+  border: 1px solid var(--ad-accent-line);
+  border-radius: 12px;
+  background: var(--ad-accent-bg);
+  color: var(--ad-accent-hi);
+}
+
+.admin-table-total {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ad-line);
+  color: var(--ad-text);
+  font-family: var(--ad-font-display);
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-table-detail {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.admin-table-detail ul > li {
+  padding-block: 8px;
+}
+
+.admin-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 14px 0 10px;
+  border: 1px solid var(--ad-line-2);
+  border-radius: var(--ad-r-md);
+  background: rgb(255 238 218 / 0.04);
+  color: var(--ad-text-2);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition:
+    background var(--ad-fast),
+    color var(--ad-fast);
+}
+
+.admin-back-button:hover {
+  background: rgb(255 238 218 / 0.09);
+  color: #fff;
+}
+
+.admin-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr));
+  gap: 10px;
+}
+
+.admin-theme .admin-catalog-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 72px;
+  padding: 12px 14px;
+  border: 1px solid var(--ad-line);
+  border-radius: var(--ad-r-lg);
+  background: var(--ad-surface);
+  text-align: left;
+  transition:
+    border-color var(--ad-fast),
+    background var(--ad-fast),
+    transform var(--ad-fast) var(--ad-ease);
+}
+
+.admin-theme .admin-catalog-item:hover:not(:disabled) {
+  border-color: var(--ad-accent-line);
+  background: var(--ad-accent-bg-2);
+  transform: translateY(-1px);
+}
+
+.admin-theme .admin-catalog-item:disabled {
+  opacity: 0.45;
+}
+
+.admin-catalog-item strong {
+  color: var(--ad-text);
+  font-size: 0.875rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.admin-catalog-item span {
+  color: var(--ad-muted);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-catalog-item small {
+  color: var(--ad-danger);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+/* ---------- Settings ---------- */
+.admin-settings-card {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  container: settings-card / inline-size;
+}
+
+.admin-settings-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 12%;
+  left: 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(238 75 51 / 0.55), transparent);
+}
+
+.admin-settings-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--ad-line);
+}
+
+.admin-settings-card-head > span {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--ad-accent-line);
+  border-radius: 10px;
+  background: var(--ad-accent-bg);
+  color: var(--ad-accent-hi);
+}
+
+.admin-settings-card-head h2 {
+  font-family: var(--ad-font-display);
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.admin-settings-card-body {
+  display: grid;
+  gap: 16px;
+  padding: clamp(16px, 2vw, 22px);
+}
+
+.admin-theme .admin-hours-row {
+  display: grid;
+  grid-template-columns: minmax(70px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--ad-r-lg);
+  transition:
+    background var(--ad-fast),
+    border-color var(--ad-fast);
+}
+
+.admin-theme .admin-hours-row.is-open {
+  border-color: var(--ad-line);
+  background: rgb(255 244 232 / 0.03);
+}
+
+.admin-theme .admin-hours-times {
+  display: grid;
+  grid-template-columns: repeat(2, 96px);
+  gap: 8px;
+}
+
+.admin-theme .admin-hours-times input {
+  width: 100%;
+  min-width: 0;
+  padding-inline: 10px;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.admin-theme .admin-hours-head {
+  min-height: 0;
+  margin-bottom: 4px;
+  padding-block: 0;
+}
+
+.admin-fee-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 8px 8px 16px;
+  border: 1px solid var(--ad-line);
+  border-radius: var(--ad-r-lg);
+  background: rgb(255 244 232 / 0.03);
+}
+
+.admin-fee-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--ad-text);
+  font-size: 0.9375rem;
+}
+
+.admin-fee-name::before {
+  content: '';
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ad-accent);
+}
+
+.admin-fee-value {
+  color: var(--ad-accent-hi);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.admin-theme .admin-field-row {
+  display: grid;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 8px;
+  overflow: visible;
+  border: 1px solid var(--ad-line);
+  border-radius: var(--ad-r-md);
+  background: rgb(255 244 232 / 0.025);
+}
+
+.admin-theme .admin-field-row-3 {
+  grid-template-columns: minmax(0, 1fr) 112px 44px;
+}
+
+.admin-theme .admin-field-row-2 {
+  grid-template-columns: minmax(0, 1fr) 44px;
+}
+
+.admin-theme .admin-settings-save {
+  position: sticky;
+  bottom: 16px;
+  z-index: 20;
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
+  padding: 10px;
+  border: 1px solid var(--ad-line-2);
+  border-radius: var(--ad-r-xl);
+  background: rgb(23 21 19 / 0.88);
+  box-shadow:
+    0 20px 50px -20px rgb(0 0 0 / 0.9),
+    inset 0 1px 0 rgb(255 244 232 / 0.05);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+/* ---------- Finance ---------- */
+.admin-order-row {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px;
+}
+
+.admin-order-row-info {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 6px;
+  min-width: 0;
+}
+
+.admin-order-row-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  font-family: var(--ad-font-display);
+  font-size: 1.125rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.admin-order-row-title em {
+  color: var(--ad-accent-hi);
+  font-style: normal;
+}
+
+.admin-order-row-status {
+  padding: 3px 11px;
+  border-radius: 999px;
+  font-family: var(--ad-font-body);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.admin-order-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 20px;
+  color: var(--ad-muted);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.admin-order-row-meta > span:first-child {
+  color: var(--ad-text-2);
+}
+
+.admin-order-row-total {
+  margin-top: 4px;
+  color: var(--ad-muted);
+  font-size: 0.8125rem;
+}
+
+.admin-order-row-total strong {
+  margin-left: 6px;
+  color: var(--ad-text);
+  font-family: var(--ad-font-display);
+  font-size: 1.25rem;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-order-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+
+.admin-order-row-actions > button {
+  flex: 1 1 auto;
+}
+
+/* ---------- Orders: sound controls and notices ---------- */
+.admin-sound-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin-bottom: 16px;
+}
+
+.admin-pill-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--ad-line-2);
+  border-radius: 999px;
+  background: rgb(255 238 218 / 0.04);
+  color: var(--ad-text-2);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  transition:
+    background var(--ad-fast),
+    border-color var(--ad-fast),
+    color var(--ad-fast);
+}
+
+.admin-pill-button:hover {
+  border-color: var(--ad-line-3);
+  background: rgb(255 238 218 / 0.09);
+  color: var(--ad-text);
+}
+
+.admin-pill-button[aria-pressed='true'] {
+  border-color: var(--ad-ok-line);
+  background: var(--ad-ok-bg);
+  color: var(--ad-ok);
+}
+
+.admin-pill-button[aria-pressed='true']::before,
+.admin-pill-button[aria-pressed='false']::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.9;
+}
+
+.admin-pill-button[aria-pressed='false']::before {
+  opacity: 0.4;
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+@media (max-width: 767px) {
+  .admin-theme .admin-settings-save {
+    bottom: calc(var(--ad-bottom-nav-h) + var(--ad-safe-bottom) + 10px);
+    width: auto;
+    margin-left: 0;
+  }
+
+  .admin-theme .admin-settings-save > button {
+    width: 100%;
+  }
+}
+
+@media (min-width: 640px) {
+  .admin-order-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 20px 24px;
+  }
+
+  .admin-order-row-actions {
+    flex-wrap: nowrap;
+    width: auto;
+  }
+
+  .admin-order-row-actions > button {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-theme .auto-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+    gap: 16px;
+  }
+
+  .admin-theme .admin-field-row-3 {
+    grid-template-columns: minmax(0, 1fr) 44px;
+  }
+
+  .admin-theme .admin-field-row-3 > input:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .admin-item-body {
+    padding: 14px 16px 16px;
+  }
+
+  .admin-table-card {
+    padding: 16px;
+  }
+
+  .admin-theme .admin-hours-times input {
+    font-size: 1rem;
+  }
+
+  .admin-segmented-heading {
+    display: flex;
+    width: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  .admin-theme .auto-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-catalog-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Very narrow settings cards stack the weekday above its times. */
+@container settings-card (max-width: 330px) {
+  .admin-theme .admin-hours-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-theme .admin-hours-times {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .admin-theme .admin-hours-head {
+    display: none;
+  }
+}

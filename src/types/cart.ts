@@ -39,6 +39,10 @@ export interface Cliente {
 
 export interface Pedido {
     _id: string;
+    updatedAt?: string;
+    cancelReason?: string;
+    statusHistory?: { status: Pedido['status']; at: string; note?: string }[];
+    deliveryAssignment?: { courierId: string; name: string; phone: string; assignedAt: string };
     mesa?: string;
     itens: {
         nome: string;

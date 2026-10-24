@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/adminSession';
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import { hashPassword } from '@/lib/passwordUtils';
@@ -78,7 +79,9 @@ const settingsSchema = new mongoose.Schema({
 
 const Settings = mongoose.models.Settings || mongoose.model('Settings', settingsSchema);
 
-export async function POST() {
+export async function POST(request: Request) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     try {
         await connectDB();
         

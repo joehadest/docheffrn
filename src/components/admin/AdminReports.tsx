@@ -1,0 +1,48 @@
+'use client';
+import { useMemo, useState } from 'react';
+import { FaChartLine, FaDownload, FaReceipt, FaShoppingBag, FaTimesCircle } from 'react-icons/fa';
+import { useAdminData } from '@/contexts/AdminDataContext';
+import { buildAdminAnalytics, channelLabel, csvDocument, formatAdminDate, money, paymentLabel, statusLabel } from '@/utils/adminAnalytics';
+import { financialOrderTotal, financePeriodLabel } from '@/utils/financePeriod';
+import AdminDataStatus from './AdminDataStatus';
+import FinancePeriodFilter from './FinancePeriodFilter';
+import { EmptyState, PageHeading, StatCard } from './AdminUI';
+import { downloadCSV } from './downloadCSV';
+
+export default function AdminReports() {
+  const { orders, loading, financialPeriod: period, setFinancialPeriod, lastUpdated } = useAdminData();
+  const report = useMemo(() => buildAdminAnalytics(orders, period), [orders, period, lastUpdated]);
+  const [exportType, setExportType] = useState('orders');
+  const [page, setPage] = useState(0);
+  const currentPage = Math.min(page, Math.max(0, Math.ceil(report.orders.length / 25) - 1));
+  const chartDays = report.daily.slice(-14);
+  const maxRevenue = Math.max(1, ...chartDays.map(day => day.revenue));
+  const exportReport = () => {
+    let rows: (string | number)[][];
+    if (exportType === 'products') rows = [['Produto / tamanho', 'Quantidade', 'Valor dos itens (R$)'], ...report.products.map(product => [product.name, product.quantity, product.revenue.toFixed(2).replace('.', ',')])];
+    else if (exportType === 'daily') rows = [['Dia', 'Pedidos concluídos', 'Faturamento (R$)'], ...report.daily.map(day => [day.label.split('-').reverse().join('/'), day.count, day.revenue.toFixed(2).replace('.', ',')])];
+    else if (exportType === 'payments') rows = [['Forma de pagamento declarada', 'Pedidos concluídos', 'Faturamento (R$)'], ...report.payments.map(payment => [payment.label, payment.count, payment.revenue.toFixed(2).replace('.', ',')])];
+    else rows = [['Pedido', 'Data do pedido', 'Cliente', 'Modalidade', 'Status', 'Pagamento declarado', 'Total (R$)'], ...report.orders.map(order => [order._id, formatAdminDate(order.data, true), order.cliente?.nome || order.mesa || '', channelLabel(order.tipoEntrega), statusLabel(order.status), paymentLabel(order.formaPagamento), financialOrderTotal(order).toFixed(2).replace('.', ',')])];
+    downloadCSV(`relatorio-${exportType}.csv`, csvDocument([['Período', financePeriodLabel(period)], ['Critério', exportType === 'orders' ? 'Todos os pedidos do período' : 'Somente pedidos concluídos; data de criação do pedido'], [], ...rows]));
+  };
+  return <div className="admin-page admin-management-page">
+    <PageHeading title="Relatórios" description="Entenda suas vendas, os produtos mais procurados e os horários de maior movimento." />
+    <AdminDataStatus />
+    <FinancePeriodFilter value={period} onChange={value => { setFinancialPeriod(value); setPage(0); }} />
+    {loading ? <p role="status">Carregando os relatórios…</p> : <>
+      <section className="admin-kpi-grid"><StatCard label="Faturamento concluído" value={money(report.revenue)} sub={`${report.completed} pedidos concluídos`} color="text-green-400" icon={<FaChartLine />} /><StatCard label="Ticket médio" value={money(report.ticket)} sub="pedidos concluídos" icon={<FaReceipt />} /><StatCard label="Pedidos no período" value={report.orders.length} sub={`${report.pendingOrders.length} ainda em andamento`} icon={<FaShoppingBag />} /><StatCard label="Cancelamentos" value={`${report.cancellationRate.toFixed(1)}%`} sub={`${report.canceled} pedidos · ${money(report.canceledValue)}`} icon={<FaTimesCircle />} /></section>
+      <p className="admin-help-text">Faturamento considera pedidos concluídos pela data de criação, no horário de Brasília. Formas de pagamento refletem o que foi informado no pedido.</p>
+      {!report.orders.length ? <EmptyState>Nenhum pedido neste período. Selecione outras datas para consultar o histórico.</EmptyState> : <>
+        <div className="admin-management-columns"><section className="admin-surface"><div className="admin-section-heading"><div><h2>Evolução das vendas</h2><p>{report.daily.length > 14 ? '14 últimos dias com vendas concluídas dentro do período.' : 'Dias com vendas concluídas dentro do período.'}</p></div></div>
+          {!chartDays.length ? <EmptyState>Não há vendas concluídas no período.</EmptyState> : <div className="admin-sales-chart" role="img" aria-label={`Faturamento diário. ${chartDays.map(day => `${day.label}: ${money(day.revenue)}`).join('; ')}`}><div className="admin-chart-bars">{chartDays.map(day => <div key={day.label} className="admin-chart-column" title={`${day.label}: ${money(day.revenue)} · ${day.count} pedidos`}><div className="admin-chart-track"><div style={{ height: `${Math.max(2, day.revenue / maxRevenue * 100)}%` }} /></div><span>{day.label.slice(5).split('-').reverse().join('/')}</span></div>)}</div><div className="admin-chart-scale"><span>0</span><span>Maior valor: {money(maxRevenue)}</span></div></div>}
+          <details className="admin-chart-data"><summary>Consultar valores por dia</summary><div className="admin-table-scroll"><table className="admin-data-table"><thead><tr><th>Dia</th><th>Concluídos</th><th>Faturamento</th></tr></thead><tbody>{report.daily.map(day => <tr key={day.label}><td>{day.label.split('-').reverse().join('/')}</td><td>{day.count}</td><td>{money(day.revenue)}</td></tr>)}</tbody></table></div></details>
+        </section><section className="admin-surface"><div className="admin-section-heading"><div><h2>Formas de pagamento</h2><p>Distribuição do faturamento concluído.</p></div></div>{!report.payments.length ? <EmptyState>Sem pagamentos em pedidos concluídos.</EmptyState> : <div className="admin-breakdown">{report.payments.map(payment => <div key={payment.label}><div><strong>{payment.label}</strong><span>{money(payment.revenue)}</span></div><div className="admin-meter" aria-hidden="true"><span style={{ width: `${report.revenue ? payment.revenue / report.revenue * 100 : 0}%` }} /></div><small>{payment.count} pedidos · {report.revenue ? (payment.revenue / report.revenue * 100).toFixed(1) : 0}%</small></div>)}</div>}</section></div>
+        <div className="admin-management-columns"><section className="admin-surface"><div className="admin-section-heading"><div><h2>Produtos mais vendidos</h2><p>Até 10 produtos por quantidade. Valores dos itens, sem frete.</p></div></div>{!report.products.length ? <EmptyState>Sem itens em pedidos concluídos.</EmptyState> : <ol className="admin-ranking">{report.products.slice(0, 10).map((product, index) => <li key={product.name}><span>{index + 1}</span><div><strong>{product.name}</strong><small>{product.quantity} unidades</small></div><strong>{money(product.revenue)}</strong></li>)}</ol>}</section><div className="admin-stacked-sections"><section className="admin-surface"><div className="admin-section-heading"><div><h2>Modalidades de atendimento</h2><p>Pedidos concluídos.</p></div></div><div className="admin-channel-list">{report.channels.map(channel => <div key={channel.label}><span>{channel.label}<small>{channel.count} pedidos</small></span><strong>{money(channel.revenue)}</strong></div>)}</div></section><section className="admin-surface"><div className="admin-section-heading"><div><h2>Horários de maior movimento</h2><p>Recebimento de pedidos, exceto cancelados.</p></div></div><div className="admin-hours-chart">{[...report.hours].sort((a, b) => b.count - a.count).filter(hour => hour.count > 0).slice(0, 5).map(hour => <div key={hour.hour}><span>{String(hour.hour).padStart(2, '0')}:00 – {String(hour.hour).padStart(2, '0')}:59</span><strong>{hour.count} pedidos</strong></div>)}</div></section></div></div>
+      </>}
+      <section className="admin-surface admin-table-surface"><div className="admin-section-heading admin-report-export"><div><h2>Pedidos do período</h2><p>Exportações seguem o período aplicado acima.</p></div><div><label className="sr-only" htmlFor="export-report-type">Relatório para exportar</label><select id="export-report-type" value={exportType} onChange={event => setExportType(event.target.value)} className="form-input"><option value="orders">Pedidos</option><option value="daily">Vendas por dia</option><option value="products">Todos os produtos</option><option value="payments">Pagamentos</option></select><button type="button" className="form-button-secondary" onClick={exportReport} disabled={!report.orders.length}><FaDownload /> Exportar CSV</button></div></div>
+        <div className="admin-table-scroll"><table className="admin-data-table"><caption className="sr-only">Pedidos incluídos no período selecionado</caption><thead><tr><th>Pedido</th><th>Cliente</th><th>Modalidade</th><th>Status</th><th>Total</th></tr></thead><tbody>{report.orders.slice(currentPage * 25, (currentPage + 1) * 25).map(order => <tr key={order._id}><td><strong>#{order._id.slice(-6)}</strong><small>{formatAdminDate(order.data, true)}</small></td><td>{order.cliente?.nome || order.mesa || 'Não informado'}</td><td>{channelLabel(order.tipoEntrega)}</td><td>{statusLabel(order.status)}</td><td>{money(financialOrderTotal(order))}</td></tr>)}</tbody></table></div>
+        <div className="admin-pagination"><span>{report.orders.length} pedidos · página {currentPage + 1} de {Math.max(1, Math.ceil(report.orders.length / 25))}</span><div><button type="button" className="form-button-secondary" disabled={!currentPage} onClick={() => setPage(currentPage - 1)}>Anterior</button><button type="button" className="form-button-secondary" disabled={(currentPage + 1) * 25 >= report.orders.length} onClick={() => setPage(currentPage + 1)}>Próxima</button></div></div>
+      </section>
+    </>}
+  </div>;
+}

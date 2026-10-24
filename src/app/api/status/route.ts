@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/adminSession';
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { RestaurantStatus } from '@/types';
@@ -32,6 +33,8 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     try {
         const { db } = await connectToDatabase();
         const updates = await request.json();

@@ -1,3 +1,5 @@
+import { handleLegacyOrderUpdate } from '@/lib/legacyOrderUpdate';
+import { requireAdmin } from '@/lib/adminSession';
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
@@ -31,62 +33,17 @@ export async function GET(
     }
 }
 
-export async function PATCH(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id } = await params;
-        const { db } = await connectToDatabase();
-        const updates = await request.json();
-
-        // Atualiza o timestamp
-        updates.updatedAt = new Date().toISOString();
-
-        const result = await db.collection('pedidos').findOneAndUpdate(
-            { _id: new ObjectId(id) },
-            { $set: updates },
-            { returnDocument: 'after' }
-        );
-
-        if (!result || result.lastErrorObject?.n === 0) {
-            return NextResponse.json(
-                { error: 'Pedido não encontrado' },
-                { status: 404 }
-            );
-        }
-
-        const statusAnterior = result.value?.status;
-
-        // Registra diagnóstico se houver mudança de status
-        if (updates.status) {
-            await db.collection('diagnosticos').insertOne({
-                tipo: 'info',
-                mensagem: `Status do pedido ${id} alterado para: ${updates.status}`,
-                timestamp: new Date().toISOString(),
-                resolvido: false,
-                detalhes: {
-                    pedidoId: id,
-                    statusAnterior: statusAnterior,
-                    statusNovo: updates.status
-                }
-            });
-        }
-
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        console.error('Erro ao atualizar pedido:', error);
-        return NextResponse.json(
-            { error: 'Erro ao atualizar pedido' },
-            { status: 500 }
-        );
-    }
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
+    return handleLegacyOrderUpdate(request, id);
 }
 
 export async function DELETE(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     try {
         const { id } = await params;
         const { db } = await connectToDatabase();

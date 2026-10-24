@@ -301,7 +301,7 @@ export default function AdminMesas() {
                             {mesasAbertas.map((mesa) => (
                                 <li
                                     key={mesa._id}
-                                    className="bubble-card p-4 cursor-pointer"
+                                    className="bubble-card admin-table-card"
                                     role="button" tabIndex={0} aria-label={`Abrir ${mesa.mesa || 'mesa'}`}
                                     onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setMesaAtivaId(mesa._id); } }}
                                     onClick={() => setMesaAtivaId(mesa._id)}
@@ -313,12 +313,12 @@ export default function AdminMesas() {
                                 >
                                     <span className="bubble-glow" /><span className="bubble-press-overlay" /><span className="bubble-border-gradient" />
                                     <div className="bubble-content">
-                                        <div className="flex items-center gap-2 font-semibold text-lg text-white">
-                                            <FaChair className="text-red-500" size={14} /> {mesa.mesa || 'Mesa'}
+                                        <div className="admin-table-card-head">
+                                            <FaChair size={14} /> {mesa.mesa || 'Mesa'}
                                         </div>
-                                        <div className="text-xs text-gray-500 mt-1">Aberta desde {formatDate(mesa.data)}</div>
+                                        <div className="text-xs text-gray-500 mt-3">Aberta desde {formatDate(mesa.data)}</div>
                                         <div className="text-xs text-gray-400 mt-1">{mesa.itens.length} item(ns)</div>
-                                        <div className="font-bold text-red-500 mt-2">R$ {calcularTotalItens(mesa.itens).toFixed(2)}</div>
+                                        <div className="admin-table-total">R$ {calcularTotalItens(mesa.itens).toFixed(2)}</div>
                                     </div>
                                 </li>
                             ))}
@@ -328,20 +328,20 @@ export default function AdminMesas() {
             ) : (
                 <>
                     {/* Detalhe da mesa ativa */}
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                         <button
                             type="button"
-                            className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
+                            className="admin-back-button"
                             onClick={() => setMesaAtivaId(null)}
                         >
                             <FaArrowLeft size={12} /> Voltar
                         </button>
-                        <button type="button" className="form-button-danger text-xs py-1.5 px-3" onClick={cancelarMesa}>
+                        <button type="button" className="form-button-danger" onClick={cancelarMesa}>
                             Cancelar Mesa
                         </button>
                     </div>
 
-                    <div className="bg-[#141414] border border-white/[0.07] rounded-xl p-4 space-y-3">
+                    <div className="admin-surface admin-table-detail">
                         <div className="flex items-center justify-between gap-3">
                             <h2 className="flex items-center gap-2 text-xl font-bold text-white">
                                 <FaChair className="text-red-500" /> {mesaAtiva.mesa || 'Mesa'}
@@ -364,7 +364,7 @@ export default function AdminMesas() {
                                         <span className="font-medium shrink-0">R$ {(item.preco * item.quantidade).toFixed(2)}</span>
                                         <button
                                             type="button"
-                                            className="shrink-0 text-gray-500 hover:text-red-400 transition-colors"
+                                            className="admin-icon-button text-red-300"
                                             disabled={salvandoItem}
                                             onClick={() => removerItem(idx)}
                                             aria-label="Remover item"
@@ -388,7 +388,7 @@ export default function AdminMesas() {
                         ) : (
                             <div className="border-t border-white/[0.07] pt-3 space-y-2.5">
                                 <p className="text-sm text-gray-400">Forma de pagamento</p>
-                                <div className="flex bg-[#2a2a2a] rounded-lg p-1 border border-gray-700">
+                                <div className="admin-segmented w-full" role="group" aria-label="Forma de pagamento">
                                     {([
                                         { id: 'dinheiro', label: 'Dinheiro' },
                                         { id: 'cartao', label: 'Cartão' },
@@ -398,9 +398,8 @@ export default function AdminMesas() {
                                             key={opt.id}
                                             type="button"
                                             onClick={() => setFormaPagamento(opt.id)}
-                                            className={`flex-1 py-2 px-3 rounded-md text-xs font-semibold transition-colors ${
-                                                formaPagamento === opt.id ? 'bg-red-600 text-white shadow' : 'text-gray-300 hover:bg-gray-700'
-                                            }`}
+                                            className="admin-segment"
+                                            aria-pressed={formaPagamento === opt.id}
                                         >
                                             {opt.label}
                                         </button>
@@ -429,7 +428,7 @@ export default function AdminMesas() {
                         />
 
                         {busca.trim() ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+                            <div className="admin-catalog-grid">
                                 {itensFiltrados.map((item) => (
                                     <ItemCard key={item._id} item={item} onClick={() => abrirItem(item)} />
                                 ))}
@@ -444,7 +443,7 @@ export default function AdminMesas() {
                                 return (
                                     <div key={categoria.value} className="space-y-2.5">
                                         <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">{categoria.label}</h3>
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+                                        <div className="admin-catalog-grid">
                                             {itensDaCategoria.map((item) => (
                                                 <ItemCard key={item._id} item={item} onClick={() => abrirItem(item)} />
                                             ))}
@@ -488,15 +487,11 @@ function ItemCard({ item, onClick }: { item: MenuItem; onClick: () => void }) {
             type="button"
             disabled={indisponivel}
             onClick={onClick}
-            className={`text-left rounded-xl border p-3 transition-colors ${
-                indisponivel
-                    ? 'border-white/[0.05] bg-white/[0.015] opacity-50 cursor-not-allowed'
-                    : 'border-white/[0.08] bg-[#111] hover:border-red-700/40 hover:bg-white/[0.03]'
-            }`}
+            className="admin-catalog-item"
         >
-            <p className="text-sm font-semibold text-white break-words">{item.name}</p>
-            <p className="text-xs text-gray-500 mt-0.5">R$ {item.price.toFixed(2)}</p>
-            {indisponivel && <p className="text-[10px] text-red-400 mt-1">Indisponível</p>}
+            <strong>{item.name}</strong>
+            <span>R$ {item.price.toFixed(2)}</span>
+            {indisponivel && <small>Indisponível</small>}
         </button>
     );
 }

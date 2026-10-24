@@ -1,0 +1,518 @@
+/* ==========================================================================
+   Admin dialogs: overlay, panel, header, scrolling body, sticky footer,
+   confirmations, order details and the product picker used by Tables.
+   Desktop: centred panel. Phones: bottom sheet. Landscape: compact.
+   ========================================================================== */
+
+.admin-theme .modal-overlay {
+  z-index: 100;
+  padding: clamp(12px, 3vw, 32px);
+  background:
+    radial-gradient(720px 420px at 50% 0%, rgb(238 75 51 / 0.09), transparent 70%),
+    var(--ad-scrim);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  backdrop-filter: blur(10px) saturate(1.1);
+}
+
+.admin-theme .modal-panel {
+  border: 1px solid var(--ad-line-2);
+  border-radius: var(--ad-r-2xl);
+  background: var(--ad-surface);
+  box-shadow: var(--ad-shadow-pop);
+  overscroll-behavior: contain;
+}
+
+.admin-theme .modal-panel::before {
+  background: linear-gradient(90deg, transparent, rgb(238 75 51 / 0.75), transparent);
+}
+
+.admin-theme .modal-close-btn {
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--ad-line-2);
+  border-radius: var(--ad-r-md);
+  background: rgb(255 238 218 / 0.06);
+  font-size: 1.5rem;
+}
+
+/* ---------- Shared dialog layout ---------- */
+.admin-theme .modal-panel.admin-dialog {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 580px;
+  max-height: min(920px, calc(100dvh - 2 * clamp(12px, 3vw, 32px)));
+  padding: 0;
+  overflow: hidden;
+  animation: none;
+}
+
+.admin-theme .modal-panel.admin-dialog-wide {
+  max-width: 880px;
+}
+
+.admin-theme .modal-panel.admin-dialog::before {
+  z-index: 3;
+  pointer-events: none;
+}
+
+.admin-dialog-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 16px;
+  padding: 22px 24px;
+  border-bottom: 1px solid var(--ad-line);
+  background:
+    radial-gradient(440px 130px at 0% 0%, rgb(238 75 51 / 0.15), transparent 70%),
+    linear-gradient(180deg, rgb(255 244 232 / 0.04), transparent);
+}
+
+.admin-dialog-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--ad-accent-line);
+  border-radius: 15px;
+  background: linear-gradient(160deg, rgb(238 75 51 / 0.3), rgb(238 75 51 / 0.1));
+  box-shadow: 0 10px 24px -12px rgb(238 75 51 / 0.8);
+  color: #ffc7bd;
+  font-size: 1.125rem;
+}
+
+.admin-dialog-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-dialog-heading h2 {
+  font-family: var(--ad-font-display);
+  font-size: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.admin-dialog-heading p {
+  margin-top: 5px;
+  color: var(--ad-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.admin-dialog-close {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  align-self: flex-start;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--ad-line-2);
+  border-radius: var(--ad-r-md);
+  background: rgb(255 238 218 / 0.05);
+  color: var(--ad-text-2);
+  transition:
+    background var(--ad-fast),
+    color var(--ad-fast),
+    transform var(--ad-fast) var(--ad-ease);
+}
+
+.admin-dialog-close:hover {
+  background: rgb(255 238 218 / 0.11);
+  color: #fff;
+}
+
+.admin-dialog-close:active {
+  transform: scale(0.94);
+}
+
+/* Only the body scrolls; edge shadows reveal more content above or below. */
+.admin-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background:
+    linear-gradient(var(--ad-surface) 30%, transparent) 0 0 / 100% 36px no-repeat local,
+    linear-gradient(transparent, var(--ad-surface) 70%) 0 100% / 100% 36px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, rgb(0 0 0 / 0.5), transparent) 0 0 / 100% 14px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, rgb(0 0 0 / 0.5), transparent) 0 100% / 100% 14px no-repeat scroll;
+}
+
+.admin-dialog-body .form-label {
+  margin-bottom: 8px;
+}
+
+.admin-dialog-body .form-input {
+  border-radius: var(--ad-r-md);
+}
+
+.admin-dialog-navigation {
+  flex-shrink: 0;
+  padding: 16px 24px 0;
+}
+
+.admin-dialog-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--ad-line-2);
+  border-radius: 15px;
+  background: var(--ad-field);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.4);
+}
+
+.admin-dialog-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: var(--ad-muted);
+  font-size: 0.875rem;
+  font-weight: 650;
+  transition:
+    background var(--ad-fast),
+    color var(--ad-fast),
+    border-color var(--ad-fast);
+}
+
+.admin-dialog-tab:hover {
+  color: var(--ad-text);
+}
+
+.admin-dialog-footer {
+  display: flex;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--ad-line);
+  background: rgb(10 9 8 / 0.65);
+}
+
+.admin-dialog-footer > button {
+  min-width: 140px;
+}
+
+.admin-dialog-footer > .admin-dialog-error {
+  flex-basis: 100%;
+}
+
+.admin-dialog-error {
+  padding: 12px 14px;
+  border: 1px solid var(--ad-danger-line);
+  border-radius: var(--ad-r-md);
+  background: var(--ad-danger-bg);
+  color: #ffc9c0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.admin-dialog-error .text-red-300 {
+  color: inherit;
+}
+
+.admin-confirm-message {
+  color: var(--ad-text-2);
+  font-size: 0.9375rem;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.admin-theme .modal-panel.admin-confirm {
+  max-width: 480px;
+}
+
+.admin-confirm .admin-dialog-icon {
+  border-color: var(--ad-warn-line);
+  background: var(--ad-warn-bg);
+  box-shadow: none;
+  color: var(--ad-warn);
+}
+
+/* ---------- Dialog content blocks ---------- */
+.admin-dialog-fields {
+  display: flex;
+  gap: 16px;
+}
+
+.admin-dialog-price {
+  flex-shrink: 0;
+  width: 160px;
+}
+
+.admin-dialog-section {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--ad-line);
+  border-radius: var(--ad-r-lg);
+  background: rgb(255 244 232 / 0.025);
+  overflow-wrap: anywhere;
+}
+
+.admin-dialog-section > :is(h3, h4):first-child {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  color: var(--ad-text-2);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.admin-dialog-section > :is(h3, h4):first-child::before {
+  content: '';
+  flex-shrink: 0;
+  width: 3px;
+  height: 14px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--ad-accent), rgb(238 75 51 / 0.2));
+}
+
+.admin-dialog-section p {
+  line-height: 1.75;
+}
+
+.admin-dialog-section li {
+  gap: 12px;
+  padding-block: 11px;
+}
+
+.admin-dialog-section :is(.divide-y) > :not(:last-child) {
+  border-color: var(--ad-line);
+}
+
+.admin-order-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 28px;
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  border: 1px solid var(--ad-line);
+  border-radius: var(--ad-r-lg);
+  background: var(--ad-field);
+  font-size: 0.8125rem;
+  line-height: 1.8;
+}
+
+.admin-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  font-size: 0.875rem;
+}
+
+.admin-detail-grid > :nth-child(n + 3) {
+  grid-column: 1 / -1;
+}
+
+/* Emoji picker (category editor) follows the admin palette. */
+.admin-theme .EmojiPickerReact {
+  --epr-dark-bg-color: var(--ad-surface-2);
+  --epr-dark-category-label-bg-color: var(--ad-surface-2);
+  --epr-dark-search-input-bg-color: var(--ad-field);
+  --epr-dark-search-input-bg-color-active: var(--ad-field);
+  --epr-dark-picker-border-color: var(--ad-line-2);
+  --epr-dark-hover-bg-color: rgb(238 75 51 / 0.16);
+  --epr-dark-focus-bg-color: rgb(238 75 51 / 0.22);
+  --epr-dark-highlight-color: var(--ad-accent-hi);
+  --epr-dark-text-color: var(--ad-text);
+  --epr-dark-category-icon-active-color: var(--ad-accent);
+  --epr-picker-border-radius: 16px;
+  --epr-search-input-border-radius: 12px;
+  font-family: var(--ad-font-body);
+}
+
+/* ---------- Product picker (public modals reused by Tables) ---------- */
+.admin-theme .product-modal-overlay {
+  z-index: 100;
+  background:
+    radial-gradient(720px 420px at 50% 0%, rgb(238 75 51 / 0.09), transparent 70%),
+    var(--ad-scrim);
+}
+
+.admin-theme .product-modal-panel {
+  border-color: var(--ad-line-2);
+  background: var(--ad-surface);
+  box-shadow: var(--ad-shadow-pop);
+}
+
+.admin-theme .product-modal-hero {
+  height: 168px;
+}
+
+.admin-theme .product-modal-body {
+  background: var(--ad-surface);
+}
+
+.admin-theme .product-modal-footer {
+  border-color: var(--ad-line);
+  background: rgb(10 9 8 / 0.8);
+}
+
+.admin-theme .product-modal-close {
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgb(255 255 255 / 0.16);
+  border-radius: var(--ad-r-md);
+}
+
+/* ==========================================================================
+   Phones: bottom sheet
+   ========================================================================== */
+@media (max-width: 640px) {
+  .admin-theme .modal-overlay {
+    align-items: flex-end;
+    padding: max(12px, var(--ad-safe-top)) 0 0;
+  }
+
+  .admin-theme .modal-panel.admin-dialog,
+  .admin-theme .product-modal-panel {
+    max-width: none;
+    max-height: calc(100dvh - max(12px, var(--ad-safe-top)));
+    border-bottom: 0;
+    border-radius: 26px 26px 0 0;
+  }
+
+  .admin-dialog-header {
+    gap: 12px;
+    padding: 18px 16px;
+  }
+
+  .admin-dialog-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 13px;
+    font-size: 1rem;
+  }
+
+  .admin-dialog-body {
+    padding: 20px 16px;
+  }
+
+  .admin-dialog-navigation {
+    padding: 14px 16px 0;
+  }
+
+  .admin-dialog-footer {
+    gap: 10px;
+    padding: 14px 16px max(14px, var(--ad-safe-bottom));
+  }
+
+  .admin-dialog-footer > button {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .admin-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .admin-dialog-section {
+    padding: 16px;
+  }
+
+  .admin-theme .product-modal-hero {
+    height: 148px;
+  }
+}
+
+@media (max-width: 420px) {
+  .admin-dialog-fields {
+    flex-direction: column;
+  }
+
+  .admin-dialog-price,
+  .admin-dialog-fields > .w-24 {
+    width: 100%;
+  }
+
+  .admin-dialog-tab {
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.75rem;
+  }
+
+  .admin-dialog-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+  }
+
+  .admin-dialog-header {
+    gap: 10px;
+  }
+
+  .admin-dialog-footer > button {
+    padding-inline: 10px;
+    font-size: 0.8125rem;
+  }
+}
+
+/* ==========================================================================
+   Landscape phones and other short screens: keep the actions reachable.
+   ========================================================================== */
+@media (max-height: 520px) {
+  .admin-theme .modal-overlay {
+    align-items: center;
+    padding: max(8px, var(--ad-safe-top)) max(8px, env(safe-area-inset-right, 0px)) 8px max(8px, env(safe-area-inset-left, 0px));
+  }
+
+  .admin-theme .modal-panel.admin-dialog,
+  .admin-theme .product-modal-panel {
+    max-width: min(760px, 100%);
+    max-height: calc(100dvh - 16px);
+    border-bottom: 1px solid var(--ad-line-2);
+    border-radius: var(--ad-r-xl);
+  }
+
+  .admin-theme .modal-panel.admin-dialog-wide {
+    max-width: min(880px, 100%);
+  }
+
+  .admin-dialog-header {
+    padding: 12px 16px;
+  }
+
+  .admin-dialog-heading p {
+    display: none;
+  }
+
+  .admin-dialog-body {
+    padding: 16px;
+  }
+
+  .admin-dialog-navigation {
+    padding: 10px 16px 0;
+  }
+
+  .admin-dialog-footer {
+    padding: 10px 16px;
+  }
+
+  .admin-dialog-tab {
+    min-height: 38px;
+  }
+
+  .admin-theme .product-modal-hero {
+    height: 96px;
+  }
+}

@@ -35,7 +35,6 @@ if (process.env.NODE_ENV === 'development') {
 export async function connectToDatabase() {
     try {
         console.log('Tentando conectar ao MongoDB...');
-        console.log('URI:', uri);
         console.log('Database:', process.env.MONGODB_DB || 'do-cheff-pedidos');
 
         const client = await clientPromise;
@@ -54,4 +53,4 @@ export async function closeDatabaseConnection() {
     if (client) {
         await client.close();
     }
-} 
+}

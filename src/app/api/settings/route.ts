@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import dns from 'dns';
 import { isRestaurantOpen } from '../../../utils/timeUtils';
 import type { BusinessHoursConfig } from '../../../utils/timeUtils';
+import { requireAdmin } from '@/lib/adminSession';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 if (!MONGODB_URI) throw new Error('Por favor, defina a variável de ambiente MONGODB_URI');
@@ -70,9 +71,15 @@ export async function GET() {
 }
 
 async function saveSettings(request: Request) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     try {
         await connectDB();
         const { deliveryFees, businessHours, allowHalfAndHalf, pixKey } = await request.json();
+        if (deliveryFees !== undefined && (!Array.isArray(deliveryFees) || deliveryFees.some(fee => typeof fee?.neighborhood !== 'string' || !fee.neighborhood.trim() || typeof fee.fee !== 'number' || !Number.isFinite(fee.fee) || fee.fee < 0))) return NextResponse.json({ success: false, message: 'Taxas de entrega inválidas.' }, { status: 400 });
+        if (pixKey !== undefined && (typeof pixKey !== 'string' || pixKey.length > 200)) return NextResponse.json({ success: false, message: 'Chave PIX inválida.' }, { status: 400 });
+        if (allowHalfAndHalf !== undefined && typeof allowHalfAndHalf !== 'boolean') return NextResponse.json({ success: false, message: 'Configuração inválida.' }, { status: 400 });
+        if (businessHours !== undefined && (!businessHours || typeof businessHours !== 'object' || Object.values(businessHours).some(day => !day || typeof day !== 'object' || typeof (day as { open?: unknown }).open !== 'boolean' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(String((day as { start?: unknown }).start)) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(String((day as { end?: unknown }).end))))) return NextResponse.json({ success: false, message: 'Horários inválidos.' }, { status: 400 });
 
         let settings = await Settings.findOne();
         if (!settings) {
@@ -86,7 +93,8 @@ async function saveSettings(request: Request) {
             settings.lastUpdated = new Date();
             await settings.save();
         }
-        return NextResponse.json({ success: true, data: settings });
+        const { adminPassword: _pw, ...safeData } = settings.toObject();
+        return NextResponse.json({ success: true, data: safeData });
     } catch (error) {
         console.error('Erro ao atualizar configurações:', error);
         return NextResponse.json({ success: false, message: 'Erro ao atualizar configurações' }, { status: 500 });

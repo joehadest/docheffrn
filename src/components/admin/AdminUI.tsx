@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
 
 export function PageHeading({ title, description, children }: { title: string; description: string; children?: React.ReactNode }) {
   return <div className="admin-page-heading"><div><p className="admin-eyebrow">Gestão do restaurante</p><h1>{title}</h1><p className="admin-description">{description}</p></div>{children && <div className="admin-heading-actions">{children}</div>}</div>;
@@ -19,7 +19,7 @@ export function useAdminDialog(open: boolean, onClose: () => void) {
   const ref = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   useEffect(() => { closeRef.current = onClose; }, [onClose]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open || !ref.current) return;
     const panel = ref.current;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -30,7 +30,7 @@ export function useAdminDialog(open: boolean, onClose: () => void) {
     if (main && !main.contains(panel)) main.inert = true;
     document.body.style.overflow = 'hidden';
     const focusables = () => Array.from(panel.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex="0"]')).filter(el => !el.hasAttribute('disabled') && el.getClientRects().length > 0);
-    const frame = requestAnimationFrame(() => (focusables()[0] || panel).focus());
+    (focusables()[0] || panel).focus({ preventScroll: true });
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeRef.current(); }
       if (event.key === 'Tab') {
@@ -43,11 +43,10 @@ export function useAdminDialog(open: boolean, onClose: () => void) {
     };
     panel.addEventListener('keydown', handleKey);
     return () => {
-      cancelAnimationFrame(frame);
       panel.removeEventListener('keydown', handleKey);
       document.body.style.overflow = previousOverflow;
       if (main) main.inert = previousInert || false;
-      if (previous?.isConnected) previous.focus();
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
   }, [open]);
   return ref;

@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/adminSession';
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 
@@ -43,6 +44,8 @@ try {
     Category = mongoose.model<ICategory>('Category', categorySchema);
 }
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     const { id } = await params;
     const { allowHalfAndHalf } = await request.json();
 
