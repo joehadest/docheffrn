@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MenuItem } from '../types/menu';
 import { calculatePizzaPrice, getBorderPrice } from '../utils/priceCalculator';
+import { formatCurrency } from '../utils/formatCurrency';
 
 interface ItemModalProps {
     item: MenuItem;
@@ -66,7 +67,7 @@ function OptionChip({
         <button
             type="button"
             onClick={onClick}
-            className={`relative rounded-2xl border px-3 py-3 text-left transition-all active:scale-[0.98] ${
+            className={`product-option ${selected ? 'is-selected' : ''} relative rounded-2xl border px-3 py-3 text-left transition-all active:scale-[0.98] ${
                 selected
                     ? 'border-ember-500/70 bg-ember-950/50 text-ink shadow-[0_0_0_1px_rgba(196,30,30,0.25)]'
                     : 'border-white/10 bg-white/[0.03] text-ink-muted hover:border-white/20 hover:bg-white/[0.06] hover:text-ink'
@@ -266,7 +267,7 @@ export default function ItemModal({
                                                 key={sizeKey}
                                                 selected={selectedSize === sizeKey}
                                                 title={sizeKey}
-                                                subtitle={`R$ ${price.toFixed(2)}`}
+                                                subtitle={formatCurrency(price)}
                                                 onClick={() => setSelectedSize(sizeKey)}
                                             />
                                         ))}
@@ -375,12 +376,12 @@ export default function ItemModal({
                                                 subtitle="R$ 0,00"
                                                 onClick={() => setSelectedBorder('')}
                                             />
-                                            {Object.keys(item.borderOptions).map((borderKey) => (
+                                            {Object.keys(item.borderOptions).filter((borderKey) => !/^sem borda$/i.test(borderKey.trim())).map((borderKey) => (
                                                 <OptionChip
                                                     key={borderKey}
                                                     selected={selectedBorder === borderKey}
                                                     title={borderKey}
-                                                    subtitle={`+ R$ ${getBorderPrice(item, borderKey, selectedSize).toFixed(2)}`}
+                                                    subtitle={`+ ${formatCurrency(getBorderPrice(item, borderKey, selectedSize))}`}
                                                     onClick={() => setSelectedBorder(borderKey)}
                                                 />
                                             ))}
@@ -402,7 +403,7 @@ export default function ItemModal({
                                                     key={extraKey}
                                                     selected={selectedExtras.includes(extraKey)}
                                                     title={extraKey}
-                                                    subtitle={`+ R$ ${price.toFixed(2)}`}
+                                                    subtitle={`+ ${formatCurrency(price)}`}
                                                     onClick={() => toggleExtra(extraKey)}
                                                 />
                                             ))}
@@ -466,7 +467,7 @@ export default function ItemModal({
                                 <div className="text-right">
                                     <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint">Total</p>
                                     <p className="font-display text-xl font-bold text-ember-400 sm:text-2xl">
-                                        R$ {total.toFixed(2)}
+                                        {formatCurrency(total)}
                                     </p>
                                 </div>
                             </div>

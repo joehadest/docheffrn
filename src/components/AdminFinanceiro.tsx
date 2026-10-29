@@ -7,6 +7,7 @@ import { Pedido } from '../types/cart';
 import AdminDialog from './admin/AdminDialog';
 import { PageHeading, StatCard, EmptyState } from './admin/AdminUI';
 import FinancePeriodFilter from './admin/FinancePeriodFilter';
+import { formatCurrency } from '@/utils/formatCurrency';
 import { buildFinanceReport, financialOrderTotal as calcularTotal, financePeriodLabel, FINANCE_TIME_ZONE, type FinancePeriod } from '@/utils/financePeriod';
 type PedidoStatus = Pedido['status'];
 
@@ -228,7 +229,7 @@ export default function AdminFinanceiro() {
                                     <span>{pedido.cliente?.nome || '-'}</span>
                                     <span>Data: {formatDate(pedido.data)}</span>
                                 </div>
-                                <div className="admin-order-row-total">Total: <strong>R$ {calcularTotal(pedido).toFixed(2)}</strong></div>
+                                <div className="admin-order-row-total">Total: <strong>{formatCurrency(calcularTotal(pedido))}</strong></div>
                             </div>
                             <div className="admin-order-row-actions">
                                 <button
@@ -312,7 +313,7 @@ export default function AdminFinanceiro() {
                                                 {item.extras && item.extras.length > 0 && <span className="block text-xs text-gray-400 pl-2">- Extras: {item.extras.join(', ')}</span>}
                                                 {item.observacao && <span className="block text-xs text-gray-400 pl-2">- Obs: {item.observacao}</span>}
                                             </span>
-                                            <span className="font-medium shrink-0">R$ {(item.preco * item.quantidade).toFixed(2)}</span>
+                                            <span className="font-medium shrink-0">{formatCurrency(item.preco * item.quantidade)}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -342,12 +343,12 @@ export default function AdminFinanceiro() {
                                     )}
                                     <div className="flex justify-between pt-2 border-t border-gray-700 mt-2">
                                         <span className="text-gray-400">Subtotal dos itens:</span>
-                                        <span>R$ {calcularSubtotal(pedidoSelecionado).toFixed(2)}</span>
+                                        <span>{formatCurrency(calcularSubtotal(pedidoSelecionado))}</span>
                                     </div>
                                     {pedidoSelecionado.tipoEntrega === 'entrega' ? (
                                         <div className="flex justify-between">
                                             <span className="text-gray-400">Taxa de Entrega:</span>
-                                            <span>R$ {calcularTaxaEntrega(pedidoSelecionado).toFixed(2)}</span>
+                                            <span>{formatCurrency(calcularTaxaEntrega(pedidoSelecionado))}</span>
                                         </div>
                                     ) : pedidoSelecionado.tipoEntrega === 'local' ? (
                                         <div className="flex justify-between">
@@ -362,7 +363,7 @@ export default function AdminFinanceiro() {
                                     )}
                                     <div className="flex justify-between font-bold text-red-500 text-lg pt-2 border-t border-gray-700 mt-2">
                                         <span>Total:</span>
-                                        <span>R$ {calcularTotal(pedidoSelecionado).toFixed(2)}</span>
+                                        <span>{formatCurrency(calcularTotal(pedidoSelecionado))}</span>
                                     </div>
                                 </div>
                             </div>

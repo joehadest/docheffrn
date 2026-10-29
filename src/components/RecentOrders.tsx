@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { FaShareAlt } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
+import { fetchCurrentCheckoutSettings } from '@/utils/checkoutSettings';
 
 interface Endereco {
   street?: string;
@@ -111,7 +112,6 @@ export default function RecentOrders() {
   const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
   const [uploadingComprovante, setUploadingComprovante] = useState<string | null>(null);
   const [newOrderNotification, setNewOrderNotification] = useState<string | null>(null);
-  const [pixKey, setPixKey] = useState('84987291269');
   const [hasPhone, setHasPhone] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const notifiedPedidosRef = useRef<Set<string>>(new Set());
@@ -234,19 +234,6 @@ export default function RecentOrders() {
   };
 
   useEffect(() => {
-    async function fetchPixKey() {
-      try {
-        const res = await fetch('/api/settings');
-        const data = await res.json();
-        if (data.success && data.data?.pixKey) setPixKey(data.data.pixKey);
-      } catch {
-        /* keep default */
-      }
-    }
-    fetchPixKey();
-  }, []);
-
-  useEffect(() => {
     fetchPedidos(true);
     const interval = setInterval(() => fetchPedidos(), UPDATE_INTERVAL);
     const handleFocus = () => fetchPedidos(true);
@@ -267,6 +254,9 @@ export default function RecentOrders() {
 
   const handleCompartilharPedido = async (pedido: Pedido) => {
     try {
+      const pixKey = pedido.formaPagamento?.toLowerCase() === 'pix'
+        ? (await fetchCurrentCheckoutSettings(true)).pixKey
+        : '';
       const divider = '--------------------';
       const lines = [
         `*Do'Cheff - Pedido #${pedido._id.slice(-6)}*`,

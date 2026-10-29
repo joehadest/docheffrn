@@ -31,16 +31,12 @@ export default function MenuEditorDialog({ id, title, description, icon, onClose
     const dialog = dialogRef.current;
     if (!dialog) return;
     const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const previousOverflow = document.body.style.overflow;
-
-    document.body.style.overflow = 'hidden';
     dialog.showModal();
     panelRef.current?.focus({ preventScroll: true });
 
-    // AnimatePresence keeps the native dialog and scroll lock until exit finishes.
+    // AnimatePresence keeps the native dialog active until its exit finishes.
     return () => {
       dialog.close();
-      document.body.style.overflow = previousOverflow;
       if (trigger?.isConnected) trigger.focus({ preventScroll: true });
     };
   }, []);

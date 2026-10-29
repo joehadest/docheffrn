@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getRestaurantStatus } from '../utils/timeUtils';
 import type { BusinessHoursConfig } from '../utils/timeUtils';
+import { formatCurrency } from '@/utils/formatCurrency';
 import {
     FaSave, FaTrash, FaPlus, FaClock,
     FaMotorcycle, FaQrcode, FaChartBar,
@@ -46,6 +47,7 @@ export default function AdminSettings() {
     const [newNeighborhood, setNewNeighborhood] = useState('');
     const [newFee, setNewFee] = useState('');
     const [pixKey, setPixKey] = useState('');
+    const [whatsappNumber, setWhatsAppNumber] = useState('');
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
     const [stats, setStats] = useState<Stats>({ todayOrders: 0, todayRevenue: 0, pendingOrders: 0 });
@@ -66,6 +68,7 @@ export default function AdminSettings() {
                     setBusinessHours(settingsData.data.businessHours || {});
                     setDeliveryFees(settingsData.data.deliveryFees || []);
                     setPixKey(settingsData.data.pixKey || '');
+                    setWhatsAppNumber(settingsData.data.whatsappNumber || '5584987291269');
                 }
                 const pedidosData = await pedidosRes.json();
                 if (pedidosData.success && Array.isArray(pedidosData.data)) {
@@ -114,9 +117,15 @@ export default function AdminSettings() {
             const res = await fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ businessHours, deliveryFees, pixKey }),
+                body: JSON.stringify({ businessHours, deliveryFees, pixKey: pixKey.trim(), whatsappNumber }),
             });
-            setSaveMessage({ text: res.ok ? 'Configurações salvas com sucesso!' : 'Erro ao salvar.', ok: res.ok });
+            const result = await res.json();
+            const ok = res.ok && result.success === true;
+            if (ok && result.data) {
+                setPixKey(result.data.pixKey ?? '');
+                setWhatsAppNumber(result.data.whatsappNumber ?? '');
+            }
+            setSaveMessage({ text: ok ? 'Configurações salvas com sucesso!' : result.message || 'Erro ao salvar.', ok });
         } catch {
             setSaveMessage({ text: 'Erro de conexão.', ok: false });
         } finally {
@@ -155,8 +164,8 @@ export default function AdminSettings() {
 
             {/* ── Cabeçalho ── */}
             <PageHeading title="Configurações" description="Defina os horários de atendimento, as taxas de entrega e os dados de pagamento.">
-                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold border w-fit ${isOpen ? 'bg-green-950/60 text-green-400 border-green-800/50' : 'bg-red-950/60 text-red-400 border-red-900/50'}`}>
-                    <span className={`w-2 h-2 rounded-full ${isOpen ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                <div className="admin-open-status inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold border w-fit" data-open={isOpen}>
+                    <span className="admin-open-status-dot w-2 h-2 rounded-full" />
                     {isOpen ? 'Aberto Agora' : 'Fechado Agora'}
                 </div>
             </PageHeading>
@@ -170,7 +179,7 @@ export default function AdminSettings() {
                 />
                 <StatCard
                     label="Faturamento Hoje"
-                    value={`R$ ${stats.todayRevenue.toFixed(2)}`}
+                    value={formatCurrency(stats.todayRevenue)}
                     color="text-green-400"
                     icon={<FaMoneyBillWave size={14} />}
                 />
@@ -213,7 +222,7 @@ export default function AdminSettings() {
                                             onChange={(e) => handleBusinessHoursChange(key, 'open', e.target.checked)}
                                             className="form-checkbox shrink-0"
                                         />
-                                        <span className={`text-sm font-semibold ${isOn ? 'text-white' : 'text-gray-500'}`}>
+                                        <span className={`text-sm font-semibold ${isOn ? 'text-gray-200' : 'text-gray-500'}`}>
                                             <span className="sm:hidden">{label}</span>
                                             <span className="hidden sm:inline">{labelFull}</span>
                                         </span>
@@ -269,7 +278,7 @@ export default function AdminSettings() {
                                             </div>
                                             <div className="flex items-center gap-3 shrink-0 ml-2">
                                                 <span className="admin-fee-value">
-                                                    R$ {fee.fee.toFixed(2)}
+                                                    {formatCurrency(fee.fee)}
                                                 </span>
                                                 <button
                                                     onClick={() => handleRemoveFee(index)}
@@ -321,6 +330,16 @@ export default function AdminSettings() {
                         </div>
                     </SettingsCard>
 
+                    <SettingsCard title="WhatsApp de atendimento">
+                        <div className="space-y-3">
+                            <label htmlFor="admin-whatsapp" className="form-label">Número que recebe os pedidos</label>
+                            <input id="admin-whatsapp" type="tel" autoComplete="tel" value={whatsappNumber}
+                                onChange={event => setWhatsAppNumber(event.target.value)}
+                                placeholder="55 84 98729-1269" className="form-input" />
+                            <p className="text-xs text-gray-600 leading-relaxed">Informe o DDD e o telefone do restaurante. Este contato é independente da chave PIX.</p>
+                        </div>
+                    </SettingsCard>
+
                     {/* Chave PIX */}
                     <SettingsCard title="Chave PIX" icon={<FaQrcode size={12} />}>
                         <div className="space-y-3">
@@ -337,6 +356,7 @@ export default function AdminSettings() {
                             <p className="text-xs text-gray-600 leading-relaxed">
                                 Essa chave é exibida nas mensagens de WhatsApp quando o cliente escolhe pagar via PIX.
                             </p>
+                            {!pixKey.trim() && <p role="status" className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">Cadastre uma chave para disponibilizar o pagamento via PIX no cardápio.</p>}
                         </div>
                     </SettingsCard>
 

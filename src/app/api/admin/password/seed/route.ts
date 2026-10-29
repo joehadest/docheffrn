@@ -2,6 +2,7 @@ import { requireAdmin } from '@/lib/adminSession';
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import { hashPassword } from '@/lib/passwordUtils';
+import { Settings } from '@/lib/settingsModel';
 
 // Conexão com MongoDB
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -36,48 +37,6 @@ async function connectDB() {
 
     return cached.conn;
 }
-
-// Schema do Settings
-const settingsSchema = new mongoose.Schema({
-    isOpen: {
-        type: Boolean,
-        default: false
-    },
-    businessHours: {
-        monday: { open: { type: Boolean, default: false }, start: String, end: String },
-        tuesday: { open: { type: Boolean, default: false }, start: String, end: String },
-        wednesday: { open: { type: Boolean, default: false }, start: String, end: String },
-        thursday: { open: { type: Boolean, default: false }, start: String, end: String },
-        friday: { open: { type: Boolean, default: false }, start: String, end: String },
-        saturday: { open: { type: Boolean, default: false }, start: String, end: String },
-        sunday: { open: { type: Boolean, default: false }, start: String, end: String }
-    },
-    deliveryFees: [{
-        neighborhood: {
-            type: String,
-            required: true
-        },
-        fee: {
-            type: Number,
-            required: true,
-            min: 0
-        }
-    }],
-    adminPassword: {
-        type: String,
-        default: 'admin123'
-    },
-    pixKey: {
-        type: String,
-        default: '84987291269'
-    },
-    lastUpdated: {
-        type: Date,
-        default: Date.now
-    }
-});
-
-const Settings = mongoose.models.Settings || mongoose.model('Settings', settingsSchema);
 
 export async function POST(request: Request) {
     const denied = await requireAdmin(request);
@@ -136,4 +95,4 @@ export async function POST(request: Request) {
             { status: 500 }
         );
     }
-} 
+}

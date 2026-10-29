@@ -11,8 +11,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   return (
     <MenuProvider>
       <StoreProvider>
-        {!isAdmin && <Header />}
-        {children}
+        {isAdmin ? children : <div className="storefront"><Header />{children}</div>}
       </StoreProvider>
     </MenuProvider>
   );

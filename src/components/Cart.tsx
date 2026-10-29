@@ -1,11 +1,10 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MenuItem } from '../types/menu';
 import { CartItem } from '../types/cart';
 import { isRestaurantOpen as checkRestaurantOpen } from '../utils/timeUtils';
-import { getBorderPrice } from '../utils/priceCalculator';
 import type { BusinessHoursConfig } from '../utils/timeUtils';
+import { formatCurrency } from '../utils/formatCurrency';
 
 interface CartProps {
     items: CartItem[];
@@ -128,7 +127,7 @@ function SelectField({
                 onChange={(e) => onChange(e.target.value)}
                 required={required}
                 className="peer w-full appearance-none rounded-2xl border border-white/10 bg-white/[0.04] px-4 pb-2.5 pt-5 text-sm text-ink outline-none transition focus:border-ember-500/60 focus:bg-white/[0.06] focus:ring-2 focus:ring-ember-600/20"
-                style={{ colorScheme: 'dark' }}
+                style={{ colorScheme: 'light' }}
             >
                 {children}
             </select>
@@ -152,7 +151,6 @@ function SelectField({
 
 export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, onFinalize }: CartProps) {
     const [currentPage, setCurrentPage] = useState<'items' | 'checkout'>('items');
-    const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [address, setAddress] = useState({
         street: '',
         number: '',
@@ -169,101 +167,20 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, o
     const [deliveryFees, setDeliveryFees] = useState<{ neighborhood: string; fee: number }[]>([]);
     const [tipoEntrega, setTipoEntrega] = useState<'entrega' | 'retirada'>('entrega');
     const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
+    const [pixAvailable, setPixAvailable] = useState(false);
     const [isDesktop, setIsDesktop] = useState(false);
 
-    const calculateItemPrice = (item: CartItem) => {
-        if (item.size && item.item.sizes) {
-            const sizeKey = item.size as keyof typeof item.item.sizes;
-            let price = item.item.sizes[sizeKey] || item.item.price;
-
-            if (
-                (item.item.category === 'pizzas' || item.item.category === 'calzone') &&
-                item.observation &&
-                item.observation.includes('Meio a meio:')
-            ) {
-                const meioAMeioText = item.observation.split('Meio a meio:')[1];
-                const cleanMeioAMeioText = meioAMeioText.split(' - ')[0];
-                const [sabor1, sabor2] = cleanMeioAMeioText.split('/').map((s) => s.trim());
-                const catItems = menuItems.filter((p: MenuItem) => p.category === item.item.category);
-                const item1 = catItems.find((p: MenuItem) => p.name === sabor1);
-                const item2 = catItems.find((p: MenuItem) => p.name === sabor2);
-                if (item1 && item2) {
-                    const price1 = item1.sizes ? item1.sizes[sizeKey] || item1.price : item1.price;
-                    const price2 = item2.sizes ? item2.sizes[sizeKey] || item2.price : item2.price;
-                    price = Math.max(price1, price2);
-                }
-            }
-
-            if (item.item.category === 'pizzas' || item.item.category === 'calzone') {
-                price += getBorderPrice(item.item, item.border, sizeKey);
-                if (item.extras && item.item.extraOptions) {
-                    item.extras.forEach((extra) => {
-                        const extraPrice = item.item.extraOptions![extra];
-                        if (extraPrice) price += extraPrice;
-                    });
-                }
-            }
-            return price * item.quantity;
-        }
-        return item.item.price * item.quantity;
-    };
-
-    const calculateUnitPrice = (item: CartItem) => {
-        if (
-            (item.item.category === 'pizzas' || item.item.category === 'calzone' || item.item.category === 'massas') &&
-            item.size &&
-            item.item.sizes
-        ) {
-            const sizeKey = item.size as keyof typeof item.item.sizes;
-            let price = 0;
-
-            if (item.item.category === 'pizzas' || item.item.category === 'calzone') {
-                if (item.observation && item.observation.includes('Meio a meio:')) {
-                    const meioAMeioText = item.observation.split('Meio a meio:')[1];
-                    const cleanMeioAMeioText = meioAMeioText.split(' - ')[0];
-                    const [sabor1, sabor2] = cleanMeioAMeioText.split('/').map((s) => s.trim());
-                    const catItems = menuItems.filter((p: MenuItem) => p.category === item.item.category);
-                    const item1 = catItems.find((p: MenuItem) => p.name === sabor1);
-                    const item2 = catItems.find((p: MenuItem) => p.name === sabor2);
-                    if (item1 && item2) {
-                        const price1 = item1.sizes ? item1.sizes[sizeKey] || item1.price : item1.price;
-                        const price2 = item2.sizes ? item2.sizes[sizeKey] || item2.price : item2.price;
-                        price = Math.max(price1, price2);
-                    }
-                } else {
-                    price = item.item.sizes[sizeKey] || item.item.price;
-                }
-                price += getBorderPrice(item.item, item.border, sizeKey);
-                if (item.extras && item.item.extraOptions) {
-                    item.extras.forEach((extra) => {
-                        const extraPrice = item.item.extraOptions![extra];
-                        if (extraPrice) price += extraPrice;
-                    });
-                }
-            } else {
-                price = item.item.sizes[sizeKey] || item.item.price;
-            }
-            return price;
-        }
-        return item.item.price;
-    };
+    const calculateUnitPrice = (item: CartItem) => item.price;
+    const calculateItemPrice = (item: CartItem) => item.price * item.quantity;
 
     useEffect(() => {
-        async function fetchMenuItems() {
-            try {
-                const response = await fetch('/api/menu');
-                const data = await response.json();
-                if (data.success && data.data) setMenuItems(data.data);
-            } catch (err) {
-                console.error('Erro ao carregar itens do menu:', err);
-            }
-        }
         async function fetchDeliveryFees() {
             try {
-                const res = await fetch('/api/settings');
+                const res = await fetch('/api/settings', { cache: 'no-store' });
                 const data = await res.json();
                 if (data.success && data.data) {
                     setDeliveryFees(data.data.deliveryFees || []);
+                    setPixAvailable(Boolean(data.data.pixKey?.trim()));
                     setIsRestaurantOpen(checkRestaurantOpen(data.data.businessHours as BusinessHoursConfig));
                 }
             } catch (err) {
@@ -271,7 +188,6 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, o
                 setIsRestaurantOpen(checkRestaurantOpen(null));
             }
         }
-        fetchMenuItems();
         fetchDeliveryFees();
     }, []);
 
@@ -386,7 +302,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, o
     return (
         <AnimatePresence>
             <motion.div
-                className="fixed inset-0 z-[80] flex items-end justify-center bg-black/75 backdrop-blur-md sm:items-center sm:p-4"
+                className="checkout-overlay fixed inset-0 z-[80] flex items-end justify-center bg-black/75 sm:items-center sm:p-4"
                 style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
                 variants={overlayVariants}
                 initial="hidden"
@@ -395,7 +311,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, o
                 onClick={onClose}
             >
                 <motion.div
-                    className="flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-surface-raised shadow-2xl sm:max-h-[92vh] sm:max-w-lg sm:rounded-3xl"
+                    className="checkout-panel flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-surface-raised shadow-2xl sm:max-h-[92vh] sm:max-w-lg sm:rounded-3xl"
                     variants={isDesktop ? panelVariantsDesktop : panelVariants}
                     initial="hidden"
                     animate="visible"
@@ -415,7 +331,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, o
                                 <p className="text-xs text-ink-muted">
                                     {itemCount === 0
                                         ? 'Nenhum item ainda'
-                                        : `${itemCount} ${itemCount === 1 ? 'item' : 'itens'} · R$ ${total.toFixed(2)}`}
+                                        : `${itemCount} ${itemCount === 1 ? 'item' : 'itens'} · ${formatCurrency(total)}`}
                                 </p>
                             </div>
                             <button
@@ -518,10 +434,10 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, o
                                                         </div>
                                                         <div className="shrink-0 text-right">
                                                             <p className="text-[10px] text-ink-faint">
-                                                                R$ {calculateUnitPrice(item).toFixed(2)} un.
+                                                                {formatCurrency(calculateUnitPrice(item))} un.
                                                             </p>
                                                             <p className="text-sm font-bold text-ember-300">
-                                                                R$ {calculateItemPrice(item).toFixed(2)}
+                                                                {formatCurrency(calculateItemPrice(item))}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -608,7 +524,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, o
                                                         )}
                                                     </div>
                                                     <span className="shrink-0 text-ink">
-                                                        R$ {calculateItemPrice(item).toFixed(2)}
+                                                        {formatCurrency(calculateItemPrice(item))}
                                                     </span>
                                                 </div>
                                             ))}
@@ -619,19 +535,19 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, o
                                         <div className="mt-3 space-y-1 border-t border-white/[0.06] pt-3 text-sm">
                                             <div className="flex justify-between text-ink-muted">
                                                 <span>Subtotal</span>
-                                                <span>R$ {subtotal.toFixed(2)}</span>
+                                                <span>{formatCurrency(subtotal)}</span>
                                             </div>
                                             <div className="flex justify-between text-ink-muted">
                                                 <span>Entrega</span>
                                                 <span>
                                                     {tipoEntrega === 'retirada'
                                                         ? 'Grátis'
-                                                        : `R$ ${deliveryFee.toFixed(2)}`}
+                                                        : formatCurrency(deliveryFee)}
                                                 </span>
                                             </div>
                                             <div className="flex justify-between font-bold text-ink">
                                                 <span>Total</span>
-                                                <span className="text-ember-400">R$ {total.toFixed(2)}</span>
+                                                <span className="text-ember-400">{formatCurrency(total)}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -697,7 +613,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, o
                                                 <option value="">Selecione o bairro</option>
                                                 {deliveryFees.map((fee) => (
                                                     <option key={fee.neighborhood} value={fee.neighborhood}>
-                                                        {fee.neighborhood} — R$ {fee.fee.toFixed(2)}
+                                                        {fee.neighborhood} — {formatCurrency(fee.fee)}
                                                     </option>
                                                 ))}
                                             </SelectField>
@@ -742,7 +658,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, o
                                         onChange={setFormaPagamento}
                                     >
                                         <option value="">Selecione</option>
-                                        <option value="pix">PIX</option>
+                                        <option value="pix" disabled={!pixAvailable}>PIX{!pixAvailable ? ' (indisponível)' : ''}</option>
                                         <option value="dinheiro">Dinheiro</option>
                                         <option value="cartao">Cartão</option>
                                     </SelectField>
@@ -839,7 +755,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, o
                                         onClick={() => setCurrentPage('checkout')}
                                         className="rounded-2xl bg-ember-600 px-4 py-3.5 text-sm font-bold text-white shadow-glow transition hover:bg-ember-500 sm:flex-[1.4]"
                                     >
-                                        Ir para checkout · R$ {total.toFixed(2)}
+                                        Ir para checkout · {formatCurrency(total)}
                                     </motion.button>
                                 </div>
                             ) : (
@@ -862,7 +778,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, o
                                                 : 'cursor-not-allowed bg-white/10 text-ink-faint'
                                         }`}
                                     >
-                                        {isRestaurantOpen ? `Finalizar · R$ ${total.toFixed(2)}` : 'Estabelecimento fechado'}
+                                        {isRestaurantOpen ? `Finalizar · ${formatCurrency(total)}` : 'Estabelecimento fechado'}
                                     </motion.button>
                                 </div>
                             )}

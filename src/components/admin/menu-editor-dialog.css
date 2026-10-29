@@ -8,6 +8,7 @@
   margin: 0;
   padding: 28px;
   overflow: hidden;
+  overscroll-behavior: contain;
   border: 0;
   background: transparent;
   color: var(--ad-text);

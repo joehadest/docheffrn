@@ -9,14 +9,14 @@ module.exports = {
         extend: {
             colors: {
                 surface: {
-                    DEFAULT: '#141210',
-                    raised: '#1c1916',
-                    overlay: '#24201c',
+                    DEFAULT: 'var(--surface)',
+                    raised: 'var(--surface-raised)',
+                    overlay: 'var(--surface-overlay)',
                 },
                 ink: {
-                    DEFAULT: '#f4f0ea',
-                    muted: '#a39a8f',
-                    faint: '#6e665c',
+                    DEFAULT: 'var(--ink)',
+                    muted: 'var(--ink-muted)',
+                    faint: 'var(--ink-faint)',
                 },
                 ember: {
                     50: '#fef2f1',

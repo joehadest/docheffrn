@@ -1,0 +1,113 @@
+/* Ordering surfaces share the menu's warm paper palette. */
+.storefront .product-modal-overlay,
+.storefront .checkout-overlay,
+.storefront .whatsapp-checkout-overlay {
+  --surface: #faf8f4;
+  --surface-raised: #fffdf9;
+  --surface-overlay: #f0ebe3;
+  --ink: #302820;
+  --ink-muted: #6e6257;
+  --ink-faint: #81766b;
+  --line: #e8dfd4;
+  background: #201613d6;
+  backdrop-filter: none;
+}
+.storefront .product-modal-panel,
+.storefront .checkout-panel,
+.storefront .whatsapp-checkout-panel {
+  border-color: #e4d9ca;
+  border-radius: 22px 22px 0 0;
+  background: #fffdf9;
+  color: #302820;
+  box-shadow: 0 24px 70px #160c0970;
+}
+@media (min-width: 640px) {
+  .storefront .product-modal-panel,
+  .storefront .checkout-panel,
+  .storefront .whatsapp-checkout-panel { border-radius: 20px; }
+}
+.storefront .product-modal-panel .bg-white\/20,
+.storefront .checkout-panel .bg-white\/20,
+.storefront .whatsapp-checkout-panel .bg-white\/20 { background: #cfc2b2; }
+.storefront .product-modal-hero { background: #40251f; }
+.storefront .product-modal-hero > .absolute.inset-0 { background: linear-gradient(transparent 30%, #28130fe8); }
+.storefront .product-modal-hero h2 { color: #fff8ed; text-shadow: 0 1px 5px #0009; }
+.storefront .product-modal-hero p { color: #f5e6d8; text-shadow: 0 1px 4px #0009; }
+.storefront .product-modal-close { background: #221713b8 !important; color: #fff; }
+.storefront .product-modal-body,
+.storefront .checkout-panel > .min-h-0,
+.storefront .whatsapp-checkout-panel > .min-h-0 { background: #fffdf9; }
+.storefront .product-modal-body > section + section { border-top: 1px solid #efe8df; padding-top: 18px; }
+.storefront .product-modal-body h3,
+.storefront .checkout-panel .text-ink-faint,
+.storefront .whatsapp-checkout-panel .text-ink-faint { color: #74685c; }
+.storefront .product-option { border-color: #e8dfd4; background: #fff; color: #62584f; border-radius: 11px; box-shadow: none; }
+.storefront .product-option:hover { border-color: #c8917d; background: #fdf5ef; color: #302820; }
+.storefront .product-option.is-selected { border-color: #b5382b; background: #fff2e9; color: #302820; box-shadow: 0 0 0 1px #b5382b1a; }
+.storefront .product-option.is-selected .text-ember-300 { color: #a52d22; }
+.storefront .product-modal-panel .form-input,
+.storefront .checkout-panel input:not([type="checkbox"]),
+.storefront .checkout-panel textarea,
+.storefront .checkout-panel select { border: 1px solid #dfd5c9; border-radius: 11px; background: #fff; color: #302820; box-shadow: none; color-scheme: light; }
+.storefront .product-modal-panel .form-input::placeholder,
+.storefront .checkout-panel input::placeholder,
+.storefront .checkout-panel textarea::placeholder { color: #a79b90; }
+.storefront .checkout-panel input.peer:not(:focus)::placeholder { color: transparent; }
+.storefront .product-modal-panel .form-input:focus,
+.storefront .checkout-panel input:focus,
+.storefront .checkout-panel textarea:focus,
+.storefront .checkout-panel select:focus { outline: 2px solid #c24738; outline-offset: 1px; border-color: #c24738; background: #fff; }
+.storefront .product-modal-panel select option,
+.storefront .checkout-panel select option { background: #fff; color: #302820; }
+.storefront .product-modal-panel .form-checkbox { background: #fff; border-color: #cdbba9; accent-color: #b82d25; }
+.storefront .product-modal-footer,
+.storefront .checkout-panel > .shrink-0:last-child,
+.storefront .whatsapp-checkout-panel > .shrink-0:last-child { border-color: #e8dfd4; background: #fffaf3; backdrop-filter: none; }
+.storefront .product-modal-footer .text-ember-400,
+.storefront .checkout-panel .text-ember-400 { color: #a62d23; }
+.storefront .product-modal-panel [class*="bg-white/"],
+.storefront .checkout-panel [class*="bg-white/"],
+.storefront .whatsapp-checkout-panel [class*="bg-white/"] { background-color: #f6f0e8; }
+.storefront .product-modal-panel [class*="border-white/"],
+.storefront .checkout-panel [class*="border-white/"],
+.storefront .whatsapp-checkout-panel [class*="border-white/"] { border-color: #e8dfd4; }
+.storefront .product-modal-panel [class*="bg-ember-950/"],
+.storefront .checkout-panel [class*="bg-ember-950/"] { background-color: #fff0e7; }
+.storefront .product-modal-panel [class*="text-ember-300"],
+.storefront .checkout-panel [class*="text-ember-300"] { color: #a52d22; }
+.storefront .checkout-panel .rounded-full.border,
+.storefront .product-modal-footer .rounded-full.border { border-color: #e3d5c7; background: #f4ece2; }
+.storefront .product-modal-footer button[aria-label="Diminuir quantidade"],
+.storefront .checkout-panel button[aria-label*="Diminuir"] { background: #e9ddd0; color: #493a31; }
+.storefront .checkout-panel button,
+.storefront .product-modal-panel button,
+.storefront .whatsapp-checkout-panel button { cursor: pointer; }
+.storefront .checkout-panel button:disabled,
+.storefront .product-modal-panel button:disabled,
+.storefront .whatsapp-checkout-panel button:disabled { cursor: not-allowed; }
+.storefront .checkout-panel .border-ember-500\/70 { border-color: #b5382b; }
+.storefront .checkout-panel .bg-ember-950\/45 { background: #fff0e7; }
+.storefront .checkout-panel .text-white { color: #fff; }
+.storefront .checkout-panel .text-ink { color: #302820; }
+.storefront .checkout-panel .bg-ember-600.text-white { color: #fff; }
+.storefront .whatsapp-checkout-panel .text-ink { color: #302820; }
+.storefront .whatsapp-checkout-panel .text-ink-muted { color: #6e6257; }
+.storefront .whatsapp-checkout-panel .text-\[\#25D366\] { color: #257842; }
+.storefront .whatsapp-checkout-panel .bg-\[\#25D366\] { background: #278b50; }
+.storefront .whatsapp-checkout-panel .bg-\[\#25D366\]\/15,
+.storefront .whatsapp-checkout-panel .bg-\[\#25D366\]\/20 { background: #e4f4e8; }
+.storefront .whatsapp-checkout-panel .bg-\[\#25D366\]\/\[0\.07\] { background: #edf7ee; }
+.storefront .whatsapp-checkout-panel .border-\[\#25D366\]\/25 { border-color: #b8dec2; }
+.storefront .whatsapp-checkout-panel .text-white { color: white; }
+.storefront .whatsapp-checkout-panel button.bg-\[\#25D366\]:hover,
+.storefront .whatsapp-checkout-panel a.bg-\[\#25D366\]:hover { background: #207445; }
+.storefront .whatsapp-checkout-panel > .min-h-0 { scrollbar-color: #d4c5b5 transparent; }
+.storefront .checkout-panel > .min-h-0 { scrollbar-color: #d4c5b5 transparent; }
+.storefront-reopen-whatsapp { position: fixed; z-index: 50; right: 20px; bottom: calc(20px + env(safe-area-inset-bottom)); display: flex; align-items: center; justify-content: center; gap: 10px; max-width: calc(100vw - 32px); min-height: 48px; padding: 12px 18px; border-radius: 12px; background: #278b50; color: white; box-shadow: 0 8px 28px #12412340; font-size: 12px; font-weight: 800; text-decoration: none; }
+.storefront-reopen-whatsapp:hover { background: #207445; }
+@media (max-width: 639px) {
+  .storefront .product-modal-panel,
+  .storefront .checkout-panel,
+  .storefront .whatsapp-checkout-panel { max-height: 100dvh; }
+  .storefront-reopen-whatsapp { left: 16px; right: 16px; }
+}

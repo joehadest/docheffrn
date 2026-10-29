@@ -9,6 +9,8 @@ import { FaShareAlt, FaClipboardList, FaSyncAlt, FaList, FaColumns, FaClock, FaS
 import { Pedido } from '../types/cart';
 import { motion, AnimatePresence } from 'framer-motion';
 import { financialOrderTotal, FINANCE_TIME_ZONE } from '@/utils/financePeriod';
+import { fetchCurrentCheckoutSettings } from '@/utils/checkoutSettings';
+import { formatCurrency } from '@/utils/formatCurrency';
 import { ORDER_STATUSES, ORDER_STATUS_LABELS, ORDER_CHANNEL_LABELS, nextOrderStatus, nextOrderAction, filterOperationOrders, isActiveOrder, orderElapsedLabel } from './admin/orderOperations';
 import './admin/admin-operations.css';
 import './admin/admin-orders.css';
@@ -58,12 +60,11 @@ function OrdersWorkspace({ onOpenDeliveries }: { onOpenDeliveries: (orderId?: st
     const [loadError, setLoadError] = useState<string | null>(null);
     const [pedidoSelecionado, setPedidoSelecionado] = useState<Pedido | null>(null);
     const [mensagem, setMensagem] = useState<string | null>(null);
-    const [pixKey, setPixKey] = useState('84987291269'); // (84) 98729-1269
     const [searchFilter, setSearchFilter] = useState('');
     const [channelFilter, setChannelFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [dateFilter, setDateFilter] = useState<DateFilter>('active');
-    const [view, setView] = useState<'list' | 'board'>('board');
+    const [view, setView] = useState<'list' | 'board'>('list');
     const [listPage, setListPage] = useState(1);
     const [now, setNow] = useState(() => Date.now());
     const [refreshing, setRefreshing] = useState(false);
@@ -146,22 +147,6 @@ function OrdersWorkspace({ onOpenDeliveries }: { onOpenDeliveries: (orderId?: st
             window.removeEventListener('click', enableAudio);
             window.removeEventListener('keydown', enableAudio);
         };
-    }, []);
-
-    // Buscar chave PIX das configurações
-    useEffect(() => {
-        async function fetchPixKey() {
-            try {
-                const res = await fetch('/api/settings');
-                const data = await res.json();
-                if (data.success && data.data?.pixKey) {
-                    setPixKey(data.data.pixKey);
-                }
-            } catch (error) {
-                // Mantém o valor padrão em caso de erro
-            }
-        }
-        fetchPixKey();
     }, []);
 
     const fetchPedidos = useCallback(async (isPolling = false) => {
@@ -305,18 +290,27 @@ function OrdersWorkspace({ onOpenDeliveries }: { onOpenDeliveries: (orderId?: st
         }
     };
 
-    const handleCompartilharPedido = (pedido: Pedido) => {
+    const handleCompartilharPedido = async (pedido: Pedido) => {
+        let pixKey = '';
+        if (pedido.formaPagamento?.toLowerCase() === 'pix') {
+            try {
+                pixKey = (await fetchCurrentCheckoutSettings(true)).pixKey;
+            } catch (error) {
+                setMensagem(error instanceof Error ? error.message : 'Não foi possível conferir a chave PIX.');
+                return;
+            }
+        }
         const endereco = pedido.endereco;
         const enderecoFormatado = pedido.tipoEntrega === 'local'
             ? `Mesa: ${pedido.mesa || '-'}`
             : pedido.tipoEntrega === 'retirada' || !endereco?.address
                 ? 'Retirada no local'
                 : `${endereco.address.street}, ${endereco.address.number}${endereco.address.complement ? ` - ${endereco.address.complement}` : ''}\nBairro: ${endereco.address.neighborhood}\nPonto de Referência: ${endereco.address.referencePoint || 'Nenhum'}`;
-        const formaPagamento = pedido.formaPagamento === 'pix' ? 'PIX' : pedido.formaPagamento === 'cartao' ? 'Cartão' : 'Dinheiro';
+        const formaPagamento = pedido.formaPagamento?.toLowerCase() === 'pix' ? 'PIX' : pedido.formaPagamento === 'cartao' ? 'Cartão' : 'Dinheiro';
         const troco = pedido.formaPagamento === 'dinheiro' && pedido.troco ? `\nTroco para: R$ ${pedido.troco}` : '';
         const taxaEntregaValor = calcularTaxaEntrega(pedido);
-        const taxaEntrega = taxaEntregaValor > 0 ? `\nTaxa de Entrega: R$ ${taxaEntregaValor.toFixed(2)}` : '';
-        const itensFormatados = pedido.itens.map(item => `*${item.quantidade}x ${item.nome}*${item.size ? ` (${item.size})` : ''}${item.border ? `\n  - Borda: ${item.border}` : ''}${item.extras && item.extras.length > 0 ? `\n  - Extras: ${item.extras.join(', ')}` : ''}${item.observacao ? `\n  - _Obs: ${item.observacao}_` : ''}\n  - R$ ${(item.preco * item.quantidade).toFixed(2)}`).join('\n\n');
+        const taxaEntrega = taxaEntregaValor > 0 ? `\nTaxa de Entrega: ${formatCurrency(taxaEntregaValor)}` : '';
+        const itensFormatados = pedido.itens.map(item => `*${item.quantidade}x ${item.nome}*${item.size ? ` (${item.size})` : ''}${item.border ? `\n  - Borda: ${item.border}` : ''}${item.extras && item.extras.length > 0 ? `\n  - Extras: ${item.extras.join(', ')}` : ''}${item.observacao ? `\n  - _Obs: ${item.observacao}_` : ''}\n  - ${formatCurrency(item.preco * item.quantidade)}`).join('\n\n');
         const subtotal = calcularSubtotal(pedido);
         const total = calcularTotal(pedido);
         const mensagem = `*Do'Cheff - Pedido #${pedido._id.slice(-6)}*\n\n` +
@@ -325,8 +319,8 @@ function OrdersWorkspace({ onOpenDeliveries }: { onOpenDeliveries: (orderId?: st
             `*Cliente:*\nNome: ${pedido.cliente.nome}\nTelefone: ${pedido.cliente.telefone}\n\n` +
             `*Endereço de Entrega:*\n${enderecoFormatado}\n\n` +
             `*Itens do Pedido:*\n${itensFormatados}\n\n` +
-            `*Resumo Financeiro:*\nSubtotal: R$ ${subtotal.toFixed(2)}${taxaEntrega}\n*Total: R$ ${total.toFixed(2)}*\n\n` +
-            `*Forma de Pagamento:* ${formaPagamento}${troco}${pedido.formaPagamento === 'pix' ? `\n*Chave PIX:* ${pixKey}` : ''}\n\n` +
+            `*Resumo Financeiro:*\nSubtotal: ${formatCurrency(subtotal)}${taxaEntrega}\n*Total: ${formatCurrency(total)}*\n\n` +
+            `*Forma de Pagamento:* ${formaPagamento}${troco}${pedido.formaPagamento?.toLowerCase() === 'pix' ? `\n*Chave PIX:* ${pixKey}` : ''}\n\n` +
             `*Observações Gerais:*\n${pedido.observacoes || 'Nenhuma'}`;
         if (navigator.share) {
             navigator.share({ title: `Pedido Do'Cheff #${pedido._id.slice(-6)}`, text: mensagem }).catch(err => console.error('Erro ao compartilhar:', err));
@@ -626,7 +620,7 @@ function OrdersWorkspace({ onOpenDeliveries }: { onOpenDeliveries: (orderId?: st
                                     {pedidoSelecionado.itens.map((item, idx) => (
                                         <li key={idx} className="flex justify-between py-1 text-gray-200">
                                             <span className="flex-1 min-w-0 pr-2 break-words">{item.quantidade}x {item.nome}{item.size && ` (${item.size})`}{item.border && <span className="block text-xs text-gray-400 pl-2">- Borda: {item.border}</span>}{item.extras && item.extras.length > 0 && <span className="block text-xs text-gray-400 pl-2">- Extras: {item.extras.join(', ')}</span>}{item.observacao && <span className="block text-xs text-gray-400 pl-2">- Obs: {item.observacao}</span>}</span>
-                                            <span className="font-medium shrink-0">R$ {(item.preco * item.quantidade).toFixed(2)}</span>
+                                            <span className="font-medium shrink-0">{formatCurrency(item.preco * item.quantidade)}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -663,13 +657,13 @@ function OrdersWorkspace({ onOpenDeliveries }: { onOpenDeliveries: (orderId?: st
 
                                     <div className="flex justify-between pt-2 border-t border-gray-700 mt-2">
                                         <span className="text-gray-400">Subtotal dos itens:</span>
-                                        <span>R$ {calcularSubtotal(pedidoSelecionado).toFixed(2)}</span>
+                                        <span>{formatCurrency(calcularSubtotal(pedidoSelecionado))}</span>
                                     </div>
 
                                     {pedidoSelecionado.tipoEntrega === 'entrega' && (
                                         <div className="flex justify-between">
                                             <span className="text-gray-400">Taxa de Entrega:</span>
-                                            <span>R$ {calcularTaxaEntrega(pedidoSelecionado).toFixed(2)}</span>
+                                            <span>{formatCurrency(calcularTaxaEntrega(pedidoSelecionado))}</span>
                                         </div>
                                     )}
 
@@ -689,7 +683,7 @@ function OrdersWorkspace({ onOpenDeliveries }: { onOpenDeliveries: (orderId?: st
 
                                     <div className="flex justify-between font-bold text-red-500 text-lg pt-2 border-t border-gray-700 mt-2">
                                         <span>Total:</span>
-                                        <span>R$ {calcularTotal(pedidoSelecionado).toFixed(2)}</span>
+                                        <span>{formatCurrency(calcularTotal(pedidoSelecionado))}</span>
                                     </div>
                                 </div>
                             </div>

@@ -1,6 +1,9 @@
 // src/app/layout.tsx
 
 import './globals.css';
+import './storefront.css';
+import './restaurant-info.css';
+import './checkout.css';
 import type { Metadata, Viewport } from 'next';
 import { Bricolage_Grotesque, DM_Sans } from 'next/font/google';
 import React from 'react';

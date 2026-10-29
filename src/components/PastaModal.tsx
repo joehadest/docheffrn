@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { formatCurrency } from '../utils/formatCurrency';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MenuItem } from '../types/menu';
@@ -156,7 +157,7 @@ export default function PastaModal({ item, onClose, onAddToCart, submitLabel = '
                                                 key={size}
                                                 type="button"
                                                 onClick={() => setSelectedSize(size)}
-                                                className={`relative rounded-2xl border px-3 py-3 text-left transition-all active:scale-[0.98] ${
+                                                className={`product-option ${selected ? 'is-selected' : ''} relative rounded-2xl border px-3 py-3 text-left transition-all active:scale-[0.98] ${
                                                     selected
                                                         ? 'border-ember-500/70 bg-ember-950/50 text-ink'
                                                         : 'border-white/10 bg-white/[0.03] text-ink-muted hover:border-white/20'
@@ -173,7 +174,7 @@ export default function PastaModal({ item, onClose, onAddToCart, submitLabel = '
                                                     {size === 'P' ? 'Pequena' : 'Grande'}
                                                 </div>
                                                 <div className={`mt-1 text-xs ${selected ? 'text-ember-300' : 'text-ink-faint'}`}>
-                                                    R$ {(price ?? item.price).toFixed(2)}
+                                                    {formatCurrency(price ?? item.price)}
                                                 </div>
                                             </button>
                                         );
@@ -222,7 +223,7 @@ export default function PastaModal({ item, onClose, onAddToCart, submitLabel = '
                                 <div className="text-right">
                                     <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint">Total</p>
                                     <p className="font-display text-xl font-bold text-ember-400 sm:text-2xl">
-                                        R$ {total.toFixed(2)}
+                                        {formatCurrency(total)}
                                     </p>
                                 </div>
                             </div>

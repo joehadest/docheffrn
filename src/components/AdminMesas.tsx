@@ -7,6 +7,7 @@ import { MenuItem } from '../types/menu';
 import { Pedido } from '../types/cart';
 import ItemModal from './ItemModal';
 import PastaModal from './PastaModal';
+import { formatCurrency } from '@/utils/formatCurrency';
 
 type Categoria = { value: string; label: string; icon?: string; order?: number; allowHalfAndHalf?: boolean };
 type ItemPedido = Pedido['itens'][number];
@@ -318,7 +319,7 @@ export default function AdminMesas() {
                                         </div>
                                         <div className="text-xs text-gray-500 mt-3">Aberta desde {formatDate(mesa.data)}</div>
                                         <div className="text-xs text-gray-400 mt-1">{mesa.itens.length} item(ns)</div>
-                                        <div className="admin-table-total">R$ {calcularTotalItens(mesa.itens).toFixed(2)}</div>
+                                        <div className="admin-table-total">{formatCurrency(calcularTotalItens(mesa.itens))}</div>
                                     </div>
                                 </li>
                             ))}
@@ -346,7 +347,7 @@ export default function AdminMesas() {
                             <h2 className="flex items-center gap-2 text-xl font-bold text-white">
                                 <FaChair className="text-red-500" /> {mesaAtiva.mesa || 'Mesa'}
                             </h2>
-                            <span className="font-bold text-red-500 text-lg">R$ {calcularTotalItens(mesaAtiva.itens).toFixed(2)}</span>
+                            <span className="font-bold text-red-500 text-lg">{formatCurrency(calcularTotalItens(mesaAtiva.itens))}</span>
                         </div>
 
                         {mesaAtiva.itens.length === 0 ? (
@@ -361,7 +362,7 @@ export default function AdminMesas() {
                                             {item.extras && item.extras.length > 0 && <span className="block text-xs text-gray-400 pl-2">- Extras: {item.extras.join(', ')}</span>}
                                             {item.observacao && <span className="block text-xs text-gray-400 pl-2">- Obs: {item.observacao}</span>}
                                         </span>
-                                        <span className="font-medium shrink-0">R$ {(item.preco * item.quantidade).toFixed(2)}</span>
+                                        <span className="font-medium shrink-0">{formatCurrency(item.preco * item.quantidade)}</span>
                                         <button
                                             type="button"
                                             className="admin-icon-button text-red-300"
@@ -410,7 +411,7 @@ export default function AdminMesas() {
                                         Voltar
                                     </button>
                                     <button type="button" className="flex-1 form-button-primary" disabled={fechandoConta} onClick={fecharConta}>
-                                        {fechandoConta ? 'Fechando...' : `Confirmar · R$ ${calcularTotalItens(mesaAtiva.itens).toFixed(2)}`}
+                                        {fechandoConta ? 'Fechando...' : `Confirmar · ${formatCurrency(calcularTotalItens(mesaAtiva.itens))}`}
                                     </button>
                                 </div>
                             </div>
@@ -490,7 +491,7 @@ function ItemCard({ item, onClick }: { item: MenuItem; onClick: () => void }) {
             className="admin-catalog-item"
         >
             <strong>{item.name}</strong>
-            <span>R$ {item.price.toFixed(2)}</span>
+            <span>{formatCurrency(item.price)}</span>
             {indisponivel && <small>Indisponível</small>}
         </button>
     );

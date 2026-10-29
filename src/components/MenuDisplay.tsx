@@ -7,11 +7,14 @@ import Cart from './Cart';
 import MenuHero from './MenuHero';
 import { MenuItem, Category } from '@/types/menu';
 import Image from 'next/image';
-import { FaWhatsapp, FaStar, FaDotCircle } from 'react-icons/fa';
+import { FaWhatsapp, FaStar, FaDotCircle, FaPlus, FaSearch, FaUtensils } from 'react-icons/fa';
 import { useCart } from '@/contexts/CartContext';
 import PastaModal from './PastaModal';
 import { isRestaurantOpen as checkRestaurantOpen } from '../utils/timeUtils';
 import type { BusinessHoursConfig } from '../utils/timeUtils';
+import { DEFAULT_WHATSAPP_NUMBER, normalizeWhatsAppNumber } from '@/utils/whatsapp';
+import { formatCurrency } from '@/utils/formatCurrency';
+import { fetchCurrentCheckoutSettings } from '@/utils/checkoutSettings';
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -48,29 +51,24 @@ function MenuItemCard({
     return (
         <motion.article
             variants={itemVariants}
-            className="menu-item-card group cursor-pointer"
-            onClick={() => isOpen && onClick()}
+            className="menu-item-card group"
         >
-            <div className="relative aspect-[4/3] overflow-hidden bg-surface-overlay sm:aspect-square">
+            <div className="storefront-product-image relative overflow-hidden bg-surface-overlay">
                 {item.image ? (
                     <Image
                         src={item.image}
                         alt={item.name}
                         fill
-                        sizes="(max-width: 768px) 50vw, 25vw"
+                        sizes="(max-width: 639px) 112px, (max-width: 1023px) 45vw, 30vw"
                         className="object-cover transition-transform duration-500 group-hover:scale-105"
                         unoptimized={item.image.startsWith('http')}
                     />
                 ) : (
-                    <div className="flex h-full w-full items-center justify-center text-4xl opacity-40">🍽️</div>
+                    <div className="flex h-full w-full items-center justify-center text-4xl opacity-40"><FaUtensils aria-hidden="true" /></div>
                 )}
-                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent" />
-                <div className="absolute bottom-2.5 left-2.5 rounded-lg bg-black/55 px-2.5 py-1 text-xs font-bold text-white backdrop-blur-md sm:text-sm">
-                    R$ {item.price.toFixed(2)}
-                </div>
                 {item.destaque && (
-                    <div className="absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-amber-400/90 text-surface shadow">
-                        <FaStar className="text-[10px]" />
+                    <div className="storefront-product-badge">
+                        <FaStar aria-hidden="true" /> <span>Destaque</span>
                     </div>
                 )}
                 {!isOpen && (
@@ -79,20 +77,23 @@ function MenuItemCard({
                     </div>
                 )}
             </div>
-            <div className="flex flex-col gap-2.5 p-3 sm:p-4">
-                <h3 className="line-clamp-2 min-h-[2.5rem] font-display text-sm font-bold leading-snug text-ink sm:min-h-[3rem] sm:text-base">
+            <div className="storefront-product-copy">
+                <h3 className="line-clamp-2 font-display font-bold leading-snug text-ink">
                     {item.name}
                 </h3>
+                <p className="storefront-product-description line-clamp-2">{item.description}</p>
+                <div className="storefront-product-bottom">
+                <span className="storefront-product-price">{item.sizes && Object.keys(item.sizes).length > 1 && <small>A partir de</small>}{item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                 <button
                     type="button"
-                    className={`w-full rounded-xl py-2.5 text-xs font-bold transition sm:text-sm ${
-                        isOpen
-                            ? 'bg-ember-600 text-white hover:bg-ember-500'
-                            : 'cursor-not-allowed bg-white/5 text-ink-faint'
-                    }`}
+                    disabled={!isOpen}
+                    onClick={onClick}
+                    aria-label={`Escolher ${item.name}`}
+                    className="storefront-add-button"
                 >
-                    {isOpen ? 'Adicionar' : 'Indisponível'}
+                    <FaPlus aria-hidden="true" /><span>{isOpen ? 'Escolher' : 'Fechado'}</span>
                 </button>
+                </div>
             </div>
         </motion.article>
     );
@@ -100,7 +101,7 @@ function MenuItemCard({
 
 function MenuSkeleton({ showHero }: { showHero?: boolean }) {
     return (
-        <div>
+        <div className="storefront-skeleton" role="status" aria-label="Carregando cardápio">
             {showHero && (
                 <div className="flex min-h-[60vh] flex-col items-center justify-end px-5 pb-12">
                     <div className="h-3 w-28 animate-pulse rounded-full bg-white/10" />
@@ -132,6 +133,7 @@ function MenuSkeleton({ showHero }: { showHero?: boolean }) {
 }
 
 export default function MenuDisplay({ showHero = false }: { showHero?: boolean }) {
+    const [search, setSearch] = useState('');
     const [allowHalfAndHalf, setAllowHalfAndHalf] = useState(true);
     const [showSuccessMessage, setShowSuccessMessage] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
@@ -154,7 +156,6 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
     const [deliveryFees, setDeliveryFees] = useState<{ neighborhood: string; fee: number }[]>([]);
     const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
     const [selectedPasta, setSelectedPasta] = useState<MenuItem | null>(null);
-    const [pixKey, setPixKey] = useState('84987291269'); // (84) 98729-1269
     const [lastWhatsAppUrl, setLastWhatsAppUrl] = useState<string | null>(null);
     const [lastWhatsAppMessage, setLastWhatsAppMessage] = useState<string | null>(null);
     const [whatsAppOpenWasBlocked, setWhatsAppOpenWasBlocked] = useState(false);
@@ -244,7 +245,6 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
                 if (settingsData.success && settingsData.data) {
                     setDeliveryFees(settingsData.data.deliveryFees || []);
                     setAllowHalfAndHalf(settingsData.data.allowHalfAndHalf === true);
-                    setPixKey(settingsData.data.pixKey || '84987291269');
                     setIsRestaurantOpen(checkRestaurantOpen(settingsData.data.businessHours as BusinessHoursConfig));
                 }
 
@@ -274,7 +274,7 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
             let activeId = ids[0];
             for (const id of ids) {
                 const el = categoryElementsRef.current[id];
-                if (!el) continue;
+                if (!el || el.hidden) continue;
                 if (el.getBoundingClientRect().top + scrollY <= y) {
                     activeId = id;
                 } else {
@@ -306,7 +306,7 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
             window.removeEventListener('resize', onResize);
             if (rafId) cancelAnimationFrame(rafId);
         };
-    }, [categories, stickyOffset, selectedCategory]);
+    }, [categories, stickyOffset, selectedCategory, search]);
 
     // Rolagem horizontal controlada da barra de categorias (sem afetar o scroll vertical da página)
     useEffect(() => {
@@ -349,6 +349,10 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
     }, [selectedCategory]);
 
     const handleFinalizeOrder = (pedidoData: any) => {
+        setOrderSuccessId(null);
+        setLastWhatsAppUrl(null);
+        setLastWhatsAppMessage(null);
+        setWhatsAppOpenWasBlocked(false);
         setFinalOrderData(pedidoData);
         setShowWhatsAppModal(true);
         setIsCartOpen(false);
@@ -374,6 +378,10 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
 
         try {
             const { cliente, tipoEntrega, endereco, formaPagamento, troco, itens, total, observacoes } = finalOrderData;
+            const currentSettings = await fetchCurrentCheckoutSettings(formaPagamento === 'pix');
+            const currentPixKey = currentSettings.pixKey;
+            const recipient = normalizeWhatsAppNumber(currentSettings.whatsappNumber || DEFAULT_WHATSAPP_NUMBER);
+            if (!recipient) throw new Error('O WhatsApp do restaurante está inválido. Entre em contato com o estabelecimento.');
             const deliveryFee = tipoEntrega === 'entrega' ? (endereco?.deliveryFee ?? 0) : 0;
             const subtotal = total - deliveryFee;
 
@@ -433,7 +441,7 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
                 lines.push(`Troco para: R$ ${troco}`);
             }
             if (formaPagamento === 'pix') {
-                lines.push(`Chave PIX: ${pixKey}`);
+                lines.push(`Chave PIX: ${currentPixKey}`);
             }
 
             lines.push(
@@ -449,54 +457,27 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
             lines.push(`*TOTAL: R$ ${money(total)}*`);
 
             const message = lines.join('\n');
-            // Extrai apenas os números da chave PIX para o número do WhatsApp (remove formatação)
-            const whatsappNumber = pixKey.replace(/\D/g, '');
-            const whatsappUrl = `https://wa.me/55${whatsappNumber}?text=${encodeURIComponent(message)}`;
-            setLastWhatsAppUrl(whatsappUrl);
-            setLastWhatsAppMessage(message);
-
-            // IMPORTANTE: Salvar o pedido ANTES de abrir o WhatsApp
-            // Isso garante que o pedido seja registrado mesmo se o WhatsApp falhar
-            const saveResponse = await fetch('/api/pedidos', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(finalOrderData),
-            });
-
-            let saveData: { success?: boolean; message?: string; pedidoId?: string };
-            try {
-                saveData = await saveResponse.json();
-            } catch {
-                saveData = { success: false, message: 'Resposta inválida do servidor.' };
-            }
-
-            if (!saveResponse.ok || !saveData.success) {
-                setSuccessMessage(saveData.message || 'Erro ao salvar pedido. Por favor, tente novamente.');
-                setShowSuccessMessage(true);
-                setTimeout(() => {
-                    setShowSuccessMessage(false);
-                }, 5000);
-                return;
-            }
-
-            // Pedido salvo com sucesso
-            if (saveData.pedidoId) {
-                setOrderSuccessId(saveData.pedidoId);
-                
-                // Mostrar mensagem de sucesso
-                setSuccessMessage('Pedido salvo com sucesso! Agora envie pelo WhatsApp para confirmar.');
-                setShowSuccessMessage(true);
-                
-                // Disparar evento para atualizar lista de pedidos
-                if (typeof window !== 'undefined') {
-                    window.dispatchEvent(new CustomEvent('pedido-salvo'));
+            let savedId = orderSuccessId;
+            if (!savedId) {
+                const saveResponse = await fetch('/api/pedidos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(finalOrderData),
+                });
+                let saveData: { success?: boolean; message?: string; pedidoId?: string };
+                try { saveData = await saveResponse.json(); }
+                catch { saveData = { success: false, message: 'Resposta inválida do servidor.' }; }
+                if (!saveResponse.ok || !saveData.success || !saveData.pedidoId) {
+                    throw new Error(saveData.message || 'Não foi possível salvar o pedido. Tente novamente.');
                 }
-                
-                // Esconder mensagem após 5 segundos
-                setTimeout(() => {
-                    setShowSuccessMessage(false);
-                }, 5000);
+                savedId = saveData.pedidoId;
+                setOrderSuccessId(savedId);
+                window.dispatchEvent(new CustomEvent('pedido-salvo'));
             }
+            const messageWithId = `${message}\n${divider}\nPedido: #${savedId.slice(-6).toUpperCase()}`;
+            const whatsappUrl = `https://wa.me/${recipient}?text=${encodeURIComponent(messageWithId)}`;
+            setLastWhatsAppUrl(whatsappUrl);
+            setLastWhatsAppMessage(messageWithId);
 
             /* Após salvar: abrir WhatsApp (sem aba placeholder antes — evita abrir/fechar em falha e 403). */
             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -606,7 +587,9 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
         }
     };
 
-    const featuredItems = menuItems.filter(item => item.destaque);
+    const normalizedSearch = search.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const visibleItems = menuItems.filter(item => `${item.name} ${item.description}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(normalizedSearch));
+    const featuredItems = visibleItems.filter(item => item.destaque);
 
     if (loading) return <MenuSkeleton showHero={showHero} />;
     if (error) return <div className="px-4 py-16 text-center text-ember-400">{error}</div>;
@@ -622,7 +605,7 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
                 <MenuHero
                     isOpen={isRestaurantOpen}
                     loading={false}
-                    onExplore={() => handleCategoryClick('destaques')}
+                    onExplore={() => handleCategoryClick(featuredItems.length ? 'destaques' : categories.find(category => visibleItems.some(item => item.category === category.value))?.value || 'destaques')}
                     onInfo={() => window.dispatchEvent(new Event('docheff-open-info'))}
                 />
             )}
@@ -641,8 +624,9 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
                             ref={categoriesContainerRef}
                             className="categories-container flex gap-2.5 overflow-x-auto px-0.5 py-0.5 no-scrollbar sm:gap-3"
                         >
-                            <motion.button
+                            {featuredItems.length > 0 && <motion.button
                                 data-category-value="destaques"
+                                aria-pressed={selectedCategory === 'destaques'}
                                 onClick={() => handleCategoryClick('destaques')}
                                 className={`category-pill ${selectedCategory === 'destaques' ? 'is-active' : ''}`}
                             >
@@ -657,12 +641,13 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
                                         transition={{ type: 'spring', stiffness: 320, damping: 28 }}
                                     />
                                 )}
-                            </motion.button>
+                            </motion.button>}
 
-                            {categories.map((category) => (
+                            {categories.filter(category => visibleItems.some(item => item.category === category.value)).map((category) => (
                                 <motion.button
                                     key={category.value}
                                     data-category-value={category.value}
+                                    aria-pressed={selectedCategory === category.value}
                                     onClick={() => handleCategoryClick(category.value)}
                                     className={`category-pill ${selectedCategory === category.value ? 'is-active' : ''}`}
                                 >
@@ -687,15 +672,21 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
             </div>
 
             <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+                <div className="storefront-menu-intro">
+                    <div><span className="storefront-eyebrow">ESCOLHA. COMBINE. APROVEITE.</span><h2>Hoje pede <em>Do&apos;Cheff.</em></h2><p>Encontre seu favorito e monte o pedido do seu jeito.</p></div>
+                    <label className="storefront-search"><FaSearch aria-hidden="true" /><span className="sr-only">Buscar no cardápio</span><input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="O que vai ser hoje?" />{search && <button type="button" onClick={() => setSearch('')} aria-label="Limpar busca">×</button>}</label>
+                </div>
                 {!isRestaurantOpen && (
-                    <div className="mb-8 rounded-2xl border border-ember-600/30 bg-ember-950/40 px-4 py-3.5 text-center text-sm text-ember-200">
+                    <div className="storefront-closed-notice mb-8 rounded-2xl px-4 py-3.5 text-sm">
                         <span className="font-semibold">Estabelecimento fechado.</span>{' '}
-                        <span className="text-ember-200/80">Pedidos não serão aceitos no momento.</span>
+                        <span>Você pode explorar o cardápio e escolher seus favoritos para quando abrirmos.</span>
                     </div>
                 )}
 
                 <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-12 sm:space-y-14">
+                    {visibleItems.length === 0 && <div className="storefront-empty" role="status"><FaSearch aria-hidden="true" /><h3>Nenhum sabor por aqui.</h3><p>Tente outro nome ou ingrediente.</p><button type="button" onClick={() => setSearch('')}>Ver todo o cardápio</button></div>}
                     <section
+                        hidden={featuredItems.length === 0}
                         id="category-destaques"
                         ref={(el) => { categoryElementsRef.current['destaques'] = el; }}
                         className="space-y-5"
@@ -703,11 +694,11 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
                     >
                         <div className="flex items-end justify-between gap-4">
                             <h2 className="menu-section-title flex items-center gap-2 text-2xl sm:text-3xl">
-                                <FaStar className="text-amber-400 text-lg" /> Destaques
+                                <FaStar className="text-amber-500 text-lg" /> Os destaques da casa
                             </h2>
                             <p className="hidden text-xs text-ink-faint sm:block">Toque para ver detalhes</p>
                         </div>
-                        <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+                        <div className="storefront-product-grid">
                             {featuredItems.map((item) => (
                                 <MenuItemCard
                                     key={item._id}
@@ -721,6 +712,7 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
 
                     {categories.map((category) => (
                         <section
+                            hidden={!visibleItems.some(item => item.category === category.value)}
                             key={category.value}
                             id={`category-${category.value}`}
                             ref={(el) => { categoryElementsRef.current[category.value] = el; }}
@@ -731,8 +723,8 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
                                 <span className="text-lg opacity-80">{category.icon || <FaDotCircle />}</span>
                                 {category.label}
                             </h2>
-                            <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
-                                {menuItems
+                            <div className="storefront-product-grid">
+                                {visibleItems
                                     .filter((item) => item.category === category.value)
                                     .map((item) => (
                                         <MenuItemCard
@@ -747,6 +739,8 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
                     ))}
                 </motion.div>
 
+                <footer className="storefront-footer"><div><strong>Do&apos;Cheff</strong><span>Seu próximo momento favorito.</span></div><span>Alto Rodrigues, RN · Pedidos pelo WhatsApp</span><button type="button" onClick={() => window.dispatchEvent(new Event('docheff-open-info'))}>Horários e informações ↗</button></footer>
+
                 <AnimatePresence>
                     {selectedItem && <ItemModal item={selectedItem} onClose={() => setSelectedItem(null)} onAddToCart={(item, quantity, unitPrice, observation, size, border, extras) => handleAddToCart(item, quantity, unitPrice, observation, size, border, extras)} allPizzas={allPizzas} allowHalfAndHalf={allowHalfAndHalf} categories={categories} />}
                     {selectedPasta && <PastaModal item={selectedPasta} onClose={handlePastaClose} onAddToCart={handlePastaAddToCart} />}
@@ -756,7 +750,7 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
                 <AnimatePresence>
                     {showWhatsAppModal && finalOrderData && (
                         <motion.div
-                            className="fixed inset-0 z-[100] flex items-end justify-center bg-black/75 backdrop-blur-md sm:items-center sm:p-4"
+                            className="whatsapp-checkout-overlay fixed inset-0 z-[100] flex items-end justify-center bg-black/75 sm:items-center sm:p-4"
                             style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -768,7 +762,7 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
                                 role="dialog"
                                 aria-modal="true"
                                 aria-labelledby="whatsapp-checkout-title"
-                                className="relative flex max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-surface-raised shadow-2xl sm:max-h-[min(92dvh,680px)] sm:rounded-3xl"
+                                className="whatsapp-checkout-panel relative flex max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-surface-raised shadow-2xl sm:max-h-[min(92dvh,680px)] sm:rounded-3xl"
                                 initial={{ y: '100%', opacity: 0.9 }}
                                 animate={{ y: 0, opacity: 1 }}
                                 exit={{ y: '40%', opacity: 0 }}
@@ -831,7 +825,7 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
                                                     Seu pedido
                                                 </p>
                                                 <p className="font-display text-sm font-bold text-ember-400">
-                                                    R$ {Number(finalOrderData.total || 0).toFixed(2)}
+                                                    {formatCurrency(Number(finalOrderData.total || 0))}
                                                 </p>
                                             </div>
                                             <ul className="space-y-1.5">
@@ -842,7 +836,7 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
                                                             {item.size ? ` (${item.size})` : ''}
                                                         </span>
                                                         <span className="shrink-0 text-ink">
-                                                            R$ {(item.preco * item.quantidade).toFixed(2)}
+                                                            {formatCurrency(item.preco * item.quantidade)}
                                                         </span>
                                                     </li>
                                                 ))}
@@ -979,26 +973,22 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
                              transition={{ type: "spring", stiffness: 300, damping: 25 }}
                              className="fixed top-6 left-1/2 z-[110] mx-4 max-w-md -translate-x-1/2 transform"
                          >
-                             <div className={`${successMessage.includes('Erro') || successMessage.includes('erro') ? 'bg-gradient-to-r from-red-600 to-red-700 border-red-400/50' : 'bg-gradient-to-r from-green-600 to-green-700 border-green-400/50'} text-white p-6 rounded-2xl shadow-2xl border-2 backdrop-blur-sm`}>
+                             <div className="rounded-2xl border border-red-700 bg-red-700 p-5 text-white shadow-2xl">
                                  <div className="flex items-center gap-4">
                                      <div className="flex-shrink-0">
                                          <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
-                                             {successMessage.includes('Erro') || successMessage.includes('erro') ? (
+                                             {(
                                                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-                                                 </svg>
-                                             ) : (
-                                                 <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                                  </svg>
                                              )}
                                          </div>
                                      </div>
                                      <div className="flex-1">
                                          <h3 className="text-xl font-bold mb-1">
-                                             {successMessage.includes('Erro') || successMessage.includes('erro') ? 'Erro!' : 'Pedido Salvo!'}
+                                             Não foi possível concluir
                                          </h3>
-                                         <p className={`${successMessage.includes('Erro') || successMessage.includes('erro') ? 'text-red-100' : 'text-green-100'} text-sm leading-relaxed`}>{successMessage}</p>
+                                         <p className="text-sm leading-relaxed text-red-100">{successMessage}</p>
                                      </div>
                                      <button
                                          onClick={() => setShowSuccessMessage(false)}
@@ -1022,7 +1012,7 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
                             exit={{ opacity: 0, y: 16, scale: 0.9 }}
                             whileTap={{ scale: 0.96 }}
                             onClick={() => setIsCartOpen(true)}
-                            className="fixed bottom-5 right-4 z-50 flex items-center gap-2.5 rounded-full bg-ember-600 px-5 py-3.5 text-white shadow-glow sm:bottom-6 sm:right-6"
+                            className="storefront-cart-button fixed bottom-5 right-4 z-50 flex items-center gap-2.5 rounded-full bg-ember-600 px-5 py-3.5 text-white shadow-glow sm:bottom-6 sm:right-6"
                             style={{ marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
                         >
                             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1031,10 +1021,16 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
                             <span className="text-sm font-bold">
                                 {cartItems.reduce((total, item) => total + item.quantity, 0)}
                             </span>
-                            <span className="hidden text-sm font-semibold sm:inline">Ver sacola</span>
+                            <span className="text-sm font-semibold">Ver sacola</span>
+                            <span className="storefront-cart-total">{cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                         </motion.button>
                     )}
                 </AnimatePresence>
+                {orderSuccessId && lastWhatsAppUrl && !showWhatsAppModal && (
+                    <a className="storefront-reopen-whatsapp" href={lastWhatsAppUrl} target="_blank" rel="noopener noreferrer">
+                        <FaWhatsapp aria-hidden="true" /> Pedido #{orderSuccessId.slice(-6).toUpperCase()} · Abrir mensagem
+                    </a>
+                )}
             </div>
         </div>
     );

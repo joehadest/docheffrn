@@ -22,3 +22,18 @@
 @import './styles/dialogs.css';
 @import './styles/pages.css';
 @import './styles/login.css';
+@import './styles/refresh.css';
+
+.admin-theme .admin-open-status[data-open='true'] {
+  border-color: #b6dcc3;
+  background: #e7f5eb;
+  color: #175b38;
+}
+
+.admin-theme .admin-open-status[data-open='false'] {
+  border-color: #edb9af;
+  background: #fff0ec;
+  color: #9f3025;
+}
+
+.admin-theme .admin-open-status-dot { background: currentColor; }

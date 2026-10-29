@@ -7,6 +7,7 @@ import { MenuItem } from '@/types/menu';
 import Image from 'next/image';
 import { FaPlus, FaEdit, FaTrash, FaSave, FaListAlt, FaThList, FaInfoCircle, FaPizzaSlice, FaPepperHot, FaSmile, FaImage, FaSpinner } from 'react-icons/fa';
 import { PageHeading, EmptyState } from './admin/AdminUI';
+import { formatCurrency } from '@/utils/formatCurrency';
 import MenuEditorDialog from './admin/MenuEditorDialog';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 
@@ -928,7 +929,7 @@ export default function AdminMenu() {
                       </div>
                       <div className="admin-item-body">
                         <h3 className="admin-item-title">{item.name}</h3>
-                        <p className="admin-item-price">R$ {item.price.toFixed(2)}</p>
+                        <p className="admin-item-price">{formatCurrency(item.price)}</p>
                       </div>
                     </div>
                     <div className="admin-item-footer">
