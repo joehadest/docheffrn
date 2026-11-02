@@ -20,11 +20,13 @@ const settingsSchema = new mongoose.Schema({
     }],
     adminPassword: { type: String, default: 'admin123' },
     pixKey: { type: String, default: '' },
+    // Falso = PIX cobrado na entrega (maquininha); a chave não vai na mensagem.
+    pixKeyEnabled: { type: Boolean, default: true },
     lastUpdated: { type: Date, default: Date.now },
 });
 
 // Recover a model compiled by an older route during development hot reload.
-if (mongoose.models.Settings && !mongoose.models.Settings.schema.path('whatsappNumber')) {
+if (mongoose.models.Settings && (!mongoose.models.Settings.schema.path('whatsappNumber') || !mongoose.models.Settings.schema.path('pixKeyEnabled'))) {
     mongoose.deleteModel('Settings');
 }
 

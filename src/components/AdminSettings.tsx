@@ -47,6 +47,7 @@ export default function AdminSettings() {
     const [newNeighborhood, setNewNeighborhood] = useState('');
     const [newFee, setNewFee] = useState('');
     const [pixKey, setPixKey] = useState('');
+    const [pixKeyEnabled, setPixKeyEnabled] = useState(true);
     const [whatsappNumber, setWhatsAppNumber] = useState('');
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
@@ -68,6 +69,7 @@ export default function AdminSettings() {
                     setBusinessHours(settingsData.data.businessHours || {});
                     setDeliveryFees(settingsData.data.deliveryFees || []);
                     setPixKey(settingsData.data.pixKey || '');
+                    setPixKeyEnabled(settingsData.data.pixKeyEnabled !== false);
                     setWhatsAppNumber(settingsData.data.whatsappNumber || '5584987291269');
                 }
                 const pedidosData = await pedidosRes.json();
@@ -117,12 +119,13 @@ export default function AdminSettings() {
             const res = await fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ businessHours, deliveryFees, pixKey: pixKey.trim(), whatsappNumber }),
+                body: JSON.stringify({ businessHours, deliveryFees, pixKey: pixKey.trim(), pixKeyEnabled, whatsappNumber }),
             });
             const result = await res.json();
             const ok = res.ok && result.success === true;
             if (ok && result.data) {
                 setPixKey(result.data.pixKey ?? '');
+                setPixKeyEnabled(result.data.pixKeyEnabled !== false);
                 setWhatsAppNumber(result.data.whatsappNumber ?? '');
             }
             setSaveMessage({ text: ok ? 'Configurações salvas com sucesso!' : result.message || 'Erro ao salvar.', ok });
@@ -343,6 +346,20 @@ export default function AdminSettings() {
                     {/* Chave PIX */}
                     <SettingsCard title="Chave PIX" icon={<FaQrcode size={12} />}>
                         <div className="space-y-3">
+                            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={pixKeyEnabled}
+                                    onChange={(e) => setPixKeyEnabled(e.target.checked)}
+                                    className="form-checkbox shrink-0 mt-0.5"
+                                />
+                                <span className="text-sm font-semibold text-gray-200">
+                                    Enviar chave PIX na mensagem do pedido
+                                    <span className="block text-xs font-normal text-gray-500 leading-relaxed">
+                                        Desmarque para cobrar o PIX na maquininha: o pedido mostra &quot;PIX&quot; e &quot;Pagamento na entrega&quot;, sem a chave.
+                                    </span>
+                                </span>
+                            </label>
                             <div>
                                 <label htmlFor="admin-pix" className="form-label">Chave para Recebimento</label>
                                 <input
@@ -356,7 +373,7 @@ export default function AdminSettings() {
                             <p className="text-xs text-gray-600 leading-relaxed">
                                 Essa chave é exibida nas mensagens de WhatsApp quando o cliente escolhe pagar via PIX.
                             </p>
-                            {!pixKey.trim() && <p role="status" className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">Cadastre uma chave para disponibilizar o pagamento via PIX no cardápio.</p>}
+                            {pixKeyEnabled && !pixKey.trim() && <p role="status" className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">Cadastre uma chave ou desmarque o envio da chave para disponibilizar o pagamento via PIX no cardápio.</p>}
                         </div>
                     </SettingsCard>
 

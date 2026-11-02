@@ -1,10 +1,27 @@
 import { MenuItem } from '../types/menu';
 
+// "(P) 4 fatias" -> "P"; "G" -> "G". Usado para achar preços gravados antes de renomear o tamanho.
+const sizeLetter = (size: string) => {
+    const trimmed = size.trim();
+    return (trimmed.match(/^\(([A-Za-z])\)/)?.[1] ?? (trimmed.length === 1 ? trimmed : '')).toUpperCase();
+};
+
+/** Preço de uma borda para o tamanho, tolerando tamanhos renomeados (ex.: "P" -> "(P) 4 fatias"). */
+export function resolveBorderSizePrice(prices: Record<string, number> | undefined, sizeKey: string): number | undefined {
+    if (!prices) return undefined;
+    if (prices[sizeKey] !== undefined) return prices[sizeKey];
+    const byTrim = Object.keys(prices).find(key => key.trim() === sizeKey.trim());
+    if (byTrim) return prices[byTrim];
+    const letter = sizeLetter(sizeKey);
+    const byLetter = letter ? Object.keys(prices).find(key => sizeLetter(key) === letter) : undefined;
+    return byLetter ? prices[byLetter] : undefined;
+}
+
 export function getBorderPrice(item: MenuItem, border: string | undefined, sizeKey: string): number {
     if (!border || !item.borderOptions) return 0;
     const value = item.borderOptions[border];
     if (typeof value === 'number') return value; // formato antigo (preço único), ainda não migrado
-    return value?.[sizeKey] ?? 0;
+    return resolveBorderSizePrice(value, sizeKey) ?? 0;
 }
 
 export const calculatePizzaPrice = (

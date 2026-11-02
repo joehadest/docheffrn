@@ -55,22 +55,24 @@ async function saveSettings(request: Request) {
     if (denied) return denied;
     try {
         await connectDB();
-        const { deliveryFees, businessHours, allowHalfAndHalf, pixKey, whatsappNumber } = await request.json();
+        const { deliveryFees, businessHours, allowHalfAndHalf, pixKey, pixKeyEnabled, whatsappNumber } = await request.json();
         const normalizedWhatsApp = typeof whatsappNumber === 'string' ? normalizeWhatsAppNumber(whatsappNumber) : null;
         if (whatsappNumber !== undefined && !normalizedWhatsApp) return NextResponse.json({ success: false, message: 'Informe um WhatsApp brasileiro válido com DDD.' }, { status: 400 });
         if (deliveryFees !== undefined && (!Array.isArray(deliveryFees) || deliveryFees.some(fee => typeof fee?.neighborhood !== 'string' || !fee.neighborhood.trim() || typeof fee.fee !== 'number' || !Number.isFinite(fee.fee) || fee.fee < 0))) return NextResponse.json({ success: false, message: 'Taxas de entrega inválidas.' }, { status: 400 });
         if (pixKey !== undefined && (typeof pixKey !== 'string' || pixKey.trim().length > 200)) return NextResponse.json({ success: false, message: 'Chave PIX inválida.' }, { status: 400 });
+        if (pixKeyEnabled !== undefined && typeof pixKeyEnabled !== 'boolean') return NextResponse.json({ success: false, message: 'Configuração de PIX inválida.' }, { status: 400 });
         if (allowHalfAndHalf !== undefined && typeof allowHalfAndHalf !== 'boolean') return NextResponse.json({ success: false, message: 'Configuração inválida.' }, { status: 400 });
         if (businessHours !== undefined && (!businessHours || typeof businessHours !== 'object' || Object.values(businessHours).some(day => !day || typeof day !== 'object' || typeof (day as { open?: unknown }).open !== 'boolean' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(String((day as { start?: unknown }).start)) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(String((day as { end?: unknown }).end))))) return NextResponse.json({ success: false, message: 'Horários inválidos.' }, { status: 400 });
 
         let settings = await Settings.findOne();
         if (!settings) {
-            settings = await Settings.create({ deliveryFees, businessHours, allowHalfAndHalf, pixKey: pixKey?.trim(), ...(normalizedWhatsApp ? { whatsappNumber: normalizedWhatsApp } : {}) });
+            settings = await Settings.create({ deliveryFees, businessHours, allowHalfAndHalf, pixKey: pixKey?.trim(), pixKeyEnabled, ...(normalizedWhatsApp ? { whatsappNumber: normalizedWhatsApp } : {}) });
         } else {
             // Atualiza apenas os campos enviados; não toca em isOpen (calculado) nem adminPassword
             if (businessHours !== undefined) settings.businessHours = businessHours;
             if (deliveryFees !== undefined) settings.deliveryFees = deliveryFees;
             if (pixKey !== undefined) settings.pixKey = pixKey.trim();
+            if (pixKeyEnabled !== undefined) settings.pixKeyEnabled = pixKeyEnabled;
             if (normalizedWhatsApp) settings.whatsappNumber = normalizedWhatsApp;
             if (allowHalfAndHalf !== undefined) settings.allowHalfAndHalf = allowHalfAndHalf;
             settings.lastUpdated = new Date();

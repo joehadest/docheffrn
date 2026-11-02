@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { FaPlus, FaEdit, FaTrash, FaSave, FaListAlt, FaThList, FaInfoCircle, FaPizzaSlice, FaPepperHot, FaSmile, FaImage, FaSpinner } from 'react-icons/fa';
 import { PageHeading, EmptyState } from './admin/AdminUI';
 import { formatCurrency } from '@/utils/formatCurrency';
+import { resolveBorderSizePrice } from '@/utils/priceCalculator';
 import MenuEditorDialog from './admin/MenuEditorDialog';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 
@@ -100,7 +101,13 @@ function MenuItemEditor({ item, onClose, onSave, categories }: {
     sizes.forEach(s => { if (s.name) sizesObj[s.name] = s.price; });
     
     const bordersObj: Record<string, Record<string, number>> = {};
-    borders.forEach(b => { if (b.name) bordersObj[b.name] = { ...b.prices }; });
+    // Grava só os tamanhos atuais, para o preço não ficar preso a um nome de tamanho antigo.
+    borders.forEach(b => {
+      if (!b.name) return;
+      const prices: Record<string, number> = {};
+      sizes.forEach(s => { if (s.name) prices[s.name] = resolveBorderSizePrice(b.prices, s.name) ?? 0; });
+      bordersObj[b.name] = prices;
+    });
     
     const extrasObj: Record<string, number> = {};
     extras.forEach(e => { if (e.name) extrasObj[e.name] = e.price; });
@@ -293,7 +300,7 @@ function MenuItemEditor({ item, onClose, onSave, categories }: {
                                   <span className="absolute inset-y-0 left-1.5 flex items-center text-gray-600 text-[10px] pointer-events-none select-none z-10">R$</span>
                                   <input
                                     type="number"
-                                    aria-label={`Preço da borda ${border.name || idx + 1}, tamanho ${size.name}`} value={border.prices[size.name] ?? 0}
+                                    aria-label={`Preço da borda ${border.name || idx + 1}, tamanho ${size.name}`} value={resolveBorderSizePrice(border.prices, size.name) ?? 0}
                                     onChange={(e) => {
                                       const n = [...borders];
                                       n[idx] = { ...border, prices: { ...border.prices, [size.name]: parseFloat(e.target.value) || 0 } };

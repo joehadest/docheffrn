@@ -14,7 +14,7 @@ import { isRestaurantOpen as checkRestaurantOpen } from '../utils/timeUtils';
 import type { BusinessHoursConfig } from '../utils/timeUtils';
 import { DEFAULT_WHATSAPP_NUMBER, normalizeWhatsAppNumber } from '@/utils/whatsapp';
 import { formatCurrency } from '@/utils/formatCurrency';
-import { fetchCurrentCheckoutSettings } from '@/utils/checkoutSettings';
+import { fetchCurrentCheckoutSettings, pixPaymentLine } from '@/utils/checkoutSettings';
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -379,7 +379,6 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
         try {
             const { cliente, tipoEntrega, endereco, formaPagamento, troco, itens, total, observacoes } = finalOrderData;
             const currentSettings = await fetchCurrentCheckoutSettings(formaPagamento === 'pix');
-            const currentPixKey = currentSettings.pixKey;
             const recipient = normalizeWhatsAppNumber(currentSettings.whatsappNumber || DEFAULT_WHATSAPP_NUMBER);
             if (!recipient) throw new Error('O WhatsApp do restaurante está inválido. Entre em contato com o estabelecimento.');
             const deliveryFee = tipoEntrega === 'entrega' ? (endereco?.deliveryFee ?? 0) : 0;
@@ -441,7 +440,7 @@ export default function MenuDisplay({ showHero = false }: { showHero?: boolean }
                 lines.push(`Troco para: R$ ${troco}`);
             }
             if (formaPagamento === 'pix') {
-                lines.push(`Chave PIX: ${currentPixKey}`);
+                lines.push(pixPaymentLine(currentSettings));
             }
 
             lines.push(

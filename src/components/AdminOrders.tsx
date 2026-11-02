@@ -9,7 +9,7 @@ import { FaShareAlt, FaClipboardList, FaSyncAlt, FaList, FaColumns, FaClock, FaS
 import { Pedido } from '../types/cart';
 import { motion, AnimatePresence } from 'framer-motion';
 import { financialOrderTotal, FINANCE_TIME_ZONE } from '@/utils/financePeriod';
-import { fetchCurrentCheckoutSettings } from '@/utils/checkoutSettings';
+import { fetchCurrentCheckoutSettings, pixPaymentLine } from '@/utils/checkoutSettings';
 import { formatCurrency } from '@/utils/formatCurrency';
 import { ORDER_STATUSES, ORDER_STATUS_LABELS, ORDER_CHANNEL_LABELS, nextOrderStatus, nextOrderAction, filterOperationOrders, isActiveOrder, orderElapsedLabel } from './admin/orderOperations';
 import './admin/admin-operations.css';
@@ -291,10 +291,10 @@ function OrdersWorkspace({ onOpenDeliveries }: { onOpenDeliveries: (orderId?: st
     };
 
     const handleCompartilharPedido = async (pedido: Pedido) => {
-        let pixKey = '';
+        let pixLine = '';
         if (pedido.formaPagamento?.toLowerCase() === 'pix') {
             try {
-                pixKey = (await fetchCurrentCheckoutSettings(true)).pixKey;
+                pixLine = pixPaymentLine(await fetchCurrentCheckoutSettings(true), '*Chave PIX:*');
             } catch (error) {
                 setMensagem(error instanceof Error ? error.message : 'Não foi possível conferir a chave PIX.');
                 return;
@@ -320,7 +320,7 @@ function OrdersWorkspace({ onOpenDeliveries }: { onOpenDeliveries: (orderId?: st
             `*Endereço de Entrega:*\n${enderecoFormatado}\n\n` +
             `*Itens do Pedido:*\n${itensFormatados}\n\n` +
             `*Resumo Financeiro:*\nSubtotal: ${formatCurrency(subtotal)}${taxaEntrega}\n*Total: ${formatCurrency(total)}*\n\n` +
-            `*Forma de Pagamento:* ${formaPagamento}${troco}${pedido.formaPagamento?.toLowerCase() === 'pix' ? `\n*Chave PIX:* ${pixKey}` : ''}\n\n` +
+            `*Forma de Pagamento:* ${formaPagamento}${troco}${pedido.formaPagamento?.toLowerCase() === 'pix' ? `\n${pixLine}` : ''}\n\n` +
             `*Observações Gerais:*\n${pedido.observacoes || 'Nenhuma'}`;
         if (navigator.share) {
             navigator.share({ title: `Pedido Do'Cheff #${pedido._id.slice(-6)}`, text: mensagem }).catch(err => console.error('Erro ao compartilhar:', err));

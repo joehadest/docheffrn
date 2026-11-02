@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { FaShareAlt } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
-import { fetchCurrentCheckoutSettings } from '@/utils/checkoutSettings';
+import { fetchCurrentCheckoutSettings, pixPaymentLine } from '@/utils/checkoutSettings';
 
 interface Endereco {
   street?: string;
@@ -254,8 +254,8 @@ export default function RecentOrders() {
 
   const handleCompartilharPedido = async (pedido: Pedido) => {
     try {
-      const pixKey = pedido.formaPagamento?.toLowerCase() === 'pix'
-        ? (await fetchCurrentCheckoutSettings(true)).pixKey
+      const pixLine = pedido.formaPagamento?.toLowerCase() === 'pix'
+        ? pixPaymentLine(await fetchCurrentCheckoutSettings(true))
         : '';
       const divider = '--------------------';
       const lines = [
@@ -297,7 +297,7 @@ export default function RecentOrders() {
       lines.push(
         divider,
         `Pagamento: ${pedido.formaPagamento?.toLowerCase() === 'pix' ? 'PIX' : pedido.formaPagamento || '-'}`,
-        ...(pedido.formaPagamento?.toLowerCase() === 'pix' ? [`Chave PIX: ${pixKey}`] : []),
+        ...(pedido.formaPagamento?.toLowerCase() === 'pix' ? [pixLine] : []),
         `*TOTAL: R$ ${money(pedido.total)}*`
       );
 

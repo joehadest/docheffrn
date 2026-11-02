@@ -180,7 +180,7 @@ export default function Cart({ items, onUpdateQuantity, onRemoveItem, onClose, o
                 const data = await res.json();
                 if (data.success && data.data) {
                     setDeliveryFees(data.data.deliveryFees || []);
-                    setPixAvailable(Boolean(data.data.pixKey?.trim()));
+                    setPixAvailable(data.data.pixKeyEnabled === false || Boolean(data.data.pixKey?.trim()));
                     setIsRestaurantOpen(checkRestaurantOpen(data.data.businessHours as BusinessHoursConfig));
                 }
             } catch (err) {
