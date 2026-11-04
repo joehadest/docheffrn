@@ -56,6 +56,14 @@
   --color-green-300: #237448;
   --color-green-400: #237448;
   --color-yellow-400: #8a5d17;
+  --color-blue-300: #2f5f93;
+  --color-blue-400: #315f91;
+}
+
+/* Values in order details still use text-white from the dark theme; no admin
+   markup pairs it with a coloured background, so it reads as body text here. */
+.admin-theme .text-white {
+  color: var(--ad-text);
 }
 
 html:has(.admin-theme) {

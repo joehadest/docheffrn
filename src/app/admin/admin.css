@@ -8,6 +8,7 @@
    dialogs     modals and bottom sheets
    pages       menu, categories, tables, settings, finance
    login       sign-in screen
+   mobile      phone and touch refinements, loaded last so they win
 
    Orders and kitchen styles live in components/admin/admin-operations.css and
    deliveries in components/admin/admin-deliveries.css; both read the tokens.
@@ -23,6 +24,7 @@
 @import './styles/pages.css';
 @import './styles/login.css';
 @import './styles/refresh.css';
+@import './styles/mobile.css';
 
 .admin-theme .admin-open-status[data-open='true'] {
   border-color: #b6dcc3;

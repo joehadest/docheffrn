@@ -180,7 +180,7 @@ export default function AdminFinanceiro() {
             )}
 
             {/* Cards de resumo */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="admin-stat-row grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <StatCard
                     label="Faturamento concluído"
                     value={faturamentoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}

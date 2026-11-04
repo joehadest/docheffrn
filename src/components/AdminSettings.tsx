@@ -174,17 +174,17 @@ export default function AdminSettings() {
             </PageHeading>
 
             {/* ── Stats ── */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <StatCard
-                    label="Pedidos Hoje"
-                    value={stats.todayOrders}
-                    icon={<FaShoppingBag size={14} />}
-                />
+            <div className="admin-stat-row grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <StatCard
                     label="Faturamento Hoje"
                     value={formatCurrency(stats.todayRevenue)}
                     color="text-green-400"
                     icon={<FaMoneyBillWave size={14} />}
+                />
+                <StatCard
+                    label="Pedidos Hoje"
+                    value={stats.todayOrders}
+                    icon={<FaShoppingBag size={14} />}
                 />
                 <StatCard
                     label="Pendentes"

@@ -1,0 +1,142 @@
+/* ==========================================================================
+   Phone and touch refinements. Loaded last so these rules win over the page
+   styles they adjust; desktop layouts are untouched.
+   ========================================================================== */
+
+/* ---------- Form fields: iOS zooms into any field under 16px ---------- */
+@media (max-width: 767px) {
+  .admin-theme :is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']), select, textarea),
+  .orders-page .orders-filters :is(input, select).form-input {
+    font-size: 16px;
+  }
+
+  /* Comfortable tap targets on small screens, touch or not. */
+  .admin-theme :is(.ops-view-switch button, .ops-clear),
+  .admin-theme .orders-page .ops-view-switch button {
+    min-height: 44px;
+  }
+
+  .admin-theme .menu-editor-close {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* ---------- Touch: press feedback, no hover zoom ---------- */
+@media (hover: none) and (pointer: coarse) {
+  .admin-theme :is(button, summary, a, label, [role='button']) {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .admin-theme :is(
+      .form-button-primary,
+      .form-button-secondary,
+      .form-button-danger,
+      .admin-icon-button,
+      .admin-segment,
+      .admin-pill-button,
+      .admin-nav button,
+      .orders-periods button,
+      .ops-view-switch button,
+      .admin-dialog-close,
+      .menu-editor-close
+    ):active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  .admin-item-card:hover .admin-item-media img {
+    transform: none;
+  }
+}
+
+/* ---------- Phones ---------- */
+@media (max-width: 640px) {
+  /* Menu items become compact rows, so the 80+ products scroll in a few
+     screens instead of one photo per screen. */
+  .admin-theme .admin-menu-page .auto-grid {
+    gap: 12px;
+  }
+
+  .admin-theme .admin-item-card .bubble-content {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .admin-item-media {
+    width: 88px;
+    margin: 12px 0 12px 12px;
+    aspect-ratio: 1;
+    border-radius: var(--ad-r-md);
+  }
+
+  .admin-item-media::after,
+  .admin-item-status {
+    display: none;
+  }
+
+  .admin-item-body {
+    gap: 4px;
+    min-width: 0;
+    padding: 12px 14px;
+  }
+
+  .admin-item-title {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 1rem;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .admin-item-price {
+    margin-top: 0;
+    font-size: 1rem;
+  }
+
+  .admin-item-footer {
+    padding: 8px 12px;
+  }
+
+  /* Summary cards: the first one (money) spans the row, the counts share one. */
+  .admin-theme .admin-stat-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .admin-theme .admin-stat-row > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .admin-theme .admin-stat-row .admin-stat {
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .admin-theme .admin-stat-row .admin-stat-sub {
+    margin-top: -4px;
+    font-size: 0.75rem;
+  }
+
+  /* Orders: the three header actions sit on one row. */
+  .orders-page .admin-heading-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .orders-page .admin-heading-actions > * {
+    min-width: 0;
+  }
+
+  .orders-page .admin-heading-actions :is(button, summary) {
+    justify-content: center;
+    width: 100%;
+    gap: 6px;
+    padding-inline: 8px;
+    font-size: 0.8125rem;
+  }
+
+  .orders-sound-menu {
+    position: relative;
+  }
+}
